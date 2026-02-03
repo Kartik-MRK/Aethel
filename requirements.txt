@@ -1,0 +1,10 @@
+torch
+transformers
+peft
+bitsandbytes
+accelerate
+scipy
+safetensors
+typer[all]
+rich
+pydantic
