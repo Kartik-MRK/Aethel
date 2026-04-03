@@ -1,5 +1,5 @@
 import typer
-from aethel.commands import init, commit, status
+from aethel.commands import init, commit, status, train
 
 app = typer.Typer(
     help="Aethel-Git: Decentralized Version Control for AI Models",
@@ -9,6 +9,7 @@ app = typer.Typer(
 app.add_typer(init.app, name="init")
 app.add_typer(commit.app, name="commit")
 app.add_typer(status.app, name="status")
+app.add_typer(train.app, name="train")
 
 # Alias log command to top level
 @app.command()

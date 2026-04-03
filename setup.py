@@ -11,6 +11,8 @@ setup(
         "torch",
         "transformers",
         "peft",
+        "huggingface_hub",
+        "pyyaml",
     ],
     entry_points={
         "console_scripts": [

@@ -8,3 +8,5 @@ safetensors
 typer[all]
 rich
 pydantic
+huggingface_hub
+pyyaml
