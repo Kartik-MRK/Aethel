@@ -1,5 +1,6 @@
 import typer
 import os
+import re
 import sqlite3
 import json
 import hashlib
@@ -17,6 +18,9 @@ WORKSPACE_DIR = os.path.join(AETHEL_DIR, "workspace")
 DB_NAME = "repo.db"
 CONFIG_NAME = "config.json"
 TRAINING_INFO_FILE = "training_info.json"
+HEAD_FILE = os.path.join(AETHEL_DIR, "HEAD")
+HEAD_REF_PREFIX = "ref: "
+COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 class CommitStorageError(Exception):
@@ -53,21 +57,63 @@ def load_repo_config() -> dict:
         raise CommitStorageError(f"Could not read repository config: {e}") from e
 
 
-def get_last_commit_hash() -> Optional[str]:
-    db_path = os.path.join(AETHEL_DIR, DB_NAME)
+def resolve_active_branch_ref_path() -> str:
+    """Resolve the current branch reference path from HEAD."""
+    if not os.path.isfile(HEAD_FILE):
+        raise CommitStorageError("HEAD is missing. Re-run 'aethel init --model <repo>'.")
+
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT hash FROM commits ORDER BY timestamp DESC LIMIT 1")
-        result = cursor.fetchone()
-    except sqlite3.Error as e:
-        raise CommitStorageError(f"Failed to query commit history: {e}") from e
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-    return result[0] if result else None
+        with open(HEAD_FILE, "r", encoding="utf-8") as f:
+            head_content = f.read().strip()
+    except OSError as e:
+        raise CommitStorageError(f"Failed to read HEAD: {e}") from e
+
+    if not head_content.startswith(HEAD_REF_PREFIX):
+        raise CommitStorageError("HEAD is invalid. Expected format: ref: refs/heads/<branch>.")
+
+    ref_rel = head_content[len(HEAD_REF_PREFIX):].strip()
+    if not ref_rel:
+        raise CommitStorageError("HEAD reference is empty.")
+
+    ref_abs = os.path.abspath(os.path.join(AETHEL_DIR, *ref_rel.split("/")))
+    repo_abs = os.path.abspath(AETHEL_DIR)
+
+    if not (ref_abs == repo_abs or ref_abs.startswith(repo_abs + os.sep)):
+        raise CommitStorageError("HEAD reference points outside repository metadata directory.")
+
+    if not os.path.exists(ref_abs):
+        raise CommitStorageError("Active branch reference is missing. Re-run 'aethel init --model <repo>'.")
+
+    if os.path.isdir(ref_abs):
+        raise CommitStorageError("Active branch reference is invalid.")
+
+    return ref_abs
+
+
+def read_branch_tip_hash(branch_ref_path: str) -> Optional[str]:
+    """Read branch tip hash from the active branch ref file."""
+    try:
+        with open(branch_ref_path, "r", encoding="utf-8") as f:
+            value = f.read().strip()
+    except OSError as e:
+        raise CommitStorageError(f"Failed to read active branch reference: {e}") from e
+
+    if not value:
+        return None
+
+    if not COMMIT_HASH_PATTERN.fullmatch(value):
+        raise CommitStorageError("Active branch reference does not contain a valid commit hash.")
+
+    return value.lower()
+
+
+def update_branch_tip_hash(branch_ref_path: str, commit_hash: str) -> None:
+    """Advance active branch reference to the new commit hash."""
+    try:
+        with open(branch_ref_path, "w", encoding="utf-8") as f:
+            f.write(f"{commit_hash}\n")
+    except OSError as e:
+        raise CommitStorageError(f"Failed to update active branch reference: {e}") from e
 
 
 def get_workspace_adapter_path() -> str:
@@ -240,6 +286,7 @@ def commit(ctx: typer.Context, message: str = typer.Option(..., "-m", "--message
     try:
         ensure_objects_dir()
         config = load_repo_config()
+        branch_ref_path = resolve_active_branch_ref_path()
         adapter_file = get_workspace_adapter_path()
         training_info = load_workspace_training_info()
 
@@ -248,7 +295,7 @@ def commit(ctx: typer.Context, message: str = typer.Option(..., "-m", "--message
         store_blob_object(adapter_file, blob_hash)
 
         # 2. Commit object: hash metadata and store as flat file
-        parent_hash = get_last_commit_hash()
+        parent_hash = read_branch_tip_hash(branch_ref_path)
         metadata = {
             "adapter_blob": blob_hash,
             "author": config.get("author", "User"),
@@ -266,6 +313,7 @@ def commit(ctx: typer.Context, message: str = typer.Option(..., "-m", "--message
 
         # 3. Update commit index database
         insert_commit_record(commit_hash, metadata)
+        update_branch_tip_hash(branch_ref_path, commit_hash)
         clear_workspace()
 
     except CommitStorageError as e:

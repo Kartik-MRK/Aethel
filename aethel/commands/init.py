@@ -14,6 +14,9 @@ AETHEL_DIR = ".aethel"
 DB_NAME = "repo.db"
 CONFIG_NAME = "config.json"
 WORKSPACE_DIR_NAME = "workspace"
+HEAD_FILE_NAME = "HEAD"
+DEFAULT_BRANCH_NAME = "main"
+HEAD_REF_PREFIX = "ref: "
 
 
 class InitError(Exception):
@@ -50,6 +53,41 @@ def ensure_repo_layout(aethel_path: str) -> None:
     os.makedirs(os.path.join(aethel_path, "objects"), exist_ok=True)
     os.makedirs(os.path.join(aethel_path, "refs", "heads"), exist_ok=True)
     os.makedirs(os.path.join(aethel_path, WORKSPACE_DIR_NAME), exist_ok=True)
+
+
+def ensure_head_and_default_branch(aethel_path: str) -> None:
+    """Ensure HEAD points to a valid default branch reference file."""
+    refs_heads_path = os.path.join(aethel_path, "refs", "heads")
+    default_branch_ref = os.path.join(refs_heads_path, DEFAULT_BRANCH_NAME)
+    head_path = os.path.join(aethel_path, HEAD_FILE_NAME)
+
+    try:
+        if not os.path.exists(default_branch_ref):
+            with open(default_branch_ref, "w", encoding="utf-8") as f:
+                f.write("")
+
+        if not os.path.exists(head_path):
+            with open(head_path, "w", encoding="utf-8") as f:
+                f.write(f"{HEAD_REF_PREFIX}refs/heads/{DEFAULT_BRANCH_NAME}\n")
+            return
+
+        with open(head_path, "r", encoding="utf-8") as f:
+            head_content = f.read().strip()
+
+        if not head_content:
+            with open(head_path, "w", encoding="utf-8") as f:
+                f.write(f"{HEAD_REF_PREFIX}refs/heads/{DEFAULT_BRANCH_NAME}\n")
+            return
+
+        if head_content.startswith(HEAD_REF_PREFIX):
+            ref_rel = head_content[len(HEAD_REF_PREFIX):].strip()
+            ref_abs = os.path.join(aethel_path, *ref_rel.split("/"))
+            os.makedirs(os.path.dirname(ref_abs), exist_ok=True)
+            if not os.path.exists(ref_abs):
+                with open(ref_abs, "w", encoding="utf-8") as f:
+                    f.write("")
+    except OSError as e:
+        raise InitError(f"Failed to prepare HEAD and branch references: {e}") from e
 
 
 def setup_database(db_path: str) -> None:
@@ -125,6 +163,7 @@ def init(
             console.print(f"[bold green]Initialized empty Aethel-Git repository in {aethel_path}[/bold green]")
 
         ensure_repo_layout(aethel_path)
+        ensure_head_and_default_branch(aethel_path)
         setup_database(os.path.join(aethel_path, DB_NAME))
 
         config_path = os.path.join(aethel_path, CONFIG_NAME)
