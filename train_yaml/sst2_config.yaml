@@ -1,0 +1,16 @@
+# SST-2 Sentiment Analysis — Binary (positive / negative)
+# Compatible with: aethel train --config train_yaml/sst2_config.yaml
+
+dataset: ./datasets/sst2
+text_column: text
+label_column: label
+num_labels: 2
+max_samples: 500
+max_length: 128
+
+# LoRA hyperparameters (safe for 6 GB VRAM)
+lora_rank: 8
+lora_alpha: 16
+batch_size: 2
+gradient_accumulation_steps: 8
+epochs: 1

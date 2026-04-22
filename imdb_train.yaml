@@ -1,0 +1,14 @@
+# Base-model LoRA training config for IMDB
+# Compatible with: aethel train --config imdb_train.yaml
+
+dataset: ./imdb_dataset
+lora_rank: 8
+lora_alpha: 32
+batch_size: 8
+epochs: 3
+
+# Optional future-facing metadata (currently ignored by trainer implementation)
+text_column: text
+label_column: label
+train_split: train
+eval_split: test

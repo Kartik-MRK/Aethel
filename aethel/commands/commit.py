@@ -27,6 +27,13 @@ class CommitStorageError(Exception):
     """Raised when commit object storage operations fail."""
 
 
+class DetachedHeadError(Exception):
+    """Raised when HEAD is detached and a commit is attempted."""
+    def __init__(self, commit_hash: str):
+        self.commit_hash = commit_hash
+        super().__init__(commit_hash)
+
+
 def calculate_file_hash(file_path: str) -> str:
     """Calculate SHA256 hash of a file."""
     sha256 = hashlib.sha256()
@@ -58,7 +65,11 @@ def load_repo_config() -> dict:
 
 
 def resolve_active_branch_ref_path() -> str:
-    """Resolve the current branch reference path from HEAD."""
+    """Resolve the current branch reference path from HEAD.
+
+    Raises DetachedHeadError if HEAD is in detached state (i.e. points directly
+    to a commit hash rather than a branch reference).
+    """
     if not os.path.isfile(HEAD_FILE):
         raise CommitStorageError("HEAD is missing. Re-run 'aethel init --model <repo>'.")
 
@@ -68,8 +79,13 @@ def resolve_active_branch_ref_path() -> str:
     except OSError as e:
         raise CommitStorageError(f"Failed to read HEAD: {e}") from e
 
+    # Detached HEAD: content is a raw commit hash, not a branch reference
     if not head_content.startswith(HEAD_REF_PREFIX):
-        raise CommitStorageError("HEAD is invalid. Expected format: ref: refs/heads/<branch>.")
+        if COMMIT_HASH_PATTERN.fullmatch(head_content):
+            raise DetachedHeadError(head_content)
+        raise CommitStorageError(
+            "HEAD is invalid. Expected 'ref: refs/heads/<branch>' or a valid commit hash."
+        )
 
     ref_rel = head_content[len(HEAD_REF_PREFIX):].strip()
     if not ref_rel:
@@ -157,88 +173,62 @@ def ensure_objects_dir() -> None:
         raise CommitStorageError(f"Failed to initialize object store: {e}") from e
 
 
-def clear_workspace() -> None:
-    """Clear workspace after successful commit while keeping directory present."""
+def restore_workspace_from_folder(folder_path: str) -> None:
+    """After commit, repopulate workspace from the stored adapter folder.
+
+    This keeps the workspace in sync with the current HEAD — the user can
+    verify what was committed without running checkout again.
+    Skips commit.json since that is metadata, not a model artifact.
+    """
     try:
         if os.path.exists(WORKSPACE_DIR):
             shutil.rmtree(WORKSPACE_DIR)
         os.makedirs(WORKSPACE_DIR, exist_ok=True)
+        for item in os.listdir(folder_path):
+            if item == "commit.json":
+                continue
+            src = os.path.join(folder_path, item)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(WORKSPACE_DIR, item))
     except OSError as e:
-        raise CommitStorageError(f"Failed to clear workspace: {e}") from e
+        raise CommitStorageError(f"Failed to restore workspace after commit: {e}") from e
 
 
-def _relocate_legacy_blob_directory(blob_path: str, blob_hash: str) -> None:
-    """Relocate old folder-based object layout when hash path is a directory."""
-    legacy_root = os.path.join(OBJECTS_DIR, "_legacy_dirs")
-    try:
-        os.makedirs(legacy_root, exist_ok=True)
-    except OSError as e:
-        raise CommitStorageError(f"Failed to prepare legacy backup location: {e}") from e
+def store_adapter_folder(workspace_dir: str, adapter_hash: str) -> str:
+    """Store all workspace adapter artifacts in a folder named by adapter hash."""
+    folder_path = os.path.join(OBJECTS_DIR, adapter_hash)
 
-    candidate = os.path.join(legacy_root, blob_hash)
-    suffix = 1
-    while os.path.exists(candidate):
-        candidate = os.path.join(legacy_root, f"{blob_hash}_{suffix}")
-        suffix += 1
+    if os.path.isdir(folder_path):
+        console.print("[yellow]Adapter folder already exists, deduplicating.[/yellow]")
+        return folder_path
 
-    try:
-        shutil.move(blob_path, candidate)
-    except OSError as e:
-        raise CommitStorageError(f"Failed to relocate legacy object directory: {e}") from e
-
-    console.print(
-        "[yellow]Detected legacy folder object layout. "
-        f"Moved old directory to {candidate}.[/yellow]"
-    )
-
-
-def store_blob_object(source_path: str, blob_hash: str) -> str:
-    """Store adapter blob as a flat object file and deduplicate by hash."""
-    blob_path = os.path.join(OBJECTS_DIR, blob_hash)
-
-    if os.path.isdir(blob_path):
-        _relocate_legacy_blob_directory(blob_path, blob_hash)
-
-    if os.path.isfile(blob_path):
-        console.print("[yellow]Blob already exists, deduplicating.[/yellow]")
-        return blob_path
-
-    try:
-        shutil.copy2(source_path, blob_path)
-    except OSError as e:
-        raise CommitStorageError(f"Failed to persist blob object: {e}") from e
-
-    return blob_path
-
-
-def save_commit_object(commit_hash: str, commit_json: str) -> str:
-    """Store commit metadata as a flat object file keyed by commit hash."""
-    commit_path = os.path.join(OBJECTS_DIR, commit_hash)
-
-    if os.path.isdir(commit_path):
-        raise CommitStorageError(
-            f"Cannot store commit object. A directory already exists at {commit_path}."
-        )
-
-    if os.path.isfile(commit_path):
+    # Remove stale flat file if one exists from a previous layout
+    if os.path.isfile(folder_path):
         try:
-            with open(commit_path, "r", encoding="utf-8") as existing_file:
-                existing = existing_file.read()
+            os.remove(folder_path)
         except OSError as e:
-            raise CommitStorageError(f"Failed to read existing commit object: {e}") from e
+            raise CommitStorageError(f"Failed to remove stale flat object: {e}") from e
 
-        if existing != commit_json:
-            raise CommitStorageError(
-                f"Commit hash collision detected for {commit_hash}. Existing content differs."
-            )
-        return commit_path
+    try:
+        os.makedirs(folder_path, exist_ok=True)
+        for item in os.listdir(workspace_dir):
+            src = os.path.join(workspace_dir, item)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(folder_path, item))
+    except OSError as e:
+        raise CommitStorageError(f"Failed to store adapter folder: {e}") from e
 
+    return folder_path
+
+
+def save_commit_metadata(folder_path: str, commit_json: str) -> str:
+    """Write commit.json inside the adapter folder."""
+    commit_path = os.path.join(folder_path, "commit.json")
     try:
         with open(commit_path, "w", encoding="utf-8") as f:
             f.write(commit_json)
     except OSError as e:
-        raise CommitStorageError(f"Failed to save commit object: {e}") from e
-
+        raise CommitStorageError(f"Failed to save commit metadata: {e}") from e
     return commit_path
 
 
@@ -290,14 +280,16 @@ def commit(ctx: typer.Context, message: str = typer.Option(..., "-m", "--message
         adapter_file = get_workspace_adapter_path()
         training_info = load_workspace_training_info()
 
-        # 1. Blob object: hash and deduplicate flat file storage
-        blob_hash = calculate_file_hash(adapter_file)
-        store_blob_object(adapter_file, blob_hash)
+        # 1. Hash the adapter weights file
+        adapter_hash = calculate_file_hash(adapter_file)
 
-        # 2. Commit object: hash metadata and store as flat file
+        # 2. Store all workspace files in folder named by adapter hash
+        folder_path = store_adapter_folder(WORKSPACE_DIR, adapter_hash)
+
+        # 3. Build commit metadata
         parent_hash = read_branch_tip_hash(branch_ref_path)
         metadata = {
-            "adapter_blob": blob_hash,
+            "adapter_blob": adapter_hash,
             "author": config.get("author", "User"),
             "base_model": config.get("model_id"),
             "message": message,
@@ -309,17 +301,39 @@ def commit(ctx: typer.Context, message: str = typer.Option(..., "-m", "--message
 
         metadata_json = json.dumps(metadata, sort_keys=True, separators=(",", ":"))
         commit_hash = calculate_text_hash(metadata_json)
-        save_commit_object(commit_hash, metadata_json)
 
-        # 3. Update commit index database
+        # 4. Write commit.json inside the adapter folder
+        save_commit_metadata(folder_path, metadata_json)
+
+        # 5. Update database and branch ref
         insert_commit_record(commit_hash, metadata)
         update_branch_tip_hash(branch_ref_path, commit_hash)
-        clear_workspace()
+
+        # 6. Restore workspace from stored folder so it's never left empty
+        restore_workspace_from_folder(folder_path)
+
+    except DetachedHeadError as e:
+        detached_hash = e.commit_hash
+        console.print("[bold yellow]⚠  Detached HEAD — commit blocked.[/bold yellow]")
+        console.print("")
+        console.print("You are not on any branch.")
+        console.print(f"HEAD points directly to commit: [cyan]{detached_hash[:16]}...[/cyan]")
+        console.print("")
+        console.print("Commits made in this state would be lost when you checkout another branch.")
+        console.print("[bold]To save your work, create a new branch first:[/bold]")
+        console.print("")
+        console.print(f"  [green]aethel branch <new-branch-name>[/green]")
+        console.print(f"  [green]aethel checkout <new-branch-name>[/green]")
+        console.print(f"  [green]aethel commit -m \"{message}\"[/green]")
+        console.print("")
+        raise typer.Exit(code=1)
 
     except CommitStorageError as e:
         console.print(f"[bold red]Commit failed: {e}[/bold red]")
         raise typer.Exit(code=1)
 
-    console.print(f"[bold green]Commit successful![/bold green]")
-    console.print(f"Commit: [white]{commit_hash}[/white]")
-    console.print(f"Blob: [cyan]{blob_hash}[/cyan]")
+    console.print(f"[bold green]✅ Commit successful![/bold green]")
+    console.print(f"Commit:   [white]{commit_hash}[/white]")
+    console.print(f"Adapter:  [cyan]{adapter_hash}[/cyan]")
+    console.print(f"Stored:   [dim]{folder_path}[/dim]")
+    console.print(f"Workspace: [green]restored ✓[/green]")

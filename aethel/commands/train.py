@@ -1,8 +1,13 @@
+"""
+Aethel-Git Training Command
+Supports loading real CSV/JSONL datasets from local paths.
+Falls back to a synthetic stub dataset if the path is not a real directory.
+"""
 import json
 import os
 import shutil
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import torch
 import typer
@@ -32,8 +37,63 @@ class TrainError(Exception):
     """Raised when training command fails."""
 
 
+# ---------------------------------------------------------------------------
+# Dataset classes
+# ---------------------------------------------------------------------------
+
+class LocalCSVDataset(Dataset):
+    """Loads a real CSV dataset from disk for sequence classification."""
+
+    def __init__(self, tokenizer, file_path: str, text_column: str,
+                 label_column: str, max_length: int = 128, max_samples: int = 0):
+        import csv
+
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.texts: List[str] = []
+        self.labels: List[int] = []
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for i, row in enumerate(reader):
+                    if max_samples > 0 and i >= max_samples:
+                        break
+                    self.texts.append(str(row[text_column]))
+                    self.labels.append(int(row[label_column]))
+        except FileNotFoundError as e:
+            raise TrainError(f"Dataset file not found: {file_path}") from e
+        except KeyError as e:
+            raise TrainError(f"Column {e} not found in CSV. Check text_column/label_column in YAML.") from e
+        except (ValueError, OSError) as e:
+            raise TrainError(f"Failed to load dataset: {e}") from e
+
+        if not self.texts:
+            raise TrainError(f"Dataset at {file_path} is empty or was fully filtered.")
+
+        console.print(f"[cyan]Loaded {len(self.texts)} samples from {file_path}[/cyan]")
+
+    def __len__(self) -> int:
+        return len(self.texts)
+
+    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+        tokenized = self.tokenizer(
+            self.texts[index],
+            truncation=True,
+            padding="max_length",
+            max_length=self.max_length,
+            return_tensors="pt",
+        )
+        item = {k: v.squeeze(0) for k, v in tokenized.items()}
+        item["labels"] = torch.tensor(self.labels[index], dtype=torch.long)
+        return item
+
+    def get_num_labels(self) -> int:
+        return len(set(self.labels))
+
+
 class StubTrainingDataset(Dataset):
-    """Simple synthetic dataset to scaffold Trainer integration."""
+    """Simple synthetic dataset fallback."""
 
     def __init__(self, tokenizer, task_type: str, size: int, max_length: int = 64):
         self.tokenizer = tokenizer
@@ -62,6 +122,10 @@ class StubTrainingDataset(Dataset):
 
         return item
 
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
 
 def ensure_repo_exists() -> None:
     if not os.path.isdir(AETHEL_DIR):
@@ -121,6 +185,13 @@ def load_training_yaml(config_path: str) -> dict:
             "lora_alpha": int(data["lora_alpha"]),
             "batch_size": int(data["batch_size"]),
             "epochs": int(data["epochs"]),
+            # Optional fields with sensible defaults
+            "text_column": str(data.get("text_column", "text")),
+            "label_column": str(data.get("label_column", "label")),
+            "max_samples": int(data.get("max_samples", 0)),
+            "num_labels": int(data.get("num_labels", 0)),
+            "max_length": int(data.get("max_length", 128)),
+            "gradient_accumulation_steps": int(data.get("gradient_accumulation_steps", 1)),
         }
     except (TypeError, ValueError) as e:
         raise TrainError(f"Training config contains invalid value types: {e}") from e
@@ -132,7 +203,8 @@ def load_training_yaml(config_path: str) -> dict:
     return parsed
 
 
-def load_model_and_tokenizer(model_id: str, revision_hash: str) -> Tuple[Any, Any, str]:
+def load_model_and_tokenizer(model_id: str, revision_hash: str,
+                              num_labels: int = 2) -> Tuple[Any, Any, str]:
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision_hash)
     except Exception as e:
@@ -156,7 +228,7 @@ def load_model_and_tokenizer(model_id: str, revision_hash: str) -> Tuple[Any, An
     try:
         model = AutoModelForSequenceClassification.from_pretrained(
             model_id,
-            num_labels=2,
+            num_labels=num_labels,
             **model_kwargs,
         )
         return model, tokenizer, TaskType.SEQ_CLS
@@ -169,17 +241,10 @@ def load_model_and_tokenizer(model_id: str, revision_hash: str) -> Tuple[Any, An
 
 def infer_lora_target_modules(model) -> list[str]:
     preferred = [
-        "q_proj",
-        "v_proj",
-        "k_proj",
-        "o_proj",
-        "c_attn",
-        "query_key_value",
-        "q_lin",
-        "v_lin",
-        "query",
-        "value",
-        "key",
+        "q_proj", "v_proj", "k_proj", "o_proj",
+        "c_attn", "query_key_value",
+        "q_lin", "v_lin",
+        "query", "value", "key",
     ]
     linear_module_names: list[str] = []
 
@@ -207,6 +272,27 @@ def persist_training_info(training_info: dict) -> None:
         raise TrainError(f"Failed to write training info: {e}") from e
 
 
+def resolve_dataset_file(dataset_path: str) -> str:
+    """Find the CSV file inside a dataset directory, or return the path if it is a file."""
+    if os.path.isfile(dataset_path):
+        return dataset_path
+
+    if os.path.isdir(dataset_path):
+        # Look for train.csv first, then any .csv
+        train_csv = os.path.join(dataset_path, "train.csv")
+        if os.path.isfile(train_csv):
+            return train_csv
+        for f in sorted(os.listdir(dataset_path)):
+            if f.endswith(".csv"):
+                return os.path.join(dataset_path, f)
+
+    raise TrainError(f"No CSV dataset found at: {dataset_path}")
+
+
+# ---------------------------------------------------------------------------
+# Main training logic
+# ---------------------------------------------------------------------------
+
 def run_training(config_path: str) -> None:
     ensure_repo_exists()
     repo_config = load_repo_config()
@@ -215,7 +301,43 @@ def run_training(config_path: str) -> None:
 
     model_id = repo_config["model_id"]
     revision_hash = repo_config["revision_hash"]
-    model, tokenizer, task_type = load_model_and_tokenizer(model_id, revision_hash)
+
+    dataset_path = training_config["dataset"]
+    use_real_data = os.path.exists(dataset_path)
+
+    # Determine num_labels before loading the model
+    num_labels = training_config.get("num_labels", 0)
+    train_dataset = None
+
+    if use_real_data:
+        csv_file = resolve_dataset_file(dataset_path)
+        # Pre-load tokenizer just for dataset
+        try:
+            tokenizer_tmp = AutoTokenizer.from_pretrained(model_id, revision=revision_hash)
+            if tokenizer_tmp.pad_token is None:
+                tokenizer_tmp.pad_token = tokenizer_tmp.eos_token or tokenizer_tmp.unk_token
+        except Exception as e:
+            raise TrainError(f"Failed to load tokenizer: {e}") from e
+
+        csv_dataset = LocalCSVDataset(
+            tokenizer=tokenizer_tmp,
+            file_path=csv_file,
+            text_column=training_config["text_column"],
+            label_column=training_config["label_column"],
+            max_length=training_config["max_length"],
+            max_samples=training_config["max_samples"],
+        )
+        if num_labels <= 0:
+            num_labels = csv_dataset.get_num_labels()
+        train_dataset = csv_dataset
+        console.print(f"[green]Using real dataset: {csv_file} ({num_labels} labels)[/green]")
+    else:
+        console.print(f"[yellow]Dataset path '{dataset_path}' not found. Using stub dataset.[/yellow]")
+
+    if num_labels <= 0:
+        num_labels = 2
+
+    model, tokenizer, task_type = load_model_and_tokenizer(model_id, revision_hash, num_labels=num_labels)
 
     target_modules = infer_lora_target_modules(model)
     peft_config = LoraConfig(
@@ -228,14 +350,16 @@ def run_training(config_path: str) -> None:
     )
     model = get_peft_model(model, peft_config)
 
-    dataset_size = max(8, training_config["batch_size"] * 4)
-    train_dataset = StubTrainingDataset(tokenizer, task_type=task_type, size=dataset_size)
+    if train_dataset is None:
+        dataset_size = max(8, training_config["batch_size"] * 4)
+        train_dataset = StubTrainingDataset(tokenizer, task_type=task_type, size=dataset_size)
 
     training_args = TrainingArguments(
         output_dir=os.path.join(WORKSPACE_DIR, "trainer_output"),
         num_train_epochs=float(training_config["epochs"]),
         per_device_train_batch_size=training_config["batch_size"],
-        logging_steps=1,
+        gradient_accumulation_steps=training_config["gradient_accumulation_steps"],
+        logging_steps=10,
         save_strategy="no",
         report_to="none",
         remove_unused_columns=False,
@@ -246,7 +370,7 @@ def run_training(config_path: str) -> None:
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         data_collator=default_data_collator,
     )
 
@@ -255,6 +379,8 @@ def run_training(config_path: str) -> None:
 
     training_info = {
         "dataset": training_config["dataset"],
+        "dataset_file": csv_file if use_real_data else "stub",
+        "num_labels": num_labels,
         "lora_rank": training_config["lora_rank"],
         "lora_alpha": training_config["lora_alpha"],
         "batch_size": training_config["batch_size"],
@@ -272,6 +398,10 @@ def run_training(config_path: str) -> None:
     if os.path.exists(trainer_output):
         shutil.rmtree(trainer_output, ignore_errors=True)
 
+
+# ---------------------------------------------------------------------------
+# CLI entry points
+# ---------------------------------------------------------------------------
 
 @app.callback(invoke_without_command=True)
 def train_callback(

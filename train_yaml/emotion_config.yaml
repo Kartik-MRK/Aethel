@@ -1,0 +1,16 @@
+# Emotion Detection — 6 classes (sadness, joy, love, anger, fear, surprise)
+# Compatible with: aethel train --config train_yaml/emotion_config.yaml
+
+dataset: ./datasets/emotion
+text_column: text
+label_column: label
+num_labels: 6
+max_samples: 500
+max_length: 128
+
+# LoRA hyperparameters (safe for 6 GB VRAM)
+lora_rank: 8
+lora_alpha: 16
+batch_size: 2
+gradient_accumulation_steps: 8
+epochs: 1

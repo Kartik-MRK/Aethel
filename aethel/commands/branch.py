@@ -47,7 +47,12 @@ def validate_branch_name(name: str) -> str:
     return branch_name
 
 
-def resolve_head_reference() -> Path:
+def resolve_current_commit_hash() -> str:
+    """Return the commit hash that HEAD currently points to.
+
+    Works for both attached HEAD (symbolic ref → branch → commit)
+    and detached HEAD (raw commit hash directly in HEAD file).
+    """
     if not HEAD_FILE.is_file():
         raise BranchError("HEAD is missing. Re-run 'aethel init --model <repo>'.")
 
@@ -56,8 +61,15 @@ def resolve_head_reference() -> Path:
     except OSError as e:
         raise BranchError(f"Failed to read HEAD: {e}") from e
 
+    # --- Detached HEAD: HEAD contains a raw commit hash ---
+    if COMMIT_HASH_PATTERN.fullmatch(head_content):
+        return head_content.lower()
+
+    # --- Attached HEAD: HEAD is a symbolic ref ---
     if not head_content.startswith(HEAD_PREFIX):
-        raise BranchError("HEAD is invalid. Expected symbolic ref format: ref: refs/heads/<name>.")
+        raise BranchError(
+            "HEAD is invalid. Expected 'ref: refs/heads/<name>' or a valid commit hash."
+        )
 
     ref_rel = head_content[len(HEAD_PREFIX):].strip()
     if not ref_rel:
@@ -74,23 +86,25 @@ def resolve_head_reference() -> Path:
     if not str(ref_resolved).startswith(str(repo_root)):
         raise BranchError("HEAD reference points outside repository metadata directory.")
 
-    return ref_path
-
-
-def read_active_commit_hash(current_branch_ref: Path) -> str:
-    if not current_branch_ref.exists() or not current_branch_ref.is_file():
-        raise BranchError("Cannot create a branch from an empty repository. Please make your first commit.")
+    if not ref_path.exists() or not ref_path.is_file():
+        raise BranchError(
+            "Cannot create a branch from an empty repository. Please make your first commit."
+        )
 
     try:
-        commit_hash = current_branch_ref.read_text(encoding="utf-8").strip()
+        commit_hash = ref_path.read_text(encoding="utf-8").strip()
     except OSError as e:
         raise BranchError(f"Failed to read active branch reference: {e}") from e
 
     if not commit_hash:
-        raise BranchError("Cannot create a branch from an empty repository. Please make your first commit.")
+        raise BranchError(
+            "Cannot create a branch from an empty repository. Please make your first commit."
+        )
 
     if not COMMIT_HASH_PATTERN.fullmatch(commit_hash):
-        raise BranchError("Active branch reference does not contain a valid 64-character commit hash.")
+        raise BranchError(
+            "Active branch reference does not contain a valid 64-character commit hash."
+        )
 
     return commit_hash.lower()
 
@@ -122,16 +136,18 @@ def branch_callback(
 
 def create_branch(name: str) -> None:
     """
-    Create a new branch from the active branch commit without changing HEAD.
+    Create a new branch from the current HEAD position without changing HEAD.
+    Works in both attached (on a branch) and detached HEAD state.
     """
     try:
         ensure_repository()
         valid_name = validate_branch_name(name)
-        current_branch_ref = resolve_head_reference()
-        active_commit_hash = read_active_commit_hash(current_branch_ref)
+        active_commit_hash = resolve_current_commit_hash()
         create_branch_ref_file(valid_name, active_commit_hash)
     except BranchError as e:
         console.print(f"[bold red]{e}[/bold red]")
         raise typer.Exit(code=1)
 
-    console.print(f"[bold green]Created branch {valid_name}.[/bold green]")
+    console.print(f"[bold green]Created branch '{valid_name}'.[/bold green]")
+    console.print(f"[cyan]Points to commit:[/cyan] {active_commit_hash}")
+

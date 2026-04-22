@@ -10,3 +10,4 @@ rich
 pydantic
 huggingface_hub
 pyyaml
+datasets

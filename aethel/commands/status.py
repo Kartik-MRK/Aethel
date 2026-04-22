@@ -45,6 +45,6 @@ def log():
     table.add_column("Message", style="white")
     
     for row in rows:
-        table.add_row(row[0][:8], row[1], row[2], row[3])
+        table.add_row(row[0], row[1], row[2], row[3])
         
     console.print(table)
