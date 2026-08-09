@@ -1,153 +1,115 @@
-import re
-from pathlib import Path
+"""``aethel branch`` -- list, create, and delete branches.
+
+A branch is a file under ``.aethel/refs/heads/`` holding one commit hash.
+Creating one is cheap and involves no copying of weights.
+"""
+
 
 import typer
-from rich.console import Console
 
-console = Console()
+from aethel.commands._common import console, err_console, handle_errors, short
+from aethel.core.commits import read_commit, resolve_commitish
+from aethel.core.errors import BranchNotFound, InvalidRef
+from aethel.core.repo import Repo
+
 app = typer.Typer()
-
-AETHEL_DIR = Path(".aethel")
-HEAD_FILE = AETHEL_DIR / "HEAD"
-REFS_HEADS_DIR = AETHEL_DIR / "refs" / "heads"
-HEAD_PREFIX = "ref: "
-COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
-BRANCH_NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
-
-
-class BranchError(Exception):
-    """Raised when branch operations fail."""
-
-
-def ensure_repository() -> None:
-    if not AETHEL_DIR.is_dir():
-        raise BranchError("Not an Aethel repository. Run 'aethel init' first.")
-
-
-def validate_branch_name(name: str) -> str:
-    branch_name = name.strip()
-    if not branch_name:
-        raise BranchError("Branch name cannot be empty.")
-
-    if branch_name in {".", ".."}:
-        raise BranchError("Invalid branch name.")
-
-    if "/" in branch_name or "\\" in branch_name:
-        raise BranchError("Invalid branch name. Use letters, digits, '.', '_', and '-'.")
-
-    if " " in branch_name:
-        raise BranchError("Branch name cannot contain spaces.")
-
-    if not BRANCH_NAME_PATTERN.fullmatch(branch_name):
-        raise BranchError("Invalid branch name. Use letters, digits, '.', '_', and '-'.")
-
-    if branch_name.endswith(".lock"):
-        raise BranchError("Invalid branch name.")
-
-    return branch_name
-
-
-def resolve_current_commit_hash() -> str:
-    """Return the commit hash that HEAD currently points to.
-
-    Works for both attached HEAD (symbolic ref → branch → commit)
-    and detached HEAD (raw commit hash directly in HEAD file).
-    """
-    if not HEAD_FILE.is_file():
-        raise BranchError("HEAD is missing. Re-run 'aethel init --model <repo>'.")
-
-    try:
-        head_content = HEAD_FILE.read_text(encoding="utf-8").strip()
-    except OSError as e:
-        raise BranchError(f"Failed to read HEAD: {e}") from e
-
-    # --- Detached HEAD: HEAD contains a raw commit hash ---
-    if COMMIT_HASH_PATTERN.fullmatch(head_content):
-        return head_content.lower()
-
-    # --- Attached HEAD: HEAD is a symbolic ref ---
-    if not head_content.startswith(HEAD_PREFIX):
-        raise BranchError(
-            "HEAD is invalid. Expected 'ref: refs/heads/<name>' or a valid commit hash."
-        )
-
-    ref_rel = head_content[len(HEAD_PREFIX):].strip()
-    if not ref_rel:
-        raise BranchError("HEAD reference is empty.")
-
-    ref_path = AETHEL_DIR / Path(ref_rel)
-
-    try:
-        repo_root = AETHEL_DIR.resolve()
-        ref_resolved = ref_path.resolve()
-    except OSError as e:
-        raise BranchError(f"Failed to resolve HEAD reference: {e}") from e
-
-    if not str(ref_resolved).startswith(str(repo_root)):
-        raise BranchError("HEAD reference points outside repository metadata directory.")
-
-    if not ref_path.exists() or not ref_path.is_file():
-        raise BranchError(
-            "Cannot create a branch from an empty repository. Please make your first commit."
-        )
-
-    try:
-        commit_hash = ref_path.read_text(encoding="utf-8").strip()
-    except OSError as e:
-        raise BranchError(f"Failed to read active branch reference: {e}") from e
-
-    if not commit_hash:
-        raise BranchError(
-            "Cannot create a branch from an empty repository. Please make your first commit."
-        )
-
-    if not COMMIT_HASH_PATTERN.fullmatch(commit_hash):
-        raise BranchError(
-            "Active branch reference does not contain a valid 64-character commit hash."
-        )
-
-    return commit_hash.lower()
-
-
-def create_branch_ref_file(branch_name: str, commit_hash: str) -> None:
-    branch_ref_path = REFS_HEADS_DIR / branch_name
-
-    if branch_ref_path.exists():
-        raise BranchError(f"Fatal: A branch named '{branch_name}' already exists.")
-
-    try:
-        branch_ref_path.parent.mkdir(parents=True, exist_ok=True)
-        branch_ref_path.write_text(f"{commit_hash}\n", encoding="utf-8")
-    except OSError as e:
-        raise BranchError(f"Failed to create branch '{branch_name}': {e}") from e
 
 
 @app.callback(invoke_without_command=True)
 def branch_callback(
     ctx: typer.Context,
-    name: str = typer.Argument(..., help="Name of the new branch to create."),
+    name: str | None = typer.Argument(None, help="Branch to create. Omit to list."),
+    start_point: str | None = typer.Argument(
+        None, help="Commit or branch to start from. Defaults to HEAD."
+    ),
+    delete: str | None = typer.Option(None, "--delete", "-d", help="Delete a branch."),
 ):
-    """
-    Create a lightweight branch reference at the current commit.
-    """
-    if ctx.invoked_subcommand is None:
-        create_branch(name)
+    """List branches, or create one at HEAD."""
+    if ctx.invoked_subcommand is not None:
+        return
+
+    if delete:
+        run_delete(delete)
+    elif name:
+        run_create(name, start_point)
+    else:
+        run_list()
 
 
-def create_branch(name: str) -> None:
-    """
-    Create a new branch from the current HEAD position without changing HEAD.
-    Works in both attached (on a branch) and detached HEAD state.
-    """
-    try:
-        ensure_repository()
-        valid_name = validate_branch_name(name)
-        active_commit_hash = resolve_current_commit_hash()
-        create_branch_ref_file(valid_name, active_commit_hash)
-    except BranchError as e:
-        console.print(f"[bold red]{e}[/bold red]")
+@handle_errors
+def run_list() -> None:
+    repo = Repo.discover()
+    head = repo.refs.read_head()
+    branches = repo.refs.list_branches()
+
+    if not branches:
+        console.print("[dim]No branches yet. Make your first commit.[/dim]")
+        return
+
+    for branch in branches:
+        tip = repo.refs.read_branch(branch)
+        marker = "*" if (not head.is_detached and head.branch == branch) else " "
+        style = "bold green" if marker == "*" else "white"
+
+        if tip is None:
+            console.print(f"{marker} [{style}]{branch}[/{style}] [dim](no commits)[/dim]")
+            continue
+
+        commit = read_commit(repo, tip)
+        console.print(
+            f"{marker} [{style}]{branch}[/{style}] "
+            f"[dim]{short(tip)}[/dim] {commit['message']}"
+        )
+
+    if head.is_detached:
+        console.print()
+        console.print(f"[yellow]HEAD detached at {short(head.commit or '')}[/yellow]")
+
+
+@handle_errors
+def run_create(name: str, start_point: str | None) -> None:
+    repo = Repo.discover()
+
+    if start_point:
+        _, commit_hash = resolve_commitish(repo, start_point)
+    else:
+        commit_hash = repo.refs.resolve_head_commit()
+        if commit_hash is None:
+            raise InvalidRef(
+                "No commits yet — nothing for a branch to point at. "
+                "Make your first commit, then create a branch."
+            )
+
+    repo.refs.create_branch(name, commit_hash)
+
+    console.print(
+        f"[bold green]Created branch[/bold green] [cyan]{name}[/cyan] "
+        f"at {short(commit_hash)}"
+    )
+    console.print(f"[dim]Switch to it with: aethel checkout {name}[/dim]")
+
+
+@handle_errors
+def run_delete(name: str) -> None:
+    repo = Repo.discover()
+    head = repo.refs.read_head()
+
+    if not head.is_detached and head.branch == name:
+        err_console.print(
+            f"[bold red]Cannot delete '{name}' — it is the current branch.[/bold red]"
+        )
+        err_console.print("Check out a different branch first.")
         raise typer.Exit(code=1)
 
-    console.print(f"[bold green]Created branch '{valid_name}'.[/bold green]")
-    console.print(f"[cyan]Points to commit:[/cyan] {active_commit_hash}")
+    if not repo.refs.branch_exists(name):
+        raise BranchNotFound(f"Branch '{name}' does not exist.")
 
+    tip = repo.refs.read_branch(name)
+    repo.refs.branch_path(name).unlink()
+
+    console.print(f"[bold green]Deleted branch[/bold green] [cyan]{name}[/cyan]")
+    if tip:
+        console.print(
+            f"[dim]Its commits are still in the object store at {short(tip)} "
+            f"— nothing was destroyed.[/dim]"
+        )

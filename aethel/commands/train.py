@@ -7,7 +7,7 @@ import json
 import os
 import shutil
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import torch
 import typer
@@ -50,11 +50,11 @@ class LocalCSVDataset(Dataset):
 
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.texts: List[str] = []
-        self.labels: List[int] = []
+        self.texts: list[str] = []
+        self.labels: list[int] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 for i, row in enumerate(reader):
                     if max_samples > 0 and i >= max_samples:
@@ -76,7 +76,7 @@ class LocalCSVDataset(Dataset):
     def __len__(self) -> int:
         return len(self.texts)
 
-    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         tokenized = self.tokenizer(
             self.texts[index],
             truncation=True,
@@ -104,7 +104,7 @@ class StubTrainingDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
-    def __getitem__(self, index: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         text = f"sample training record {index}"
         tokenized = self.tokenizer(
             text,
@@ -144,7 +144,7 @@ def prepare_workspace() -> None:
 def load_repo_config() -> dict:
     config_path = os.path.join(AETHEL_DIR, CONFIG_NAME)
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
     except FileNotFoundError as e:
         raise TrainError("Repository config not found. Run 'aethel init' first.") from e
@@ -155,8 +155,16 @@ def load_repo_config() -> dict:
 
     if not config.get("model_id"):
         raise TrainError("Config is missing model_id.")
-    if not config.get("revision_hash"):
-        raise TrainError("Config is missing revision_hash. Re-run 'aethel init --model <repo>'.")
+
+    # Schema 2 writes `revision_sha`; schema 1 wrote `revision_hash`. Accept
+    # either and normalize, so a repository created before the rebuild still
+    # trains without a re-init.
+    revision = config.get("revision_sha") or config.get("revision_hash")
+    if not revision:
+        raise TrainError(
+            "Config is missing revision_sha. Re-run 'aethel init --model <owner/model>'."
+        )
+    config["revision_sha"] = revision
 
     return config
 
@@ -166,7 +174,7 @@ def load_training_yaml(config_path: str) -> dict:
         raise TrainError(f"Training config file not found: {config_path}")
 
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except yaml.YAMLError as e:
         raise TrainError(f"Invalid YAML in training config: {e}") from e
@@ -204,7 +212,7 @@ def load_training_yaml(config_path: str) -> dict:
 
 
 def load_model_and_tokenizer(model_id: str, revision_hash: str,
-                              num_labels: int = 2) -> Tuple[Any, Any, str]:
+                              num_labels: int = 2) -> tuple[Any, Any, str]:
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision_hash)
     except Exception as e:
@@ -213,7 +221,7 @@ def load_model_and_tokenizer(model_id: str, revision_hash: str,
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token or tokenizer.unk_token
 
-    model_kwargs: Dict[str, Any] = {"revision": revision_hash}
+    model_kwargs: dict[str, Any] = {"revision": revision_hash}
     if torch.cuda.is_available():
         model_kwargs["torch_dtype"] = torch.float16
         model_kwargs["device_map"] = "auto"
@@ -273,7 +281,13 @@ def persist_training_info(training_info: dict) -> None:
 
 
 def resolve_dataset_file(dataset_path: str) -> str:
-    """Find the CSV file inside a dataset directory, or return the path if it is a file."""
+    """Find the CSV file inside a dataset directory, or return the path if it is a file.
+
+    Recognizes a HuggingFace `save_to_disk` (Arrow) directory and explains how
+    to get a CSV, rather than reporting the misleading "No CSV dataset found".
+    Arrow directories are easy to produce by accident, and the resulting error
+    otherwise points at the wrong problem.
+    """
     if os.path.isfile(dataset_path):
         return dataset_path
 
@@ -286,6 +300,16 @@ def resolve_dataset_file(dataset_path: str) -> str:
             if f.endswith(".csv"):
                 return os.path.join(dataset_path, f)
 
+        arrow_markers = {"dataset_dict.json", "dataset_info.json", "state.json"}
+        entries = set(os.listdir(dataset_path))
+        if arrow_markers & entries or any(e.endswith(".arrow") for e in entries):
+            raise TrainError(
+                f"'{dataset_path}' is a HuggingFace Arrow dataset (save_to_disk), "
+                f"but the trainer reads CSV.\n"
+                f"Convert it with:  python setup_demo_data.py\n"
+                f"or export a CSV with columns matching text_column/label_column."
+            )
+
     raise TrainError(f"No CSV dataset found at: {dataset_path}")
 
 
@@ -293,14 +317,14 @@ def resolve_dataset_file(dataset_path: str) -> str:
 # Main training logic
 # ---------------------------------------------------------------------------
 
-def run_training(config_path: str) -> None:
+def run_training(config_path: str, allow_stub: bool = False) -> None:
     ensure_repo_exists()
     repo_config = load_repo_config()
     training_config = load_training_yaml(config_path)
     prepare_workspace()
 
     model_id = repo_config["model_id"]
-    revision_hash = repo_config["revision_hash"]
+    revision_hash = repo_config["revision_sha"]
 
     dataset_path = training_config["dataset"]
     use_real_data = os.path.exists(dataset_path)
@@ -331,8 +355,23 @@ def run_training(config_path: str) -> None:
             num_labels = csv_dataset.get_num_labels()
         train_dataset = csv_dataset
         console.print(f"[green]Using real dataset: {csv_file} ({num_labels} labels)[/green]")
+    elif not allow_stub:
+        # Refuse rather than silently training on synthetic text. The old code
+        # printed one yellow line and carried on, producing a fully committable
+        # adapter with plausible-looking metrics that had learned nothing
+        # (defect S2.2). A typo in a dataset path must not yield a publishable
+        # model.
+        raise TrainError(
+            f"Dataset path '{dataset_path}' does not exist.\n"
+            f"Check the 'dataset:' field in {config_path}.\n"
+            f"To train on synthetic data deliberately, pass --allow-stub "
+            f"(the commit will be marked stub-trained)."
+        )
     else:
-        console.print(f"[yellow]Dataset path '{dataset_path}' not found. Using stub dataset.[/yellow]")
+        console.print(
+            f"[bold yellow]--allow-stub: '{dataset_path}' not found, "
+            f"training on SYNTHETIC data. This model learns nothing real.[/bold yellow]"
+        )
 
     if num_labels <= 0:
         num_labels = 2
@@ -407,29 +446,32 @@ def run_training(config_path: str) -> None:
 def train_callback(
     ctx: typer.Context,
     config: str = typer.Option(..., "--config", "-c", help="Path to YAML training config."),
+    allow_stub: bool = typer.Option(
+        False, "--allow-stub", help="Train on synthetic data if the dataset is missing."
+    ),
 ):
     """
     Run training using pinned model revision and save adapter artifacts to workspace.
     """
     if ctx.invoked_subcommand is None:
-        train(config=config)
+        train(config=config, allow_stub=allow_stub)
 
 
 @app.command()
 def train(
-    config: str = typer.Option(..., "--config", "-c", help="Path to YAML training config.")
+    config: str = typer.Option(..., "--config", "-c", help="Path to YAML training config."),
+    allow_stub: bool = typer.Option(
+        False, "--allow-stub", help="Train on synthetic data if the dataset is missing."
+    ),
 ):
     """
     Run LoRA training from YAML configuration and write outputs into .aethel/workspace.
     """
     try:
-        run_training(config)
+        run_training(config, allow_stub=allow_stub)
     except TrainError as e:
         console.print(f"[bold red]Training failed: {e}[/bold red]")
-        raise typer.Exit(code=1)
-    except Exception as e:
-        console.print(f"[bold red]Unexpected training failure: {e}[/bold red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     console.print("[bold green]Training completed.[/bold green]")
     console.print(f"[cyan]Workspace:[/cyan] {WORKSPACE_DIR}")

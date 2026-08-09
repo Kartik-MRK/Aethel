@@ -32,7 +32,7 @@ def download_sst2(base_dir: str, max_samples: int = 800) -> None:
     """Stanford Sentiment Treebank v2 — Binary sentiment."""
     from datasets import load_dataset
     print("⬇  Downloading SST-2...")
-    ds = load_dataset("glue", "sst2", split="train", trust_remote_code=True)
+    ds = load_dataset("glue", "sst2", split="train")
     rows = []
     for i, item in enumerate(ds):
         if i >= max_samples:
@@ -46,7 +46,7 @@ def download_rotten_tomatoes(base_dir: str, max_samples: int = 800) -> None:
     """Rotten Tomatoes — Movie review binary sentiment."""
     from datasets import load_dataset
     print("⬇  Downloading Rotten Tomatoes...")
-    ds = load_dataset("rotten_tomatoes", split="train", trust_remote_code=True)
+    ds = load_dataset("rotten_tomatoes", split="train")
     rows = []
     for i, item in enumerate(ds):
         if i >= max_samples:
@@ -60,7 +60,7 @@ def download_emotion(base_dir: str, max_samples: int = 800) -> None:
     """Emotion — 6-class emotion detection (sadness, joy, love, anger, fear, surprise)."""
     from datasets import load_dataset
     print("⬇  Downloading Emotion...")
-    ds = load_dataset("dair-ai/emotion", split="train", trust_remote_code=True)
+    ds = load_dataset("dair-ai/emotion", split="train")
     rows = []
     for i, item in enumerate(ds):
         if i >= max_samples:
@@ -74,7 +74,7 @@ def download_ag_news(base_dir: str, max_samples: int = 800) -> None:
     """AG News — 4-class topic classification (World, Sports, Business, Sci/Tech)."""
     from datasets import load_dataset
     print("⬇  Downloading AG News...")
-    ds = load_dataset("fancyzhx/ag_news", split="train", trust_remote_code=True)
+    ds = load_dataset("fancyzhx/ag_news", split="train")
     rows = []
     for i, item in enumerate(ds):
         if i >= max_samples:
@@ -88,7 +88,7 @@ def download_tweet_eval_hate(base_dir: str, max_samples: int = 800) -> None:
     """Tweet Eval Hate — Binary hate speech detection."""
     from datasets import load_dataset
     print("⬇  Downloading Tweet Eval (Hate Speech)...")
-    ds = load_dataset("tweet_eval", "hate", split="train", trust_remote_code=True)
+    ds = load_dataset("tweet_eval", "hate", split="train")
     rows = []
     for i, item in enumerate(ds):
         if i >= max_samples:
