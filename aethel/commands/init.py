@@ -1,189 +1,133 @@
-import typer
+"""``aethel init`` -- create a repository pinned to a base model revision.
+
+Base model weights are never stored. The repository records
+``(model_id, revision_sha)`` and anyone reproducing a result downloads the
+base from Hugging Face themselves. Pinning the immutable revision SHA rather
+than a tag is what makes that reproducible: tags move, SHAs do not.
+
+The revision-resolution logic here is carried over from the original
+implementation (commands/init.py:37-47), which got this right.
+"""
+
 import os
-import sqlite3
-import json
-from typing import Optional
-from huggingface_hub import model_info
-from rich.console import Console
+
+import typer
 from rich.prompt import Prompt
 
-console = Console()
+from aethel.commands._common import console, handle_errors
+from aethel.core.commits import build_base_object
+from aethel.core.errors import AethelError
+from aethel.core.repo import Repo
+
 app = typer.Typer()
 
-AETHEL_DIR = ".aethel"
-DB_NAME = "repo.db"
-CONFIG_NAME = "config.json"
-WORKSPACE_DIR_NAME = "workspace"
-HEAD_FILE_NAME = "HEAD"
-DEFAULT_BRANCH_NAME = "main"
-HEAD_REF_PREFIX = "ref: "
 
-
-class InitError(Exception):
+class InitError(AethelError):
     """Raised when repository initialization fails."""
 
 
-def resolve_model_id(input_model: Optional[str]) -> str:
-    """Resolve model id from CLI option or interactive prompt."""
-    if input_model and input_model.strip():
-        return input_model.strip()
+def resolve_model_id(candidate: str | None) -> str:
+    """Take the model id from the flag, or prompt for it."""
+    if candidate and candidate.strip():
+        return candidate.strip()
 
-    model_id = Prompt.ask("Enter Hugging Face model repository (owner/model)").strip()
-    if not model_id:
+    entered = Prompt.ask("Hugging Face model repository (owner/model)").strip()
+    if not entered:
         raise InitError("Model repository cannot be empty.")
-    return model_id
+    return entered
 
 
-def fetch_model_revision_hash(model_id: str) -> str:
-    """Fetch the latest immutable revision hash for a Hugging Face model."""
+def fetch_model_revision_sha(model_id: str) -> str:
+    """Resolve a model's current immutable revision SHA from the Hub.
+
+    Imported lazily so `aethel --help` and every offline command work without
+    huggingface_hub installed or a network connection.
+    """
+    try:
+        from huggingface_hub import model_info
+    except ImportError as exc:  # pragma: no cover - depends on install extras
+        raise InitError(
+            "huggingface_hub is required to pin a model revision. "
+            "Install it with: pip install 'aethel[ml]'"
+        ) from exc
+
     try:
         info = model_info(model_id)
-    except Exception as e:
-        raise InitError(f"Failed to fetch model info for '{model_id}': {e}") from e
+    except Exception as exc:
+        raise InitError(f"Could not fetch model info for '{model_id}': {exc}") from exc
 
-    revision_hash = getattr(info, "sha", None)
-    if not revision_hash:
-        raise InitError(f"Could not resolve revision hash for model '{model_id}'.")
-    return revision_hash
+    revision_sha = getattr(info, "sha", None)
+    if not revision_sha:
+        raise InitError(f"Could not resolve a revision SHA for '{model_id}'.")
 
-
-def ensure_repo_layout(aethel_path: str) -> None:
-    """Create required repository directories."""
-    os.makedirs(aethel_path, exist_ok=True)
-    os.makedirs(os.path.join(aethel_path, "objects"), exist_ok=True)
-    os.makedirs(os.path.join(aethel_path, "refs", "heads"), exist_ok=True)
-    os.makedirs(os.path.join(aethel_path, WORKSPACE_DIR_NAME), exist_ok=True)
+    return revision_sha
 
 
-def ensure_head_and_default_branch(aethel_path: str) -> None:
-    """Ensure HEAD points to a valid default branch reference file."""
-    refs_heads_path = os.path.join(aethel_path, "refs", "heads")
-    default_branch_ref = os.path.join(refs_heads_path, DEFAULT_BRANCH_NAME)
-    head_path = os.path.join(aethel_path, HEAD_FILE_NAME)
+def default_author() -> str:
+    """Best-effort author identity from the environment.
 
-    try:
-        if not os.path.exists(default_branch_ref):
-            with open(default_branch_ref, "w", encoding="utf-8") as f:
-                f.write("")
+    Checks USER before USERNAME. The original code checked only USERNAME
+    (init.py:117,123), a Windows-only variable, so on Linux every commit was
+    authored by the literal string "User" (defect S3).
+    """
+    for variable in ("AETHEL_AUTHOR", "USER", "USERNAME", "LOGNAME"):
+        value = os.environ.get(variable)
+        if value and value.strip():
+            return value.strip()
+    return "unknown"
 
-        if not os.path.exists(head_path):
-            with open(head_path, "w", encoding="utf-8") as f:
-                f.write(f"{HEAD_REF_PREFIX}refs/heads/{DEFAULT_BRANCH_NAME}\n")
-            return
-
-        with open(head_path, "r", encoding="utf-8") as f:
-            head_content = f.read().strip()
-
-        if not head_content:
-            with open(head_path, "w", encoding="utf-8") as f:
-                f.write(f"{HEAD_REF_PREFIX}refs/heads/{DEFAULT_BRANCH_NAME}\n")
-            return
-
-        if head_content.startswith(HEAD_REF_PREFIX):
-            ref_rel = head_content[len(HEAD_REF_PREFIX):].strip()
-            ref_abs = os.path.join(aethel_path, *ref_rel.split("/"))
-            os.makedirs(os.path.dirname(ref_abs), exist_ok=True)
-            if not os.path.exists(ref_abs):
-                with open(ref_abs, "w", encoding="utf-8") as f:
-                    f.write("")
-    except OSError as e:
-        raise InitError(f"Failed to prepare HEAD and branch references: {e}") from e
-
-
-def setup_database(db_path: str) -> None:
-    """Initialize repository metadata database."""
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        '''
-        CREATE TABLE IF NOT EXISTS commits (
-            hash TEXT PRIMARY KEY,
-            parent_hash TEXT,
-            message TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            author TEXT,
-            metadata_cid TEXT,
-            adapter_cid TEXT
-        )
-        '''
-    )
-    conn.commit()
-    conn.close()
-
-
-def load_existing_author(config_path: str) -> str:
-    """Preserve prior author identity when re-initializing."""
-    if not os.path.exists(config_path):
-        return os.getenv("USERNAME", "User")
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return os.getenv("USERNAME", "User")
-
-    return config.get("author") or os.getenv("USERNAME", "User")
 
 @app.callback(invoke_without_command=True)
 def init_callback(
     ctx: typer.Context,
-    model: Optional[str] = typer.Option(
-        None,
-        "--model",
-        help="Hugging Face model repository id (owner/model).",
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Hugging Face model repository id (owner/model)."
+    ),
+    author: str | None = typer.Option(
+        None, "--author", help="Author recorded on commits. Defaults to $USER."
     ),
 ):
-    """
-    Initialize a new Aethel-Git repository.
-    """
+    """Initialize an Aethel repository in the current directory."""
     if ctx.invoked_subcommand is None:
-        init(model=model)
+        run_init(model=model, author=author)
 
-@app.command()
-def init(
-    model: Optional[str] = typer.Option(
-        None,
-        "--model",
-        help="Hugging Face model repository id (owner/model).",
-    )
-):
-    """
-    Initialize a new Aethel-Git repository in the current directory.
-    """
-    cwd = os.getcwd()
-    aethel_path = os.path.join(cwd, AETHEL_DIR)
 
-    try:
-        model_id = resolve_model_id(model)
-        revision_hash = fetch_model_revision_hash(model_id)
+@handle_errors
+def run_init(model: str | None, author: str | None) -> None:
+    root = os.getcwd()
+    existing = Repo(root)
+    reinitializing = existing.exists()
 
-        if os.path.exists(aethel_path):
-            console.print(f"[bold yellow]Re-initializing existing repository in {aethel_path}[/bold yellow]")
-        else:
-            console.print(f"[bold green]Initialized empty Aethel-Git repository in {aethel_path}[/bold green]")
+    # Preserve a previously configured author across re-init.
+    previous_author = None
+    if reinitializing:
+        try:
+            previous_author = existing.read_config().get("author")
+        except AethelError:
+            previous_author = None
 
-        ensure_repo_layout(aethel_path)
-        ensure_head_and_default_branch(aethel_path)
-        setup_database(os.path.join(aethel_path, DB_NAME))
+    model_id = resolve_model_id(model)
+    revision_sha = fetch_model_revision_sha(model_id)
+    resolved_author = author or previous_author or default_author()
 
-        config_path = os.path.join(aethel_path, CONFIG_NAME)
-        author = load_existing_author(config_path)
-        config = {
+    repo = Repo.create(
+        root,
+        {
             "model_id": model_id,
-            "revision_hash": revision_hash,
-            "author": author,
-        }
+            "revision_sha": revision_sha,
+            "author": resolved_author,
+        },
+    )
 
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=4)
+    # Store the base reference as an object immediately, so the very first
+    # commit has something to point at and `aethel base` can verify it.
+    base_hash = repo.objects.write_json("bases", build_base_object(model_id, revision_sha))
 
-        console.print("[green]Ready to track models.[/green]")
-        console.print(f"[cyan]Pinned model:[/cyan] {model_id}")
-        console.print(f"[cyan]Revision hash:[/cyan] {revision_hash}")
-
-    except InitError as e:
-        console.print(f"[bold red]Initialization failed: {e}[/bold red]")
-        raise typer.Exit(code=1)
-    except OSError as e:
-        console.print(f"[bold red]Initialization failed due to file system error: {e}[/bold red]")
-        raise typer.Exit(code=1)
+    verb = "Reinitialized" if reinitializing else "Initialized"
+    console.print(f"[bold green]{verb} Aethel repository in {repo.aethel_dir}[/bold green]")
+    console.print(f"[cyan]Base model:[/cyan] {model_id}")
+    console.print(f"[cyan]Revision:  [/cyan] {revision_sha}")
+    console.print(f"[cyan]Base ref:  [/cyan] {base_hash[:12]}")
+    console.print(f"[cyan]Author:    [/cyan] {resolved_author}")
+    console.print()
+    console.print("[dim]Base weights are not stored — only the pinned reference.[/dim]")
