@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% set nav = 'repos' %}
+{% block title %}{{ commit_hash[:12] }} — Aethel Hub{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="crumb"><a href="/">Repositories</a> / commit</div>
+  <h1>{{ commit.message or 'Commit' }}</h1>
+  <p class="hash">{{ commit_hash }}</p>
+</div>
+
+<section>
+  <div class="kpis">
+    <div class="tile">
+      <div class="tile-label">Accuracy</div>
+      {% if accuracy is not none %}
+      <div class="tile-value">{{ '%.1f' | format(accuracy * 100) }}%</div>
+      {% else %}
+      <div class="tile-value muted">—</div>
+      <div class="tile-sub">not measured</div>
+      {% endif %}
+    </div>
+    <div class="tile">
+      <div class="tile-label">Macro-F1</div>
+      {% if f1 is not none %}
+      <div class="tile-value">{{ '%.3f' | format(f1) }}</div>
+      {% else %}
+      <div class="tile-value muted">—</div>
+      {% endif %}
+    </div>
+    <div class="tile">
+      <div class="tile-label">Files</div>
+      <div class="tile-value">{{ files | length }}</div>
+      <div class="tile-sub">content-addressed</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">In transparency log</div>
+      {% if proof %}
+      <div class="tile-value" style="font-size:1.25rem">
+        <span class="pill good"><span class="pill-glyph" aria-hidden="true">✓</span>Leaf {{ proof.leaf_index }}</span>
+      </div>
+      <div class="tile-sub">of {{ proof.log_size }} entries</div>
+      {% else %}
+      <div class="tile-value muted" style="font-size:1.25rem">
+        <span class="pill neutral"><span class="pill-glyph" aria-hidden="true">○</span>Not logged</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{# Provenance first: this is the point of the whole system. #}
+<section>
+  <h2>Provenance</h2>
+  <div class="card">
+    <dl class="kv">
+      <dt>Parent</dt>
+      <dd>
+        {% if commit.parent_hash %}
+        <a class="hash-strong" href="/c/{{ commit.parent_hash }}">{{ commit.parent_hash }}</a>
+        {% else %}
+        <span class="hash">none — this is a root commit</span>
+        {% endif %}
+      </dd>
+
+      <dt>Author</dt>
+      <dd>{{ commit.author or '—' }}</dd>
+
+      <dt>Timestamp</dt>
+      <dd class="hash">{{ commit.timestamp or '—' }}</dd>
+
+      <dt>Adapter weights</dt>
+      <dd class="hash">{{ commit.adapter_blob or '—' }}</dd>
+
+      <dt>Tree</dt>
+      <dd class="hash">{{ commit.tree or '—' }}</dd>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <h2>Base model</h2>
+  {% if base %}
+  <div class="card">
+    <dl class="kv">
+      <dt>Model</dt>
+      <dd><strong>{{ base.model_id }}</strong></dd>
+      <dt>Revision</dt>
+      <dd class="hash">{{ base.revision_sha }}</dd>
+      <dt>Source</dt>
+      <dd>{{ base.source or 'huggingface' }}</dd>
+    </dl>
+    <p class="footnote">
+      The base model's weights are not stored here. Pinning the immutable
+      revision SHA — not a tag, which can move — is what makes this version
+      reproducible: download that exact revision and apply the adapter below.
+    </p>
+  </div>
+  {% else %}
+  <div class="card empty">Base reference object not available.</div>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Files</h2>
+  <div class="card" style="padding:0">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Filename</th><th>Content hash (SHA-256)</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for name, blob in files | dictsort %}
+          <tr>
+            <td><code>{{ name }}</code></td>
+            <td class="hash">{{ blob }}</td>
+            <td><a href="/api/v1/blobs/{{ blob }}">Download</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="footnote">
+    Re-hash any download and compare it against the value shown here. Because
+    the filename <em>is</em> the hash, that check makes the transport — this
+    Hub, an IPFS gateway, a USB stick — irrelevant to integrity.
+  </p>
+</section>
+
+<section>
+  <h2>Inclusion proof</h2>
+  {% if proof %}
+  <div class="banner {{ 'good' if proof_valid else 'critical' }}">
+    <strong>
+      {% if proof_valid %}
+      Proof verifies against the log root
+      {% else %}
+      Proof does NOT verify — the log may have been altered
+      {% endif %}
+    </strong>
+    <div class="footnote" style="margin-top:6px">
+      Recomputing the root from this commit's leaf and its
+      {{ proof.proof | length }} sibling hash{{ '' if proof.proof | length == 1 else 'es' }}
+      {% if proof_valid %}reproduces{% else %}does not reproduce{% endif %}
+      the published root.
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <dl class="kv">
+      <dt>Leaf index</dt>
+      <dd>{{ proof.leaf_index }} of {{ proof.log_size }}</dd>
+      <dt>Log root</dt>
+      <dd class="hash">{{ proof.root }}</dd>
+      <dt>Anchored</dt>
+      <dd>
+        {% if anchor and anchor.root == proof.root %}
+        <span class="pill good"><span class="pill-glyph" aria-hidden="true">✓</span>On chain</span>
+        <span class="hash">block {{ anchor.block }}</span>
+        {% else %}
+        <span class="pill warning"><span class="pill-glyph" aria-hidden="true">!</span>Not yet anchored</span>
+        {% endif %}
+      </dd>
+    </dl>
+
+    <details style="margin-top:16px">
+      <summary style="cursor:pointer;font-size:0.875rem;color:var(--text-secondary)">
+        Sibling path ({{ proof.proof | length }} steps)
+      </summary>
+      <div class="table-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Step</th><th>Side</th><th>Sibling hash</th></tr></thead>
+          <tbody>
+            {% for step in proof.proof %}
+            <tr>
+              <td class="num">{{ loop.index }}</td>
+              <td>{{ step.side }}</td>
+              <td class="hash">{{ step.sibling }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <p class="footnote">
+      Fetch this proof as JSON from
+      <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> and verify it
+      yourself. The verification needs only the leaf, the path, and the root —
+      never this server — which is precisely why a dishonest Hub cannot fake it.
+    </p>
+  </div>
+  {% else %}
+  <div class="card empty">
+    <strong>Not in the transparency log</strong>
+    This commit object exists in the store but has not been logged. That happens
+    when objects were uploaded without a branch ref update.
+  </div>
+  {% endif %}
+</section>
+
+{% if commit.training_info %}
+<section>
+  <h2>Training record</h2>
+  <div class="card">
+    <dl class="kv">
+      {% for key, value in commit.training_info | dictsort %}
+      {% if key != 'metrics' %}
+      <dt>{{ key }}</dt>
+      <dd>{{ value }}</dd>
+      {% endif %}
+      {% endfor %}
+    </dl>
+    {% if commit.training_info.metrics %}
+    <h3 style="font-size:0.875rem;margin:18px 0 8px">Metrics</h3>
+    <dl class="kv">
+      {% for key, value in commit.training_info.metrics | dictsort %}
+      <dt>{{ key }}</dt>
+      <dd class="num" style="text-align:left">{{ value }}</dd>
+      {% endfor %}
+    </dl>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

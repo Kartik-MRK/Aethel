@@ -17,9 +17,19 @@ dependencies = [
     "rich>=13.7,<15.0",
     "PyYAML>=6.0,<7.0",
     "huggingface-hub>=0.26,<1.0",
+    # `aethel push` talks to the Hub. Base, not an extra: publishing is part of
+    # the VCS, and httpx is pure Python with no build step.
+    "httpx>=0.27,<1.0",
 ]
 
 [project.optional-dependencies]
+# Running the Hub server. A client only needs the base install, so a demo
+# machine that just pushes never installs FastAPI.
+hub = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn>=0.30,<1.0",
+    "jinja2>=3.1,<4.0",
+]
 ml = [
     "torch>=2.2,<3.0",
     # >=4.46 required: Trainer(processing_class=...) replaced tokenizer=
@@ -45,7 +55,7 @@ aethel = "aethel.main:app"
 # Explicit include so aethel.core ships. A bare find_packages() combined with
 # a missing aethel/core/__init__.py silently excluded the core package from
 # installs.
-include = ["aethel*"]
+include = ["aethel*", "hub*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

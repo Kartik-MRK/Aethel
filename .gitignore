@@ -8,6 +8,7 @@ __pycache__/
 datasets/
 imdb_dataset/
 .claude
+node_modules
 
 # C extensions
 *.so

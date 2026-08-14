@@ -7,7 +7,7 @@ every other offline command fail on a base install that has no ML stack.
 
 import typer
 
-from aethel.commands import branch, checkout, commit, fsck, init, log
+from aethel.commands import branch, checkout, commit, fsck, init, log, push
 
 app = typer.Typer(
     help="Aethel — version control and provenance for LoRA adapters.",
@@ -20,6 +20,7 @@ app.add_typer(commit.app, name="commit", help="Snapshot the workspace as a commi
 app.add_typer(branch.app, name="branch", help="List, create, or delete branches.")
 app.add_typer(checkout.app, name="checkout", help="Restore a branch or commit.")
 app.add_typer(log.app, name="log", help="Show commit history.")
+app.add_typer(push.app, name="push", help="Publish a branch to a Hub.")
 app.add_typer(fsck.app, name="fsck", help="Verify repository integrity.")
 
 

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% set nav = 'repos' %}
+{% block title %}Repositories — Aethel Hub{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Repositories</h1>
+  <p>Adapter versions published to this Hub, with their provenance log.</p>
+</div>
+
+{# Object counts are headline numbers, so they are stat tiles, not a bar chart. #}
+<section>
+  <div class="kpis">
+    <div class="tile">
+      <div class="tile-label">Repositories</div>
+      <div class="tile-value">{{ repos | length }}</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Commits</div>
+      <div class="tile-value">{{ counts.get('commits', 0) }}</div>
+      <div class="tile-sub">versioned adapters</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Stored blobs</div>
+      <div class="tile-value">{{ counts.get('blobs', 0) }}</div>
+      <div class="tile-sub">deduplicated by content</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Base models</div>
+      <div class="tile-value">{{ counts.get('bases', 0) }}</div>
+      <div class="tile-sub">referenced, not stored</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Log entries</div>
+      <div class="tile-value">{{ log_size }}</div>
+      <div class="tile-sub">append-only</div>
+    </div>
+  </div>
+</section>
+
+{% if log_root %}
+<section>
+  <div class="banner good">
+    <strong>Transparency log root</strong><br>
+    <span class="hash">{{ log_root }}</span>
+    <div class="footnote">
+      Merkle root over all {{ log_size }} logged commit{{ '' if log_size == 1 else 's' }}.
+      Publishing this root to a public chain is what makes the history
+      unalterable — including by whoever runs this Hub.
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h2>Published repositories</h2>
+  {% if repos %}
+  <div class="repo-grid">
+    {% for repo in repos %}
+    <a class="repo-card" href="/r/{{ repo.name }}">
+      <div class="repo-name">{{ repo.name }}</div>
+      <div class="repo-meta">
+        <span>{{ repo.commit_count }} version{{ '' if repo.commit_count == 1 else 's' }}</span>
+        <span>{{ repo.branch_count }} branch{{ '' if repo.branch_count == 1 else 'es' }}</span>
+        {% if repo.latest_accuracy is not none %}
+        <span>{{ '%.1f' | format(repo.latest_accuracy * 100) }}% accuracy</span>
+        {% endif %}
+      </div>
+      {% if repo.updated_at %}
+      <div class="footnote">Updated {{ repo.updated_at }}</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card empty">
+    <strong>Nothing published yet</strong>
+    Push a repository from the CLI:
+    <div style="margin-top:10px"><code>aethel push --remote http://localhost:8000 --repo my-model</code></div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
