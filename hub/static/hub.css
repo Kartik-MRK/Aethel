@@ -1,0 +1,422 @@
+/* Aethel Hub — design tokens and layout.
+ *
+ * Palette values come from the validated reference instance. The three
+ * categorical slots used here (blue / orange / aqua) were checked with the
+ * data-viz validator under --pairs all in BOTH modes and pass every gate:
+ *
+ *   light  worst-pair CVD ΔE 9.2 (deutan) · normal-vision 24.0
+ *   dark   worst-pair CVD ΔE 9.4 (deutan) · normal-vision 20.9
+ *
+ * The light-mode aqua measures 2.74:1 against the light surface, below the 3:1
+ * bar, so the "relief rule" applies: every value it encodes is ALSO carried by
+ * a visible direct label and by the table view. Colour never carries a value
+ * alone anywhere on these pages.
+ *
+ * Dark values are declared under both the media query and the [data-theme]
+ * scope so an explicit toggle wins in both directions, and no colour has its
+ * only definition inside a conditional block.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* surfaces & ink */
+  --surface-1: #fcfcfb;
+  --page: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --success-text: #006300;
+
+  /* categorical slots (fixed order — never cycled, never rank-assigned) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+
+  /* sequential ramp (blue), for magnitude */
+  --seq-250: #86b6ef;
+  --seq-450: #2a78d6;
+  --seq-600: #184f95;
+
+  /* status — reserved, never reused as a series colour */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --success-text: #0ca30c;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+
+    --seq-250: #86b6ef;
+    --seq-450: #3987e5;
+    --seq-600: #184f95;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --page: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --success-text: #0ca30c;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+
+  --seq-250: #86b6ef;
+  --seq-450: #3987e5;
+  --seq-600: #184f95;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--series-1); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code, .mono { font-family: var(--mono); font-size: 0.875em; }
+
+/* ---------- layout ---------- */
+
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 24px 72px; }
+
+.topbar {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.brand {
+  font-weight: 650;
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.brand span { color: var(--text-muted); font-weight: 400; }
+.topnav { display: flex; gap: 18px; margin-left: auto; flex-wrap: wrap; }
+.topnav a { color: var(--text-secondary); font-size: 0.875rem; }
+.topnav a[aria-current="page"] { color: var(--text-primary); font-weight: 550; }
+
+.page-head { padding: 36px 0 24px; }
+.page-head h1 {
+  margin: 0 0 6px;
+  font-size: 1.625rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.page-head p { margin: 0; color: var(--text-secondary); font-size: 0.9375rem; }
+
+.crumb { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 10px; }
+
+section { margin-top: 32px; }
+section > h2 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.section-note {
+  margin: -8px 0 14px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- cards ---------- */
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+/* ---------- stat tiles ----------
+ * Per the form heuristic: a single headline value is a stat tile, never a
+ * one-bar chart. Values use proportional figures — tabular-nums makes a large
+ * standalone number look loose. */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+}
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.tile-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.tile-value {
+  font-size: 1.75rem;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.tile-value.muted { color: var(--text-muted); font-weight: 500; }
+.tile-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+.hero-figure {
+  font-size: 3rem;
+  font-weight: 640;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* ---------- tables ----------
+ * Every chart on these pages has a table twin. tabular-nums here is correct:
+ * these are columns that must align vertically. */
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+th {
+  text-align: left;
+  font-weight: 550;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--gridline);
+  vertical-align: top;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- chart ---------- */
+
+.chart-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 20px 12px;
+}
+.chart-head { margin-bottom: 4px; }
+.chart-title { font-size: 0.9375rem; font-weight: 600; }
+.chart-sub { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px; }
+
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.legend-item { display: flex; align-items: center; gap: 7px; }
+.legend-key {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--series-1);
+  flex: none;
+}
+.legend-key.dot { width: 9px; height: 9px; border-radius: 50%; }
+
+/* SVG chart internals: hairline, solid, recessive grid — never dashed */
+.grid-line { stroke: var(--gridline); stroke-width: 1; }
+.axis-line { stroke: var(--baseline); stroke-width: 1; }
+.axis-text {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+}
+.series-line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.series-area { fill: var(--series-1); opacity: 0.1; }
+/* 2px surface ring keeps markers legible where they overlap the line */
+.series-dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+.point-label {
+  fill: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+}
+/* Hit target is far larger than the 8px mark — a pinpoint dot is unhittable */
+.hit { fill: transparent; cursor: pointer; }
+.hit:hover ~ .hover-layer,
+.hit:focus-visible ~ .hover-layer { opacity: 1; }
+.hit:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+.empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.empty strong { color: var(--text-primary); display: block; margin-bottom: 4px; }
+
+/* ---------- status pills ----------
+ * A status colour never carries meaning alone: every pill pairs a glyph with a
+ * text label, which is the documented mitigation for the two light-mode status
+ * colours that sit below 3:1. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 550;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.pill-glyph { font-size: 0.8125rem; line-height: 1; }
+.pill.good { color: var(--success-text); background: color-mix(in srgb, var(--status-good) 12%, transparent); }
+.pill.warning { color: var(--text-primary); background: color-mix(in srgb, var(--status-warning) 20%, transparent); }
+.pill.serious { color: var(--text-primary); background: color-mix(in srgb, var(--status-serious) 20%, transparent); }
+.pill.critical { color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 14%, transparent); }
+.pill.neutral { color: var(--text-secondary); background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
+
+/* ---------- misc ---------- */
+
+.hash {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.hash-strong { font-family: var(--mono); color: var(--text-primary); }
+
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; font-size: 0.875rem; }
+.kv dt { color: var(--text-secondary); }
+.kv dd { margin: 0; word-break: break-all; }
+
+.repo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.repo-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: block;
+  color: inherit;
+}
+.repo-card:hover { border-color: var(--series-1); text-decoration: none; }
+.repo-name { font-weight: 600; font-size: 1rem; margin-bottom: 10px; }
+.repo-meta { display: flex; gap: 14px; font-size: 0.8125rem; color: var(--text-secondary); flex-wrap: wrap; }
+
+.banner {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warning);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+}
+.banner.critical { border-left-color: var(--status-critical); }
+.banner.good { border-left-color: var(--status-good); }
+.banner strong { color: var(--text-primary); }
+
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+
+.btn {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.btn:hover { color: var(--text-primary); border-color: var(--baseline); }
+.btn[aria-pressed="true"] { color: var(--text-primary); border-color: var(--series-1); }
+
+.footnote { margin-top: 10px; font-size: 0.75rem; color: var(--text-muted); }
+
+.dag-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--series-1);
+  margin-right: 8px;
+  flex: none;
+}
+.dag-mark.root { background: var(--surface-1); border: 2px solid var(--series-1); }
+.dag-cell { display: flex; align-items: baseline; }
+
+@media (max-width: 640px) {
+  .shell { padding: 0 16px 56px; }
+  .topbar-inner { padding: 12px 16px; }
+  .hero-figure { font-size: 2.25rem; }
+}
+
+@media print {
+  .topbar, .toolbar, .btn { display: none; }
+  body { background: #fff; }
+  .card, .tile, .chart-card { break-inside: avoid; }
+}
