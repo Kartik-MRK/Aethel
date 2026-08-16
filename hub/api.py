@@ -12,7 +12,6 @@ so multipart would add a parsing dependency and a filename field that must be
 ignored anyway.
 """
 
-import json
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -186,9 +185,11 @@ async def update_ref(
     The ref moves only after every object it reaches is present, so a published
     branch can never point at something a client cannot fetch.
 
-    Ancestors are logged oldest-first so log order matches commit order. Since
-    `append` is idempotent, re-pushing a branch adds only the genuinely new
-    commits and leaves the root unchanged when there are none.
+    Ancestors are logged oldest-first so log order matches commit order. The
+    append is idempotent, so re-pushing a branch adds only the genuinely new
+    commits and leaves the root unchanged when there are none -- `logged_indices`
+    reports where the whole history sits, `appended_indices` only what this call
+    created.
     """
     branch = payload.get("branch")
     commit_hash = payload.get("commit")
@@ -207,10 +208,11 @@ async def update_ref(
     except AethelError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    logged: list[int] = []
-    for commit in reversed(history):
-        entry = log.append(commit["hash"], repo=repo_name, accepted_at=_now())
-        logged.append(entry.index)
+    logged = log.append_many(
+        [commit["hash"] for commit in reversed(history)],
+        repo=repo_name,
+        accepted_at=_now(),
+    )
 
     try:
         record = storage.set_branch(repo_name, branch, digest)
@@ -221,7 +223,8 @@ async def update_ref(
         "repo": repo_name,
         "branch": branch,
         "commit": digest,
-        "logged_indices": logged,
+        "logged_indices": logged.indices,
+        "appended_indices": logged.added,
         "log_size": log.size(),
         "root": log.root(),
         "branches": record.branches,
@@ -260,9 +263,14 @@ async def get_repo_commits(
     if record is None:
         raise HTTPException(status_code=404, detail=f"No repository '{repo_name}'.")
 
-    targets = {branch: record.branches[branch]} if branch else record.branches
-    if branch and branch not in record.branches:
-        raise HTTPException(status_code=404, detail=f"No branch '{branch}'.")
+    targets = record.branches
+    if branch is not None:
+        # Checked before the lookup: indexing first turns an unknown branch
+        # into a KeyError and a 500, which reads as a broken Hub rather than a
+        # bad request.
+        if branch not in record.branches:
+            raise HTTPException(status_code=404, detail=f"No branch '{branch}'.")
+        targets = {branch: record.branches[branch]}
 
     seen: set[str] = set()
     commits: list[dict] = []

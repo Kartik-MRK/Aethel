@@ -275,6 +275,16 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
 }
 .legend-key.dot { width: 9px; height: 9px; border-radius: 50%; }
 
+/* The chart is authored at a fixed viewBox and scaled uniformly to whatever
+ * width it is given. `height: auto` is what makes that work: with an explicit
+ * height, preserveAspectRatio fits to the shorter axis and leaves the plot
+ * floating in empty space on wide screens. */
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* SVG chart internals: hairline, solid, recessive grid — never dashed */
 .grid-line { stroke: var(--gridline); stroke-width: 1; }
 .axis-line { stroke: var(--baseline); stroke-width: 1; }

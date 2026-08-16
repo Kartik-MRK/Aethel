@@ -15,18 +15,23 @@ aethel branch emotion                          # branch off to a new task
 aethel checkout emotion
 aethel log                                     # history with accuracy per commit
 aethel fsck                                    # verify every object's integrity
+aethel push                                    # publish the branch to a Hub
 ```
 
 ## Install
 
 The version-control core is pure standard library — no PyTorch needed to
-inspect, branch, or verify a repository:
+inspect, branch, verify, or publish a repository:
 
 ```bash
-pip install -e .            # CLI + object store
+pip install -e .            # CLI + object store + push
 pip install -e ".[ml]"      # adds torch/transformers/peft for `aethel train`
+pip install -e ".[hub]"     # adds fastapi/uvicorn/jinja2 to *run* a Hub
 pip install -e ".[dev]"     # pytest + ruff
 ```
+
+`[hub]` is only needed on the machine serving the Hub. Pushing to one needs
+nothing beyond the base install.
 
 `bitsandbytes` is a separate `[gpu]` extra: it is CUDA-only and breaks CPU and
 macOS installs.
@@ -89,6 +94,53 @@ $ aethel fsck
 Repository integrity check FAILED.
 ```
 
+### Publishing: the Hub and its transparency log
+
+`aethel push` publishes a branch to a Hub — a small FastAPI server with its own
+content-addressed store, a dashboard, and an **append-only Merkle transparency
+log** of every commit it has accepted.
+
+```bash
+python -m hub                      # serve on 0.0.0.0:8000
+aethel push --repo sentiment       # publish the current branch
+```
+
+Four properties make a push safe to trust:
+
+- **The client names the hash; the server verifies it.** An upload is addressed
+  by the hash the client computed, the Hub recomputes it from the bytes it
+  actually received, and the client re-checks the hash the Hub echoes back. No
+  step trusts the network.
+- **The delta is decided by the server.** The client offers what it holds and
+  the Hub answers with what it lacks, so a Hub that lost an object re-acquires
+  it on the next push instead of staying quietly incomplete.
+- **Dependencies upload first, the branch ref moves last.** Blobs, trees, bases,
+  then commits oldest-first. An interrupted push leaves a Hub missing objects —
+  retryable — never a published branch pointing at objects nobody can fetch.
+- **Accepted commits become log leaves, in acceptance order.** The Merkle root
+  over those leaves is the Hub's commitment to its own history. Anyone can ask
+  for an inclusion proof and recompute the root themselves; the Hub is not
+  consulted in that check.
+
+```console
+$ curl -s localhost:8000/api/v1/log | jq '{size, root}'
+{ "size": 3, "root": "1f8c…" }
+
+$ curl -s localhost:8000/api/v1/log/proof/<commit-hash>
+{ "commit_hash": "…", "leaf_index": 1, "log_size": 3, "root": "1f8c…",
+  "proof": [ { "sibling": "…", "side": "left" }, … ] }
+```
+
+The dashboard serves `/` (repositories), `/r/<repo>` (commit DAG, accuracy per
+commit, patch download), `/c/<hash>` (one commit with its inclusion proof), and
+`/ops` (per-subsystem health, including a live check that the recomputed root
+still matches the last anchored one).
+
+Everything is configuration, never a hard-coded host: `AETHEL_HUB_URL`,
+`AETHEL_HUB_DATA`, `AETHEL_HUB_HOST`, `AETHEL_HUB_PORT`, and `AETHEL_HUB_TOKEN`
+(set it to require a token on every write; unset means an open Hub, which the
+ops board reports rather than hides).
+
 ### Safety behaviours worth knowing
 
 - **Commits are blocked on a detached HEAD.** Stricter than Git, which only
@@ -104,27 +156,37 @@ Repository integrity check FAILED.
 ## Development
 
 ```bash
-pytest tests/ -q                    # 200 tests, no GPU or network required
+pytest tests/ -q                    # 351 tests, no GPU or network required
 pytest tests/ --cov=aethel.core     # 96% core coverage
-ruff check aethel/ tests/
+ruff check .
 ```
 
-The test suite runs without the `[ml]` extra: the core is pure stdlib, so CI
-finishes in seconds.
+No test touches the network: the Hub's tests run the ASGI application
+in-process, so a push is exercised end to end without a socket. The VCS core
+needs no `[ml]` extra and the whole suite finishes in seconds.
+
+CI runs two jobs. `core` installs only `[dev]` on Python 3.10–3.13, which fails
+if the core ever grows a dependency on torch or fastapi. `hub` installs
+`[dev,hub]`, asserts the Hub imports, then runs the same suite — without that
+job the Hub's tests would skip on every run and a broken Hub could stay green.
 
 ## Status
 
 Working today: `init`, `train`, `commit`, `branch`, `checkout`, `log`,
-`status`, `fsck`. Local, single-user repositories.
+`status`, `fsck`, `push` · a Hub with a REST API, a server-rendered dashboard,
+an ops health board, and an append-only Merkle transparency log serving
+inclusion proofs.
 
-Planned, in order: adapter `diff` and `merge` (task arithmetic, TIES, DARE) ·
-Ed25519 commit signing · dataset fingerprinting · a Hub with an append-only
-Merkle transparency log · anchoring that log's root to a public testnet so a
-model's recorded history cannot be rewritten, even by whoever runs the Hub.
+Planned, in order: anchoring the log's root to a public testnet so a model's
+recorded history cannot be rewritten even by whoever runs the Hub, with a
+browser verification page that recomputes the root client-side · a Pinata
+mirror of patch blobs (address only — integrity always comes from
+`blob_sha256`) · adapter `diff` and `merge` (task arithmetic, TIES, DARE) ·
+Ed25519 commit signing · dataset fingerprinting.
 
-The Merkle tree in `aethel/core/aggregator.py` is the foundation for that last
-step. It is implemented and tested — including second-preimage resistance via
-RFC 6962 domain separation — but is not yet wired into the commit pipeline.
+The Merkle tree in `aethel/core/aggregator.py` is what the Hub's log is built
+on: it is the same code the chain layer will anchor, and it is tested for
+second-preimage resistance via RFC 6962 domain separation.
 
 ## Documentation
 

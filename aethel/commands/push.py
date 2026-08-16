@@ -172,9 +172,14 @@ def run_push(
     console.print(f"[cyan]{name}/{target_branch}[/cyan] → {short(tip)}")
 
     logged = result.get("logged_indices") or []
+    appended = result.get("appended_indices")
+    # Older Hubs did not distinguish new leaves from existing ones. Fall back to
+    # saying nothing about newness rather than claiming a re-push appended.
+    detail = (
+        f" ({len(appended)} new)" if isinstance(appended, list) else f" ({len(logged)} from here)"
+    )
     console.print(
-        f"[cyan]Transparency log:[/cyan] {result.get('log_size', '?')} leaves"
-        f" ({len(logged)} appended this push)"
+        f"[cyan]Transparency log:[/cyan] {result.get('log_size', '?')} leaves{detail}"
     )
     if result.get("root"):
         console.print(f"[cyan]Log root:[/cyan] [dim]{result['root']}[/dim]")

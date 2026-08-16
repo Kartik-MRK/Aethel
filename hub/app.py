@@ -88,9 +88,6 @@ def create_app(config: HubConfig | None = None) -> FastAPI:
     return app
 
 
-app = create_app() if os.environ.get("AETHEL_HUB_EAGER") else None
-
-
 def main() -> None:
     """Entry point for `python -m hub`."""
     import uvicorn
@@ -106,5 +103,11 @@ def main() -> None:
 
 
 def build() -> FastAPI:
-    """Factory reference for uvicorn's `--factory` mode."""
+    """Factory reference for uvicorn's `--factory` mode.
+
+    The server is started through a factory rather than a module-level `app`
+    object so that importing this module never opens a data directory. A test
+    that wants an app calls `create_app(config)` with a temporary path, and
+    nothing it does can touch a real Hub's store.
+    """
     return create_app()
