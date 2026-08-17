@@ -67,8 +67,7 @@
     </div>
 
     {% set g = series.geometry %}
-    <svg viewBox="0 0 {{ series.chart.width }} {{ series.chart.height }}"
-         width="100%" height="{{ series.chart.height }}"
+    <svg class="chart-svg" viewBox="0 0 {{ series.chart.width }} {{ series.chart.height }}"
          role="img"
          aria-label="Line chart of evaluation accuracy per commit. Values are also listed in the table below.">
 

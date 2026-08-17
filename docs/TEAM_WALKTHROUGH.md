@@ -11,22 +11,29 @@ Read alongside `docs/PROJECT_PLAN.md`
 We audited the prototype, found a bug that silently returned the **wrong
 commit**, and rebuilt the storage layer so that bug cannot exist. Along the
 way we found a second, separate security flaw in the Merkle tree that would
-have broken the blockchain layer before we ever built it.
+have broken the blockchain layer before we ever built it. On top of that core we
+built the publishing layer: `aethel push`, a Hub that serves patches, and the
+append-only Merkle transparency log the chain will anchor.
 
 | | Before | After |
 |---|---|---|
-| Tests | **0** | **200** |
+| Tests | **0** | **351** |
 | Core coverage | 0% | **96%** |
-| Linter | none | ruff, clean |
-| CI | none | GitHub Actions, 4 Python versions |
+| Hub + remote coverage | — | **87%** |
+| Linter | none | ruff, clean across the whole tree |
+| CI | none | GitHub Actions, 4 Python versions + a Hub job |
 | Known data-corruption bugs | 1 (documented, unfixed) | 0 |
 | Dead code | ~340 lines | 0 |
 | Dependencies pinned | 0 of 13 | all |
 | Can the CLI run without PyTorch? | no | yes |
 | Is the repo portable? | claimed, false | true, tested |
+| Can a commit be published and proven? | no | yes — Hub + inclusion proofs |
 
-Net: **692 insertions, 1792 deletions** across tracked files, plus 16 new
-files. We deleted more than we added. That is the point.
+The core rebuild was net **692 insertions, 1792 deletions** across tracked
+files, plus 16 new files: we deleted more than we added. The publishing layer
+then added ~2,100 lines of Hub, remote and CLI code, and ~1,760 lines of tests
+for it — a deliberate ratio, because the Hub is the part an outsider is asked to
+trust.
 
 ---
 
@@ -168,22 +175,41 @@ aethel/
     refs.py         HEAD + branches (244)
     repo.py         discovery + layout (142)
     commits.py      commit creation + history (228)
-    aggregator.py   Merkle transparency log (142)
+    aggregator.py   Merkle tree — now backs the Hub's log (142)
+
+  remote/     talking to a Hub. Hashes checked at both ends.
+    objects.py      branch -> push plan (115)
+    http.py         upload, negotiate, move a ref (302)
 
   commands/   thin CLI. Parses args, calls core, renders output.
     _common.py      error rendering boundary (68)
     init.py (133)  commit.py (77)  branch.py (115)
-    checkout.py (104)  log.py (140)  fsck.py (131)
+    checkout.py (104)  log.py (140)  fsck.py (131)  push.py (302)
     train.py (478)  <- the only file that needs torch
+
+hub/          the server. Needs the [hub] extra; nothing in aethel/ imports it.
+  config.py       env-driven config, no hard-coded hosts (107)
+  storage.py      the Hub's own object store + repo index (277)
+  log.py          the append-only transparency log (280)
+  api.py          REST API (557)
+  views.py        dashboard + ops board (401)
 ```
 
 **The rule that drives this:** core raises `AethelError` and never prints;
 `commands/_common.py` is the single place where errors become terminal output
 and exit codes.
 
-**Why it matters practically:** the whole VCS is testable with no GPU, no
-model download, and no network. 200 tests run in **2.2 seconds**. That is why
-we can afford to run them on every push.
+**The second rule, added with the Hub:** the dependency arrow points one way.
+`hub/` imports from `aethel.core`; nothing in `aethel/` imports from `hub/`.
+That is what lets the Hub reuse the same hashing, the same Merkle tree and the
+same commit format as the client, while the client stays installable without a
+web framework.
+
+**Why it matters practically:** the whole VCS *and its publishing path* are
+testable with no GPU, no model download, and no network. 351 tests run in
+**~6 seconds**, including full pushes — the Hub's tests drive the ASGI app
+in-process instead of over a socket. That is why we can afford to run them on
+every push.
 
 ---
 
@@ -325,7 +351,7 @@ them **verbatim**:
 |---|---|---|
 | HF revision pinning | `init.py:37-47` | Pins the immutable SHA, not a tag. Tags move; SHAs don't. Production ML often gets this wrong. |
 | Detached-HEAD guard | `commit.py:315-329` | Blocks instead of warning. Stricter than Git, and correct. |
-| LoRA target inference | `train.py:242-264` | Priority list + `nn.Linear` scan makes the trainer architecture-agnostic. |
+| LoRA target inference | `train.py:248-270` | Priority list + `nn.Linear` scan makes the trainer architecture-agnostic. |
 | Canonical JSON hashing | `commit.py:302` | `sort_keys=True` + compact separators. Deterministic. |
 | Merkle odd-node promotion | `aggregator.py` | Avoids CVE-2012-2459. |
 | Exception-per-module | all commands | Clean error boundaries; we generalized it. |
@@ -335,26 +361,149 @@ six of previous decisions were good enough to keep untouched.
 
 ---
 
-## 7. Verify it yourself
+## 7. The publishing layer
+
+This is the part built on top of the rebuilt core, and the part that gives the
+chain something to anchor. Three pieces: `aethel push`, the Hub, and the log.
+
+### 7.1 Why the Hub has to exist before the chain
+
+On a single-user local tool, a blockchain loses the argument to "why not just a
+database?" — there is no untrusted party, so there is nothing to prove to
+anyone. A hosted Hub has an operator who *can* rewrite published lineage. The
+Hub is what creates the adversary the chain defends against. Build it in the
+other order and the anchoring looks decorative, because it is.
+
+### 7.2 The push protocol, and why each step is where it is
+
+```
+1. plan       walk the branch locally; verify every object exists
+2. negotiate  ask the Hub what it lacks
+3. upload     blobs -> trees -> bases -> commits (oldest first)
+4. move ref   last, and only after the Hub re-walks the history
+```
+
+**Planning happens before the first byte leaves the machine.** A push that
+cannot be completed fails locally with the missing object named, rather than
+half-way through, leaving a remote in a state someone has to reason about.
+
+**The server decides the delta, not the client.** The client offers what it
+holds; the Hub answers with what it is missing. The obvious alternative — the
+client remembering what it pushed last time — is wrong in a specific way: a Hub
+that lost an object would stay quietly incomplete forever, because the client
+would never offer it again. `test_an_object_the_hub_lost_is_re_uploaded` deletes
+a blob from the Hub's store and pushes again to pin exactly that.
+
+**Dependency order is not cosmetic.** Every object references only objects sent
+earlier. So an interrupted push leaves a Hub missing objects — retryable — never
+a Hub holding a commit that points into nothing. It is the same reasoning as the
+local commit path: objects first, refs last.
+
+**The ref update doubles as the completeness check.** `POST .../refs` re-walks
+the commit's entire ancestry in the Hub's own store and returns 409 if anything
+is absent. A published branch therefore cannot point at something a client
+cannot fetch. `test_the_ref_moves_only_after_every_object_is_present` posts a ref
+with nothing uploaded and asserts the 409, no repo created, log size still zero.
+
+### 7.3 Hashes are verified at both ends
+
+Uploads are addressed by the hash the client computed. The Hub recomputes it
+from the bytes it actually received and rejects a mismatch with 422. Then the
+client re-checks the hash the Hub echoed back.
+
+That last check sounds redundant and is not. It catches a remote that stores
+something other than what it was sent — accidentally or otherwise. The test for
+it patches `HubClient._request` so the real upload still happens and only the
+*acknowledgement* is forged, then asserts the push fails. A test that merely
+called the verifier with a bad value would prove the verifier works; this one
+proves it is actually wired into the path.
+
+**Bytes are uploaded verbatim, never re-serialized.** A tree or commit is sent
+as the exact bytes on disk. Re-serializing anywhere — client or server — could
+reorder keys, change the hash, and break every proof downstream. The rule is
+easy to state and easy to violate by accident, which is why it is a rule.
+
+### 7.4 The transparency log
+
+Every commit the Hub accepts becomes a leaf, in acceptance order, in
+`log.jsonl`. The Merkle root over those leaves is the Hub's commitment to its
+own history.
+
+Four decisions worth defending:
+
+- **Append-only is structural.** `hub/log.py` has exactly one mutating
+  operation. There is no update and no delete in the module, so the property
+  holds because there is no code path that could break it — not because we chose
+  not to call one.
+- **The file is the truth; the tree is derived.** The log is JSONL, readable with
+  `cat`, and the tree is recomputed from it on every read. A stale cache in a
+  provenance system is worse than re-reading a small file.
+- **Leaves are commit hashes.** A commit hash already commits to the whole
+  commit body, so hashing the hash is enough and leaves stay fixed-width.
+- **A re-push must not move the root.** Appending an already-logged commit
+  resolves to its existing leaf. The API reports `logged_indices` (where the
+  history sits) separately from `appended_indices` (what this call created), so
+  an idempotent sync can't be misread as a change.
+
+The log is currently **global** — keyed by commit hash across all repos — so two
+repositories that push byte-identical commits share one leaf, and `repo` records
+which one got there first. That is a real design decision with a consequence for
+the contract, and §9 lists it as open.
+
+### 7.5 What the tests actually cover
+
+151 tests across the three files, and the ones worth knowing about are the
+negative ones: a Hub with no token accepting a push, a wrong token being
+refused, a detached HEAD refused with the Hub left completely empty, `--dry-run`
+uploading nothing *and* not writing the repo name to config, a proof that
+verifies against a tampered root failing, and a malformed proof returning False
+rather than raising a 500.
+
+The Hub's tests run the ASGI app in-process. `httpx.ASGITransport` cannot back a
+synchronous client — it only implements `handle_async_request` — so the seam is
+`httpx.Client` monkeypatched to return a `TestClient` over the app. One
+`TestClient` is entered as a context manager to run the lifespan, which is what
+populates `app.state`.
+
+**The skip trap, and why CI has two jobs.** Those tests skip themselves when
+FastAPI is absent, so a client-only install stays green. CI was installing only
+`[dev]` — which meant **107 tests were silently skipping on every run**, and a
+completely broken Hub would have shown a green tick. Measured, not guessed: a
+meta-path finder that raises `ModuleNotFoundError` for `fastapi` reproduces the
+CI environment exactly. (`pytest.importorskip` only skips on
+`ModuleNotFoundError`; an `ImportError` raised inside a module body is
+re-raised, which is the correct behaviour and why a stub module does not
+simulate a missing package.) The `hub` job now installs `[dev,hub]` and asserts
+the Hub imports before running anything.
+
+---
+
+## 8. Verify it yourself
 
 ```bash
 cd /home/Capstone/Aethel
 
-pytest tests/ -q                       # 200 passed in ~2s
+pytest tests/ -q                       # 351 passed in ~6s
 pytest tests/ --cov=aethel.core        # 96%
-ruff check aethel/ tests/              # All checks passed
+ruff check .                           # All checks passed
 
 # CLI works with no PyTorch installed
 python3 -m aethel.main --help
+
+# and a full push, with no network, in-process
+pytest tests/test_push.py -q
 ```
 
 Test breakdown:
 
 | File | Tests | Covers |
 |---|---|---|
+| `test_hub_api.py` | 82 | Upload, negotiate, refs, reads, log endpoints, auth, health |
 | `test_core_refs.py` | 52 | HEAD, branches, name validation, traversal |
+| `test_push.py` | 41 | Plan, round trips, refusals, client-side hash verification |
 | `test_core_merkle.py` | 29 | Second-preimage, proofs, tamper detection |
 | `test_core_objects.py` | 29 | Store, dedup, integrity, trees |
+| `test_hub_log.py` | 28 | Append-only behaviour, idempotence, proofs, anchors |
 | `test_core_hashing.py` | 24 | Canonical JSON, SHA-256 |
 | `test_core_commits.py` | 23 | Creation, lineage, determinism |
 | `test_core_atomic.py` | 18 | Crash safety, locking, concurrency |
@@ -366,25 +515,36 @@ the rebuild and run `test_s1_corruption.py` against it.
 
 ---
 
-## 8. Still open
+## 9. Still open
 
 Be honest about these — a panel will find them.
 
-1. **S2.4 — task type by exception.** `train.py:221-239` still tries
+1. **S2.4 — task type by exception.** `train.py:229-246` still tries
    `AutoModelForCausalLM` and falls back to `SequenceClassification` on *any*
    error. A causal model fed a classification CSV trains on garbage. Should
    come from config.
 2. **No real eval yet.** `log` displays accuracy, but nothing computes it —
    Shravan's `aethel/ml/eval.py` is the missing piece.
-3. **`train.py` is untested** (478 lines). It needs torch, so it sits outside
+3. **`train.py` is untested** (477 lines). It needs torch, so it sits outside
    the fast suite. Needs its own marked test file.
-4. **No `diff`, no `merge`, no Hub, no chain.** All planned, none built.
-5. **Base object is minimal.** Only `model_id` + `revision_sha`; the plan also
+4. **Nothing anchors the log yet.** The log is honest about this: `/ops` reports
+   "never anchored" rather than implying a guarantee. Until the root is pinned
+   outside the Hub, the log proves inclusion, not that the operator never
+   rewrote the whole thing.
+5. **Global vs per-repo log.** The log is keyed by commit hash across all repos,
+   but the planned contract has `mapping(bytes32 repoId => Batch[])` — per-repo
+   roots. Either anchor the global log under one hub-wide `repoId`, or key
+   leaves by `(repo, commit)`. **Decide before writing the contract**, not
+   after; it changes what a proof means.
+6. **No `pull`/`clone`.** Publishing works; fetching a published patch back into
+   a fresh repository is not built. The API serves everything needed for it.
+7. **No `diff`, no `merge`, no chain, no IPFS mirror.** Planned, none built.
+8. **Base object is minimal.** Only `model_id` + `revision_sha`; the plan also
    calls for `config_sha256` and `tokenizer_sha256`.
 
 ---
 
-## 9. Next month
+## 10. Next month
 
 ### Weeks 1-2 → the review
 
@@ -394,19 +554,22 @@ Be honest about these — a panel will find them.
 | Karthik | `aethel diff <a> <b>` — per-layer ΔW norms, cosine similarity, prediction flips on the eval set |
 | Karthik | Fix S2.4: task type from YAML config |
 | Aadya | Extend the base object with `config_sha256` + `tokenizer_sha256`; `aethel base verify` |
-| Sathwik | Hub skeleton (FastAPI) + dashboard: commit DAG, metrics, patch download |
-| Sathwik | Wire `aggregator.py` into the Hub as the append-only log; serve inclusion proofs |
-| Sathwik | Pinata account + Sepolia deployer wallet **now**, not demo week |
+| Sathwik | Decide global vs per-repo log keying, then `AethelAnchor` on Sepolia |
+| Sathwik | `aethel anchor` — batch the root, record block number and confirmations |
+| Sathwik | Verification page: recompute the root client-side against the on-chain value |
+| Sathwik | Pinata mirror: record `ipfs_cid` alongside `blob_sha256` |
 | Everyone | Rehearse the demo twice on the actual demo PCs |
+
+Done already: the Hub, the dashboard, `/ops`, `aethel push`, and the
+transparency log with inclusion proofs.
 
 ### Weeks 3-4 → after the review
 
-- `AethelAnchor` Solidity contract, Etherscan-verified on Sepolia
-- Verification page, running **client-side** against a public RPC
-- The attack demo: tamper the Hub's log → verification fails
+- `aethel pull` / `clone` over the same API
+- The attack demo, end to end: tamper the Hub's log → `/ops` goes critical →
+  verification page fails
 - `aethel merge` (task arithmetic, TIES, DARE) + merged-vs-parent accuracy table
 - Ed25519 commit signing; dataset fingerprinting
-- `/ops` health dashboard
 
 **Order matters:** Hub before chain. On a single-user local tool a blockchain
 loses to "why not just a database?" — there's no untrusted party. The Hub
@@ -415,7 +578,7 @@ makes anchoring load-bearing instead of decorative.
 
 ---
 
-## 10. The review
+## 11. The review
 
 ### Demo script
 
@@ -427,12 +590,15 @@ makes anchoring load-bearing instead of decorative.
 6. `aethel diff` between two adapters
 7. Branch / checkout time travel — three adapters, instant switching
 8. Copy `.aethel` elsewhere → full history, no database
-9. `push` → Hub dashboard, commit DAG
-10. Anchor → Sepolia → Etherscan link
-11. Verify page → **PASS**
-12. Tamper the Hub's log → verify page → **FAIL**
+9. `push` → Hub dashboard, commit DAG, accuracy per commit
+10. `push` again → nothing to upload, root unchanged (a sync, not an event)
+11. Delete an object from the Hub → push → it comes back
+12. Fetch an inclusion proof; recompute the root by hand
+13. Anchor → Sepolia → Etherscan link
+14. Verify page → **PASS**
+15. Tamper the Hub's log → `/ops` goes critical → verify page → **FAIL**
 
-Steps 11-12 are the thesis. Everything else is supporting evidence.
+Steps 14-15 are the thesis. Everything else is supporting evidence.
 
 ### Framing
 
@@ -454,6 +620,17 @@ That this commit record existed at this time and hasn't been altered since —
 even by us. It does **not** prove the weights really came from the claimed
 base or the data was what we say. We close that gap in software: dataset
 fingerprinting, seed pinning, Ed25519 signing.
+
+**"What stops the Hub from lying about a push?"**
+Nothing has to trust it. The hash is in the URL, the Hub recomputes it from the
+bytes it received, and the client re-checks the hash the Hub echoes back. The
+ref only moves after the Hub re-walks the history itself. And inclusion proofs
+are self-contained — verifying one never calls back to the Hub.
+
+**"Why does your log skip duplicates?"**
+Because a push is a sync, not an event. Pushing the same branch twice must not
+change the root, or the root would depend on how often someone ran a command
+rather than on what history exists.
 
 **"You used Pinata — a centralized service — for a decentralized system."**
 Content addressing makes the address host-independent. Anyone can re-pin the
@@ -483,7 +660,7 @@ for this question.
 
 ---
 
-## 11. Reading order for the team
+## 12. Reading order for the team
 
 Start with the smallest file that teaches the most:
 
@@ -491,8 +668,15 @@ Start with the smallest file that teaches the most:
 2. `aethel/core/atomic.py` (162) — the four-step write; the best interview answer in the repo
 3. `aethel/core/objects.py` (232) — where the corruption bug died
 4. `tests/test_s1_corruption.py` (167) — the bug, as executable proof
-5. `aethel/core/aggregator.py` (142) — the log we'll anchor; read the docstring first
+5. `aethel/core/aggregator.py` (142) — the tree we'll anchor; read the docstring first
 6. `aethel/core/refs.py` (244) — HEAD, branches, the detached-HEAD guard
+
+Then the publishing layer, in the order the data moves:
+
+7. `aethel/remote/objects.py` (115) — a branch becomes a push plan
+8. `aethel/commands/push.py` (302) — plan, negotiate, upload, move the ref
+9. `hub/log.py` (280) — the append-only log; the one mutating method
+10. `hub/api.py` (557) — every endpoint; read `update_ref` closely
 
 Then write `docs/design/<subsystem>.md` in your own words, without looking. If
 you can't, re-read. That check is the whole point.

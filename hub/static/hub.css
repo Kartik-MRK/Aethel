@@ -275,6 +275,16 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
 }
 .legend-key.dot { width: 9px; height: 9px; border-radius: 50%; }
 
+/* The chart is authored at a fixed viewBox and scaled uniformly to whatever
+ * width it is given. `height: auto` is what makes that work: with an explicit
+ * height, preserveAspectRatio fits to the shorter axis and leaves the plot
+ * floating in empty space on wide screens. */
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* SVG chart internals: hairline, solid, recessive grid — never dashed */
 .grid-line { stroke: var(--gridline); stroke-width: 1; }
 .axis-line { stroke: var(--baseline); stroke-width: 1; }
@@ -367,17 +377,26 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
 .repo-name { font-weight: 600; font-size: 1rem; margin-bottom: 10px; }
 .repo-meta { display: flex; gap: 14px; font-size: 0.8125rem; color: var(--text-secondary); flex-wrap: wrap; }
 
+/* Status is carried by a tint across the whole surface plus a border in the
+ * same hue, matching how .pill above reads. An accent bar down one edge would
+ * say the same thing louder and pull the eye to the border instead of the
+ * sentence, which on /ops is the part that matters. */
 .banner {
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--status-warning);
+  border: 1px solid color-mix(in srgb, var(--status-warning) 35%, var(--border));
   border-radius: var(--radius-sm);
   padding: 12px 16px;
   font-size: 0.875rem;
   color: var(--text-secondary);
-  background: var(--surface-1);
+  background: color-mix(in srgb, var(--status-warning) 8%, var(--surface-1));
 }
-.banner.critical { border-left-color: var(--status-critical); }
-.banner.good { border-left-color: var(--status-good); }
+.banner.critical {
+  border-color: color-mix(in srgb, var(--status-critical) 35%, var(--border));
+  background: color-mix(in srgb, var(--status-critical) 7%, var(--surface-1));
+}
+.banner.good {
+  border-color: color-mix(in srgb, var(--status-good) 30%, var(--border));
+  background: color-mix(in srgb, var(--status-good) 6%, var(--surface-1));
+}
 .banner strong { color: var(--text-primary); }
 
 .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }

@@ -5,13 +5,14 @@ on:
   pull_request:
 
 jobs:
-  test:
+  # The VCS core is pure stdlib. This job installs no fastapi and no torch, so
+  # it fails if the core ever grows a dependency on either -- and the Hub tests
+  # skip here by design.
+  core:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # The VCS core is pure stdlib, so it must work across supported
-        # Pythons without the ML stack installed.
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
@@ -21,13 +22,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install (base only — deliberately no torch)
+      - name: Install (base only — deliberately no torch, no fastapi)
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-
-      - name: Lint
-        run: ruff check aethel/ tests/
 
       - name: Test
         run: pytest tests/ -q
@@ -36,3 +34,33 @@ jobs:
         run: |
           pytest tests/ --cov=aethel.core --cov-report=term-missing \
             --cov-fail-under=80
+
+  # Without this job the Hub's tests would skip on every run and CI would stay
+  # green through a broken Hub -- a passing suite that proved nothing.
+  hub:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install with the Hub extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,hub]"
+
+      - name: Lint everything
+        run: ruff check .
+
+      # The Hub's tests skip themselves when fastapi is absent, which would let
+      # CI stay green through a Hub that does not even import. Asserting the
+      # import first means a broken extra fails here, loudly, instead of
+      # disappearing into a skip count.
+      - name: Confirm the Hub imports
+        run: python -c "import fastapi.testclient, httpx, jinja2, hub.app"
+
+      - name: Test
+        run: pytest tests/ -q

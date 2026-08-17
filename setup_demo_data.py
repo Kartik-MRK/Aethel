@@ -13,9 +13,9 @@ Datasets chosen for distilbert-base-uncased (sequence classification):
 Each dataset is saved as datasets/<name>/train.csv with columns: text, label
 """
 
+import csv
 import os
 import sys
-import csv
 
 
 def save_to_csv(rows: list[dict], output_path: str) -> int:

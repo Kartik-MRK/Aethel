@@ -28,6 +28,7 @@ entire point of anchoring.
 """
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,6 +66,25 @@ class LogEntry:
             repo=payload["repo"],
             accepted_at=payload["accepted_at"],
         )
+
+
+@dataclass(frozen=True)
+class AppendResult:
+    """The outcome of one batched append.
+
+    `entries` has one entry per requested commit, in the order requested, and
+    `added` lists only the leaf indices this call created. The distinction
+    matters because a re-push resolves every ancestor to an existing leaf and
+    adds nothing -- reporting those as "appended" would make an idempotent sync
+    look like it had changed the log.
+    """
+
+    entries: list["LogEntry"]
+    added: list[int]
+
+    @property
+    def indices(self) -> list[int]:
+        return [entry.index for entry in self.entries]
 
 
 class TransparencyLog:
@@ -139,51 +159,92 @@ class TransparencyLog:
 
         Exposed here so the ops board and the tests exercise exactly the same
         code path a browser-side verifier will.
+
+        A malformed step is False, not an exception: this runs on request bodies
+        from anyone, and "this proof does not verify" is the honest answer to a
+        proof that is not even shaped like one. Raising would turn junk input
+        into a 500 and make the Hub look broken instead of the proof.
         """
-        path = [(step["sibling"], step["side"]) for step in proof]
+        path = []
+        for step in proof:
+            if not isinstance(step, dict) or "sibling" not in step or "side" not in step:
+                return False
+            path.append((step["sibling"], step["side"]))
+
         return verify_proof(commit_hash, path, root)
 
     # -- appending (the only mutation in this module) -----------------------
 
     def append(self, commit_hash: str, repo: str, accepted_at: str) -> LogEntry:
-        """Add a commit to the log. Idempotent.
+        """Add one commit to the log. Idempotent.
 
         Re-pushing an already-logged commit returns its existing entry rather
         than adding a duplicate leaf: a push is a sync, and syncing twice must
         not change the root.
+        """
+        return self.append_many([commit_hash], repo=repo, accepted_at=accepted_at).entries[0]
+
+    def append_many(self, commit_hashes: list[str], repo: str, accepted_at: str) -> "AppendResult":
+        """Add a run of commits under a single lock, oldest first.
+
+        A push appends a commit's whole ancestry, and doing that one `append`
+        call at a time would re-read the entire log and re-take the lock for
+        every ancestor -- quadratic in log size, for no benefit. One lock, one
+        read, one write.
+
+        Order is the caller's: ancestors must be passed before descendants so
+        leaf indices follow history. The log itself does not know about parents,
+        which is deliberate -- it records the order commits were *accepted*, and
+        conflating that with lineage would make the log's meaning depend on the
+        commit format it is logging.
 
         Held under a lock because read-then-append is a race. Two concurrent
         pushes could otherwise compute the same next index and one would
         silently overwrite the other's leaf.
         """
-        digest = normalize_hash(commit_hash)
+        digests = [normalize_hash(commit_hash) for commit_hash in commit_hashes]
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
         with file_lock(self.path.with_suffix(".lock")):
             existing = self.entries()
+            by_hash = {entry.commit_hash: entry for entry in existing}
 
-            for entry in existing:
-                if entry.commit_hash == digest:
-                    return entry
+            resolved: list[LogEntry] = []
+            fresh: list[LogEntry] = []
+            next_index = len(existing)
 
-            entry = LogEntry(
-                index=len(existing),
-                commit_hash=digest,
-                repo=repo,
-                accepted_at=accepted_at,
-            )
+            for digest in digests:
+                known = by_hash.get(digest)
+                if known is not None:
+                    resolved.append(known)
+                    continue
 
-            # Append rather than rewrite: the file only ever grows, so a crash
-            # mid-write can lose the last line but never corrupt earlier ones.
-            with open(self.path, "a", encoding="utf-8") as handle:
-                handle.write(entry.to_json() + "\n")
-                handle.flush()
-                import os
+                entry = LogEntry(
+                    index=next_index,
+                    commit_hash=digest,
+                    repo=repo,
+                    accepted_at=accepted_at,
+                )
+                next_index += 1
 
-                os.fsync(handle.fileno())
+                # Recorded immediately so a batch containing the same commit
+                # twice cannot produce two leaves for it.
+                by_hash[digest] = entry
+                resolved.append(entry)
+                fresh.append(entry)
 
-            return entry
+            if fresh:
+                # Append rather than rewrite: the file only ever grows, so a
+                # crash mid-write can lose trailing lines but never corrupt
+                # earlier ones. One fsync covers the whole batch.
+                with open(self.path, "a", encoding="utf-8") as handle:
+                    for entry in fresh:
+                        handle.write(entry.to_json() + "\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+
+            return AppendResult(entries=resolved, added=[entry.index for entry in fresh])
 
 
 class AnchorStore:

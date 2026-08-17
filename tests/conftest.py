@@ -133,3 +133,97 @@ def stored_blob_count(repo_path: Path) -> int:
     from aethel.core.repo import Repo
 
     return len(list(Repo.discover(repo_path).objects.iter_hashes("blobs")))
+
+
+# ---------------------------------------------------------------------------
+# Hub fixtures
+#
+# The Hub is tested in-process: an ASGI app over a temporary data directory,
+# with no socket and no uvicorn. Everything above the transport -- hash
+# verification, auth, the log, the templates -- is the same code a real server
+# runs, and the parts a TCP stack would add are not what these tests are about.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def hub_config(tmp_path):
+    """Hub configuration pointed at a temporary directory.
+
+    Every environment-backed field is set explicitly. A developer with
+    AETHEL_CHAIN_RPC or AETHEL_HUB_TOKEN exported must not change what these
+    tests assert -- a suite whose results depend on the shell it was launched
+    from is not a suite.
+    """
+    from hub.config import HubConfig
+
+    return HubConfig(
+        data_dir=tmp_path / "hub-data",
+        host="127.0.0.1",
+        port=0,
+        max_blob_bytes=1024 * 1024,
+        push_token=None,
+        chain_rpc_url=None,
+        chain_id=None,
+        anchor_contract=None,
+        pinning_endpoint=None,
+    )
+
+
+def build_hub_client(config):
+    """A TestClient over a Hub built on `config`, as a context manager.
+
+    Entering it runs the lifespan, which is what populates `app.state` with the
+    storage, log and anchor store. Requests made without that would fail on a
+    missing attribute rather than on anything meaningful.
+    """
+    pytest.importorskip("fastapi", reason="the Hub needs the [hub] extra")
+
+    from fastapi.testclient import TestClient
+
+    from hub.app import create_app
+
+    return TestClient(create_app(config))
+
+
+@pytest.fixture
+def hub_client(hub_config):
+    """An empty Hub, ready to receive uploads."""
+    with build_hub_client(hub_config) as client:
+        yield client
+
+
+@pytest.fixture
+def hub_storage(hub_config):
+    """Direct access to the Hub's store, for assertions and for tampering."""
+    from hub.storage import HubStorage
+
+    return HubStorage(hub_config.data_dir)
+
+
+@pytest.fixture
+def hub_log(hub_config):
+    """Direct access to the Hub's transparency log."""
+    from hub.log import TransparencyLog
+
+    return TransparencyLog(hub_config.log_path)
+
+
+def upload_objects(client, repo, plan, *, headers=None):
+    """Upload every object in a push plan, in dependency order.
+
+    Sends the stored bytes verbatim, exactly as `aethel push` does: the hash in
+    the URL is the hash of what is on disk, so re-serializing here would make
+    the tests upload something the Hub is right to reject.
+    """
+    from aethel.remote.objects import UPLOAD_ORDER
+
+    for kind in UPLOAD_ORDER:
+        hashes = (
+            plan.commit_order if kind == "commits" else sorted(plan.objects.get(kind, set()))
+        )
+        for object_hash in hashes:
+            data = repo.objects.path_for(kind, object_hash).read_bytes()
+            response = client.put(
+                f"/api/v1/{kind}/{object_hash}", content=data, headers=headers or {}
+            )
+            assert response.status_code == 200, response.text
