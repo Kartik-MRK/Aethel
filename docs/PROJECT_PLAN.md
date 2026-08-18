@@ -354,7 +354,7 @@ aethel push       blobs + commits -> Hub (authoritative remote)
                                   -> Pinata mirror; ipfs_cid recorded next to blob_sha256
                   Hub appends the commit hash as a leaf in its append-only Merkle log
 
-anchor (Hub job)  Merkle root -> anchor(repoId, root, leafCount) on Sepolia -> event + block
+anchor (Hub job)  Merkle root -> anchor(root, logSize) on Sepolia -> event + block number
                   BATCHED (per N commits or per interval), never one tx per commit
 
 verify (page)     commit hash + inclusion proof + on-chain root
@@ -373,37 +373,49 @@ IPFS, the Hub, and local disk all be untrusted transports.
 Separation of transactions belongs in the contract, via **indexed event parameters**. Indexed args
 become log topics, which makes them filterable through `eth_getLogs` and searchable on explorers.
 
+The log this anchors is **one tree for the whole Hub**, not one per repository — the reasoning is in
+`TEAM_WALKTHROUGH.md` §7.4, and the short version is that a single tree makes deleting an entire
+repository detectable, while separate trees make it invisible. So the contract anchors a single
+append-only stream of batches:
+
 ```solidity
 contract AethelAnchor {
-    struct Batch { bytes32 root; uint64 leafCount; uint64 timestamp; address submitter; }
+    struct Batch { bytes32 root; uint64 logSize; uint64 timestamp; address submitter; }
 
-    mapping(bytes32 => Batch[]) private _batches;   // repoId -> append-only batches
-    mapping(bytes32 => bool)    public  rootSeen;   // duplicate-root guard
-    mapping(address => bool)    public  canAnchor;  // allowlist
+    Batch[] private _batches;                       // append-only, one hub-wide stream
+    mapping(bytes32 => bool) public rootSeen;       // duplicate-root guard
+    mapping(address => bool) public canAnchor;      // allowlist
 
     event Anchored(
-        bytes32 indexed repoId,      // topic1 - filter per model repo
-        uint256 indexed batchIndex,  // topic2 - ordering
-        bytes32 indexed root,        // topic3 - reverse lookup by root
-        uint64  leafCount,
+        uint256 indexed batchIndex,  // topic1 - ordering
+        bytes32 indexed root,        // topic2 - reverse lookup: root -> transaction
+        uint64  indexed logSize,     // topic3 - which prefix of the log this covers
         address submitter,
         uint64  timestamp
     );
 
-    function anchor(bytes32 repoId, bytes32 root, uint64 leafCount) external;
-    function batchCount(bytes32 repoId) external view returns (uint256);
-    function batchAt(bytes32 repoId, uint256 i) external view returns (Batch memory);
+    function anchor(bytes32 root, uint64 logSize) external;
+    function batchCount() external view returns (uint256);
+    function batchAt(uint256 i) external view returns (Batch memory);
+    function latest() external view returns (Batch memory);
 }
 ```
 
 Details that matter:
 
-- **Only 3 indexed params are allowed** (4 topics including the event signature). Spending them on
-  `repoId`, `batchIndex`, `root` is exactly what gives "sorted and visible separately".
+- **Only 3 indexed params are allowed** (4 topics including the event signature). They go to
+  `batchIndex`, `root` and `logSize` — ordering, reverse lookup, and coverage. `repoId` is
+  deliberately absent: a leaf is not per-repo, so indexing by repo on-chain would advertise a filter
+  the tree cannot honour. Per-repo *views* live on the dashboard, where repo membership is Hub
+  metadata rather than a cryptographic claim.
+- **`logSize` must be monotonic.** It is the count of leaves the root covers, so a new anchor whose
+  `logSize` is not greater than the last one is either a replay or an attempt to anchor a shorter
+  history — the on-chain shape of "the operator truncated the log". Rejecting it in the contract
+  means the check cannot be skipped by the client that submits.
 - **Access control is not optional.** Without `canAnchor`, anyone can spam anchors into our contract
   and the dashboard renders attacker rows. This is the most commonly forgotten piece.
 - **Append-only by construction** — no update or delete function exists, and `anchor` rejects a
-  duplicate root or non-monotonic `leafCount`. The immutability claim holds because there is no code
+  duplicate root or a non-monotonic `logSize`. The immutability claim holds because there is no code
   path to break it, not because we chose not to call one.
 - **Verify the source on Etherscan.** Unverified contracts render events as raw hex, which looks
   broken on a projector. One-time step.
@@ -435,6 +447,15 @@ Supporting pieces: structured JSON logs with a request ID per call; every subsys
 timeout so one dead dependency cannot hang the page; `/version` exposing git SHA and contract address
 so we always know what is deployed. **Degraded dependencies render as amber rows, never as a 500** —
 the ops page must survive the failures it reports.
+
+**One tier still missing, and it lands with the Pinata and chain checks.** The board is
+green/amber/red today, and amber currently carries two unrelated meanings: *not built yet* (Chain and
+IPFS mirror are unconfigured during the foundation phase) and *configured and failing* (a probe threw).
+Those must not share a colour. Once the Pinata key and the Sepolia contract are real, an expired key is
+a fault, not a note — and with four benign amber rows already on the board, a fifth amber row that
+actually matters disappears into them. So the chain phase adds a fourth status between them, and
+`/api/v1/health` starts distinguishing "unconfigured" from "unhealthy" rather than collapsing both to
+`warning`.
 
 ---
 
@@ -544,8 +565,8 @@ deployment.
 
 ### M3 — chain & Hub hardening (weeks 12-15)
 
-Batched anchoring on a schedule, multi-repo anchor filtering, reorg-aware confirmation states,
-gas/latency measurements for the report.
+Batched anchoring on a schedule, per-repo dashboard filtering over the hub-wide log, reorg-aware
+confirmation states, gas/latency measurements for the report.
 
 ### M4 — write-up (weeks 16-18)
 
