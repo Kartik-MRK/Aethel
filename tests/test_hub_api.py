@@ -14,7 +14,9 @@ asserted in a docstring.
 
 import hashlib
 import json
+import re
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -24,7 +26,6 @@ from tests.conftest import (
     ADAPTER_BYTES_B,
     build_hub_client,
     make_commit,
-    upload_objects,
 )
 
 BLOB = b"aethel-test-blob-payload"
@@ -39,33 +40,16 @@ def canonical(payload: dict) -> bytes:
     return canonical_json(payload).encode("utf-8")
 
 
-@pytest.fixture
-def pushed(hub_client, core_repo, base_hash):
-    """A Hub holding one repository, `demo`, with two commits on `main`.
+def ops_template_source() -> str:
+    """The `ops.html` source, located via the package rather than the CWD.
 
-    Built by running the real plan-and-upload path rather than by writing files
-    into the Hub's store directly: a fixture that bypassed the API would test
-    the assertions against a state the API cannot actually produce.
+    Resolved from `hub.__file__` because the `core_repo` fixture chdirs into a
+    temporary directory, so a path relative to the working directory would point
+    at nothing.
     """
-    first = make_commit(core_repo, base_hash, "first version", ADAPTER_BYTES_A)
-    second = make_commit(core_repo, base_hash, "second version", ADAPTER_BYTES_B)
+    import hub
 
-    plan = build_push_plan(core_repo, "main", second)
-    upload_objects(hub_client, core_repo, plan)
-
-    response = hub_client.post(
-        "/api/v1/repos/demo/refs", json={"branch": "main", "commit": second}
-    )
-    assert response.status_code == 200, response.text
-
-    return {
-        "client": hub_client,
-        "repo": core_repo,
-        "plan": plan,
-        "first": first,
-        "second": second,
-        "ref": response.json(),
-    }
+    return (Path(hub.__file__).parent / "templates" / "ops.html").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -620,6 +604,45 @@ class TestHealth:
             "Write auth",
         }
 
+    def test_the_status_vocabulary_is_closed(self, pushed):
+        """Three tiers, and `ops.html` renders exactly three.
+
+        This is a coupling test, and the coupling is the point. The template
+        cannot loop over the statuses -- each one needs its own glyph and word --
+        so it hard-codes one branch per tier, and a fourth status added to
+        `HEALTH_STATUSES` without a matching branch would be rendered as
+        "Critical" by the `{% else %}` fallback without failing anything else.
+        Drift already happened once in the other direction: the template carried
+        a `serious` branch that no code path could reach.
+
+        So when the chain phase splits `warning` into "unconfigured" and
+        "unhealthy", this fails, and the template is updated in the same commit
+        rather than a later one.
+        """
+        from hub.api import HEALTH_STATUSES
+
+        template = ops_template_source()
+        branches = set(re.findall(r"check\.status == '([a-z]+)'", template))
+
+        # The last tier is the template's `{% else %}`, so it has no comparison.
+        assert branches == set(HEALTH_STATUSES[:-1])
+        assert f"pill('{HEALTH_STATUSES[-1]}'" in template
+
+    def test_every_reported_status_is_in_the_vocabulary(self, pushed):
+        """Guards the other direction: a check emitting an unlisted status.
+
+        Not enforced at runtime on purpose -- `add()` is inside the one endpoint
+        that must degrade a row rather than fail the page, so raising there would
+        500 the ops board over a typo, at exactly the moment the board is what
+        someone is reading. The check belongs in the suite instead.
+        """
+        from hub.api import HEALTH_STATUSES
+
+        checks = pushed["client"].get("/api/v1/health").json()["checks"]
+
+        assert checks
+        assert {check["status"] for check in checks} <= set(HEALTH_STATUSES)
+
     def test_a_configured_token_reports_auth_as_required(self, hub_config):
         with build_hub_client(replace(hub_config, push_token="t")) as client:
             checks = client.get("/api/v1/health").json()["checks"]
@@ -777,6 +800,54 @@ class TestViews:
 
         assert response.status_code == 200
         assert "chart-svg" in response.text
+
+
+class TestViewAccessibility:
+    """Markup properties that are invisible in a screenshot when they break.
+
+    Everything here was a real defect once. A screenshot cannot show that three
+    links all announce the same word, that a column header is blank, or that a
+    graphic claims to be a button, so a screenshot cannot catch any of them
+    coming back either.
+    """
+
+    def test_every_download_link_names_its_file(self, pushed):
+        """Three links all reading "Download" are indistinguishable by ear.
+
+        "Download" stays the prefix so the visible label remains a subset of the
+        accessible name -- that is what keeps voice control able to match what is
+        actually on screen (WCAG 2.5.3).
+        """
+        html = pushed["client"].get(f"/c/{pushed['second']}").text
+        labels = re.findall(r'aria-label="(Download [^"]+)"', html)
+
+        assert len(labels) == len(set(labels)) >= 2
+        assert all(name.startswith("Download ") for name in labels)
+
+    @pytest.mark.parametrize("path", ["/r/demo", "/c/{second}"])
+    def test_no_column_header_is_empty(self, pushed, path):
+        """An empty `<th>` is announced as the column's name: "blank"."""
+        html = pushed["client"].get(path.format(second=pushed["second"])).text
+
+        assert not re.search(r"<th[^>]*>\s*</th>", html)
+
+    def test_the_chart_hit_targets_are_not_announced_as_buttons(self, pushed):
+        """They are focusable and labelled, but nothing happens on Enter.
+
+        `role="button"` would promise an activation that does not exist. The
+        rects are labelled graphics a keyboard user can land on and read.
+        """
+        html = pushed["client"].get("/r/demo").text
+
+        assert 'class="hit"' in html
+        assert 'role="button"' not in html
+
+    def test_the_chart_carries_a_text_alternative(self, pushed):
+        """One image node with a summary, and the table below it for the values."""
+        html = pushed["client"].get("/r/demo").text
+
+        assert re.search(r'<svg class="chart-svg"[^>]*role="img"', html, re.S)
+        assert "Values are also listed in the table below." in html
 
 
 def test_the_log_file_is_plain_jsonl_on_disk(pushed, hub_config):

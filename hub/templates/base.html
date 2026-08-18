@@ -2,9 +2,13 @@
   Base layout.
 
   The theme toggle sets data-theme on <html>, which the CSS honours in both
-  directions — an explicit choice must beat the OS setting either way. It runs
+  directions -- an explicit choice must beat the OS setting either way. It runs
   inline in <head> so the stored preference applies before first paint, which
   is what prevents a flash of the wrong theme.
+
+  Both inline scripts carry the per-response CSP nonce. The policy is
+  `script-src 'nonce-...'` with no 'unsafe-inline', so these two run and any
+  script injected into the page does not -- see hub/security.py.
 #}
 <!doctype html>
 <html lang="en">
@@ -13,7 +17,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Aethel Hub{% endblock %}</title>
   <link rel="stylesheet" href="/static/hub.css">
-  <script>
+  <script nonce="{{ request.state.csp_nonce }}">
     (function () {
       try {
         var stored = localStorage.getItem("aethel-theme");
@@ -25,23 +29,41 @@
   </script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="/">Aethel <span>Hub</span></a>
-      <nav class="topnav">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a class="wordmark" href="/">
+        <span class="wordmark-mark" aria-hidden="true"></span>
+        Aethel<span class="wordmark-slash">/</span><span class="wordmark-sub">hub</span>
+      </a>
+      <nav class="nav" aria-label="Sections">
         <a href="/" {% if nav == 'repos' %}aria-current="page"{% endif %}>Repositories</a>
         <a href="/ops" {% if nav == 'ops' %}aria-current="page"{% endif %}>Operations</a>
         <a href="/docs">API</a>
-        <button class="btn" id="theme-toggle" type="button" aria-label="Toggle colour theme">Theme</button>
       </nav>
+      <button class="theme-btn" id="theme-toggle" type="button" aria-label="Switch colour theme">
+        <span class="theme-glyph" aria-hidden="true"></span>
+      </button>
     </div>
   </header>
 
-  <main class="shell">
+  {# tabindex="-1" is what makes the skip link above actually work. A fragment
+     jump to a non-focusable element scrolls the page but leaves focus where it
+     was, so the next Tab returns to the nav the reader just asked to skip. The
+     negative value keeps <main> out of the tab order itself. #}
+  <main class="shell" id="main" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
 
-  <script>
+  <footer class="closing">
+    <p>
+      Every value on these pages is content-addressed. Re-hash any download and
+      compare it yourself &mdash; this server is not a trusted party.
+    </p>
+  </footer>
+
+  <script nonce="{{ request.state.csp_nonce }}">
     document.getElementById("theme-toggle").addEventListener("click", function () {
       var root = document.documentElement;
       var current = root.getAttribute("data-theme");
