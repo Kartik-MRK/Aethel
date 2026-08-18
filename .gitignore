@@ -102,6 +102,15 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# Secrets. Never committed, and listed by name as well as by pattern so a
+# stray `git add -A` cannot publish a wallet key or an API token.
+keys.txt
+secrets.txt
+*.pem
+*.keystore
+.env.*
+!.env.example
+
 # Environments
 .env
 .venv
