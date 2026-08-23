@@ -17,6 +17,12 @@ import pytest
 
 from aethel.core.aggregator import MerkleTree, hash_leaf, hash_node
 from aethel.core.errors import AethelError
+
+# Guards the imports below, which reach into `hub/`. The core CI job installs no
+# [hub] extra on purpose, and an import that fails at module level is a
+# collection error rather than a skip -- so the guard has to run before them.
+pytest.importorskip("fastapi", reason="the Hub needs the [hub] extra")
+
 from hub.log import TransparencyLog
 from hub.views import (
     CHART,

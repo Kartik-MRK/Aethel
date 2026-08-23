@@ -35,6 +35,11 @@ import re
 
 import pytest
 
+# Guards the imports below, which reach into `hub/`. The core CI job installs no
+# [hub] extra on purpose, and an import that fails at module level is a
+# collection error rather than a skip -- so the guard has to run before them.
+pytest.importorskip("fastapi", reason="the Hub needs the [hub] extra")
+
 from hub.errors import EXPLANATIONS, GENERIC, _is_api, _specific
 from hub.security import BASE_HEADERS
 from tests.conftest import build_hub_client
