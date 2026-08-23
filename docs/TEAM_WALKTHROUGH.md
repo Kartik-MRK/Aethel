@@ -17,9 +17,9 @@ append-only Merkle transparency log the chain will anchor.
 
 | | Before | After |
 |---|---|---|
-| Tests | **0** | **351** |
+| Tests | **0** | **693** |
 | Core coverage | 0% | **96%** |
-| Hub + remote coverage | — | **87%** |
+| Hub + remote coverage | — | **91%** |
 | Linter | none | ruff, clean across the whole tree |
 | CI | none | GitHub Actions, 4 Python versions + a Hub job |
 | Known data-corruption bugs | 1 (documented, unfixed) | 0 |
@@ -206,8 +206,8 @@ same commit format as the client, while the client stays installable without a
 web framework.
 
 **Why it matters practically:** the whole VCS *and its publishing path* are
-testable with no GPU, no model download, and no network. 351 tests run in
-**~6 seconds**, including full pushes — the Hub's tests drive the ASGI app
+testable with no GPU, no model download, and no network. 693 tests run in
+**under 10 seconds**, including full pushes — the Hub's tests drive the ASGI app
 in-process instead of over a socket. That is why we can afford to run them on
 every push.
 
@@ -316,7 +316,7 @@ the same trade-off Git makes with `index.lock`.
 |---|---|---|
 | **S1.1** | Commit metadata overwritten between identical-weight commits | Commits keyed by own hash |
 | **S1.2** | No evaluation anywhere | Accuracy surfaced in `log`; metrics module next (Shravan) |
-| **S1.3** | Zero tests | 200 tests, 96% core coverage |
+| **S1.3** | Zero tests | 693 tests, 96% core coverage |
 | **S2.1** | Documented IMDB quickstart crashed (Arrow vs CSV) | Detects Arrow dirs, explains the conversion |
 | **S2.2** | Typo'd dataset path → silently trained on fake text, still committable | Refuses; requires explicit `--allow-stub` |
 | **S2.3** | No atomicity in commit | `atomic.py` everywhere |
@@ -502,33 +502,41 @@ the Hub imports before running anything.
 ## 8. Verify it yourself
 
 ```bash
-cd /home/Capstone/Aethel
+# from the repository root
 
-pytest tests/ -q                       # 351 passed in ~6s
-pytest tests/ --cov=aethel.core        # 96%
+python3 -m pytest                      # 693 passed in ~8s
+python3 -m pytest --cov=aethel.core    # 96%
 ruff check .                           # All checks passed
 
 # CLI works with no PyTorch installed
 python3 -m aethel.main --help
 
 # and a full push, with no network, in-process
-pytest tests/test_push.py -q
+python3 -m pytest tests/test_push.py
 ```
 
 Test breakdown:
 
 | File | Tests | Covers |
 |---|---|---|
-| `test_hub_api.py` | 82 | Upload, negotiate, refs, reads, log endpoints, auth, health |
+| `test_hub_views.py` | 114 | Every dashboard page: rendering, prose, the DAG rail, the accuracy chart |
+| `test_hub_api.py` | 93 | Upload, negotiate, refs, reads, log endpoints, auth, health |
+| `test_hub_errors.py` | 57 | Status codes, header survival, leak-free pages, the copy affordance |
 | `test_core_refs.py` | 52 | HEAD, branches, name validation, traversal |
 | `test_push.py` | 41 | Plan, round trips, refusals, client-side hash verification |
+| `test_hub_security.py` | 39 | Headers, CSP nonces, body limits, token auth |
+| `test_hub_apidocs.py` | 36 | The API reference against the routes actually served |
+| `test_core_env.py` | 29 | `.env` loading, precedence, type coercion |
 | `test_core_merkle.py` | 29 | Second-preimage, proofs, tamper detection |
 | `test_core_objects.py` | 29 | Store, dedup, integrity, trees |
 | `test_hub_log.py` | 28 | Append-only behaviour, idempotence, proofs, anchors |
 | `test_core_hashing.py` | 24 | Canonical JSON, SHA-256 |
+| `test_hub_motion.py` | 24 | Motion tokens, the reduced-motion split, what is allowed to move |
 | `test_core_commits.py` | 23 | Creation, lineage, determinism |
 | `test_core_atomic.py` | 18 | Crash safety, locking, concurrency |
+| `test_hub_verify.py` | 18 | The in-browser verifier's structure and its self-check |
 | `test_core_resolve.py` | 15 | Branch/hash/abbreviation resolution |
+| `test_hub_fonts.py` | 14 | The served fonts resolve at the URLs the CSS names |
 | `test_s1_corruption.py` | 10 | The corruption regression, via the real CLI |
 
 **To reproduce the original bug for the demo:** check out a commit from before

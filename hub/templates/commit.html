@@ -8,7 +8,7 @@
   <p class="crumb"><a href="/">Repositories</a> <span aria-hidden="true">/</span> commit</p>
   <p class="lede-eyebrow">Commit</p>
   <h1>{{ commit.message or 'Commit' }}</h1>
-  <p class="lede-digest">{{ digest(commit_hash, size='lg', label=commit_hash) }}</p>
+  <p class="lede-digest">{{ digest(commit_hash, size='lg', label=commit_hash, copy='commit hash') }}</p>
 </div>
 
 <section class="strip">
@@ -55,14 +55,24 @@
   </div>
   <div class="strip-body">
     {% if proof %}
-    <div class="proof">
+    {#
+      `data-proof-url` is what the verifier looks for; finding nothing, it does
+      nothing, so a page without a proof needs no guard in the script. Each rung
+      and the root carry the value the server printed, so the browser can catch a
+      page that disagrees with the JSON it is rendered from -- see
+      hub/static/verify.js.
+    #}
+    <div class="proof"
+         data-proof-url="/api/v1/log/proof/{{ commit_hash }}"
+         data-commit="{{ commit_hash }}">
       <div class="proof-verdict {{ 'ok' if proof_valid else 'bad' }}">
         {% if proof_valid %}
         {{ pill('good', '✓', 'Verified') }}
         <p>
           Folding this commit's leaf through {{ ladder | length }}
           sibling hash{{ '' if ladder | length == 1 else 'es' }} reproduces the
-          published root exactly.
+          published root exactly &mdash; as computed <em>by this Hub</em>, which is
+          worth what you decide it is worth.
         </p>
         {% else %}
         {{ pill('critical', '✕', 'Failed') }}
@@ -73,8 +83,26 @@
         {% endif %}
       </div>
 
+      {#
+        Rendered `hidden` and unhidden by the script. A CSP without
+        'unsafe-inline' in `style-src` discards a `style` attribute, so the
+        attribute is the only reveal that survives -- and a reader with no
+        JavaScript is never shown a button that cannot do anything.
+      #}
+      <div class="proof-check" data-check hidden>
+        <div class="check-head">
+          <h3 class="check-title">Check it here instead</h3>
+          <button class="check-btn" type="button" data-check-run>Recompute in this browser</button>
+        </div>
+        <p class="check-state" data-check-state aria-live="polite">
+          Your browser will fetch the proof as JSON, fold it with its own SHA-256,
+          and mark every rung below against what it computed. Nothing on this page
+          is taken as input.
+        </p>
+      </div>
+
       <div class="ladder">
-        <div class="ladder-node root">
+        <div class="ladder-node root" data-shown-root="{{ proof.root }}">
           <span class="node-mark" aria-hidden="true"></span>
           <span class="node-label">Root</span>
           {{ digest(proof.root, label=proof.root) }}
@@ -90,7 +118,7 @@
 
         <ol class="rungs">
           {% for rung in ladder | reverse %}
-          <li class="rung">
+          <li class="rung" data-rung-result="{{ rung.result }}">
             <span class="rung-no">{{ '%02d' | format(rung.index) }}</span>
             <span class="rung-op">fold&nbsp;{{ rung.side }}</span>
             <span class="rung-sib">
@@ -116,10 +144,11 @@
       <p class="footnote">
         The leading byte is a domain tag: leaves are hashed with <code>0x00</code>
         and internal nodes with <code>0x01</code>, so no leaf value can be passed
-        off as a subtree. Fetch the same proof as JSON from
-        <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> and run the fold
-        yourself &mdash; it needs the leaf, the path, and the root, and never
-        this server.
+        off as a subtree. To run the fold somewhere other than a browser, the same
+        proof is JSON at
+        <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> &mdash; the leaf, the
+        path and the root are all it takes, and none of it needs this server a
+        second time.
       </p>
     </div>
     {% else %}
@@ -268,4 +297,13 @@
   </div>
 </section>
 {% endif %}
+{% endblock %}
+
+{#
+  Only loaded where there is something to check. The nonce is what admits it
+  under `script-src 'nonce-...'`; the policy names no origin at all, so this
+  file being same-origin is not what lets it run -- the nonce is.
+#}
+{% block scripts %}
+{% if proof %}<script nonce="{{ request.state.csp_nonce }}" src="/static/verify.js"></script>{% endif %}
 {% endblock %}

@@ -41,12 +41,25 @@
   </div>
 </section>
 
-{# Accuracy over time: one series, so no legend box — the title names it.
-   Trend over time -> line, per the form heuristic. #}
+{# Accuracy over the history: one line per branch, each labelled at its own
+   endpoint rather than in a legend box. A legend makes a reader look away from
+   the plot, hold a swatch in memory, and look back; a name sitting on the end
+   of its own line removes the round trip and survives being printed in grey.
+
+   Trend over time -> line, per the form heuristic. But a line segment is a
+   claim that one value became the other, so a segment only ever joins a commit
+   to its own parent -- see _branch_lines. #}
 <section class="strip">
   <div class="strip-head">
     <h2 class="strip-label">Accuracy</h2>
-    <p class="strip-note">Over versions, oldest to newest.</p>
+    <p class="strip-note">
+      {% if series.lines | length > 1 %}
+      One line per branch, oldest commit first. Branches part where they share
+      an ancestor.
+      {% else %}
+      Over versions, oldest to newest.
+      {% endif %}
+    </p>
   </div>
   <div class="strip-body">
     {% if series.points %}
@@ -58,6 +71,11 @@
           Axis spans {{ g.low_pct }}&ndash;{{ g.high_pct }}%, not 0&ndash;100% &mdash; a line
           shows change through its slope, which a full-domain axis would flatten
           to nothing.
+          {% if series.lines | length > 1 %}
+          Each line follows one branch: a segment joins a commit to its own parent,
+          so the slope is a change someone made rather than two experiments that
+          happened to run in sequence.
+          {% endif %}
           {% if series.unmeasured %}
           {{ series.measured }} of {{ series.total_commits }} versions have a recorded
           metric; {{ series.unmeasured }} unmeasured and omitted rather than plotted as zero.
@@ -68,7 +86,7 @@
       <div class="chart-scroll">
       <svg class="chart-svg" viewBox="0 0 {{ series.chart.width }} {{ series.chart.height }}"
            role="img"
-           aria-label="Line chart of evaluation accuracy per commit, axis {{ g.low_pct }} to {{ g.high_pct }} percent. Values are also listed in the table below.">
+           aria-label="Line chart of evaluation accuracy per commit, axis {{ g.low_pct }} to {{ g.high_pct }} percent{% if series.lines | length > 1 %}, one line per branch: {{ series.lines | map(attribute='branch') | join(', ') }}{% endif %}. Values are also listed in the table below.">
 
         {# Solid hairline gridlines, one step off the surface — never dashed #}
         {% for line in g.grid %}
@@ -78,20 +96,31 @@
 
         {# No filled area under the line. A fill reads as magnitude measured from
            the baseline, and this baseline is not zero. #}
-        <path class="series-line" d="{{ g.path }}"/>
-
-        {% for p in g.points %}
-        <circle class="series-dot" cx="{{ p.px }}" cy="{{ p.py }}" r="4"/>
+        {% for line in series.lines %}
+        <path class="series-line hue-{{ line.hue }}" d="{{ line.path }}"/>
         {% endfor %}
 
-        {# Direct-label the endpoint only. A number on every point is chaos and
-           goes unread; the axis and the table carry the rest. The latest value is
-           the one a reader looks for first, so it is the one worth spelling out
-           without a hover. #}
-        {% set last = g.points[-1] %}
-        <text class="point-label" x="{{ last.px }}" y="{{ last.py - 12 }}" text-anchor="end">
-          {{ last.pct }}%
-        </text>
+        {# One marker per commit, not per point drawn. A branch's line reaches
+           back into the commit it forked from, so that commit sits on two paths
+           -- two markers there would stack their surface rings into a dot
+           visibly heavier than every other. #}
+        {% for p in series.marks %}
+        <circle class="series-dot hue-{{ p.hue }}" cx="{{ p.px }}" cy="{{ p.py }}" r="4"/>
+        {% endfor %}
+
+        {# Direct-label each line's endpoint. A number on every point is chaos and
+           goes unread; the axis and the table carry the rest. The end of a line is
+           where a reader looks first, and with more than one branch it is also the
+           only place the branch is named -- the hue must never be the sole carrier
+           of which line is which.
+
+           The label sits outward from the endpoint, level with it, in room the
+           plot gave up for exactly this. Nothing is drawn past a line's own end,
+           so it is the one direction guaranteed clear of the stroke it names. #}
+        {% for line in series.lines %}
+        <text class="point-label hue-{{ line.hue }}"
+              x="{{ line.label_x }}" y="{{ line.label_y }}">{{ line.label }}</text>
+        {% endfor %}
 
         {# Hover targets are full-height columns, far larger than the 8px mark.
            They are focusable so a keyboard user gets the same readout a mouse
@@ -100,21 +129,24 @@
            `role="img"` and not `role="button"`: the rect is not activatable, and
            announcing "button" promises an Enter key that does nothing. A labelled
            graphic is what this actually is -- a value you can land on and read. #}
-        {% for p in g.points %}
+        {% for p in series.marks %}
         <g>
           <rect class="hit"
                 x="{{ p.px - 18 }}" y="{{ g.top }}" width="36" height="{{ g.bottom - g.top }}"
                 tabindex="0"
                 role="img"
-                aria-label="{{ p.hash }}: {{ p.pct }} percent, {{ p.timestamp }}, {{ p.message }}"/>
+                aria-label="{{ p.hash }}: {{ p.pct }} percent{% if p.branch_label %}, on {{ p.branch_label }}{% endif %}, {{ p.timestamp }}, {{ p.message }}"/>
           <g class="hover-layer" opacity="0" pointer-events="none">
             <line class="axis-line" x1="{{ p.px }}" y1="{{ g.top }}" x2="{{ p.px }}" y2="{{ g.bottom }}"/>
-            <circle class="series-dot" cx="{{ p.px }}" cy="{{ p.py }}" r="6"/>
+            <circle class="series-dot hue-{{ p.hue }}" cx="{{ p.px }}" cy="{{ p.py }}" r="6"/>
+            {# The readout sits in the top margin, clear of the plot, so it never
+               covers the line it is describing. It flips side near the right edge
+               rather than running off the card. #}
             <text class="point-label"
-                  x="{{ p.px if p.px < 700 else p.px - 10 }}"
-                  y="{{ g.top + 12 }}"
-                  text-anchor="{{ 'start' if p.px < 700 else 'end' }}">
-              {{ p.hash }} · {{ p.pct }}%
+                  x="{{ p.readout_x }}"
+                  y="{{ g.top - 8 }}"
+                  text-anchor="{{ p.readout_anchor }}">
+              {{ p.hash }} · {{ p.pct }}%{% if p.branch_label %} · {{ p.branch_label }}{% endif %}
             </text>
           </g>
         </g>
@@ -133,21 +165,31 @@
 </section>
 
 {# The table twin: every charted value is also readable here, so nothing is
-   gated behind hover and nothing depends on colour. #}
+   gated behind hover and nothing depends on colour.
+
+   The leading column is the commit graph. It is drawn per row rather than as one
+   tall SVG beside the table, because a single drawing would have to predict every
+   row's height -- and rows here grow when a message wraps. Per-row segments meet
+   at the row boundary instead, so the lines stay joined at any height. #}
 <section class="strip full">
   <div class="strip-head">
     <h2 class="strip-label">History</h2>
     <p class="strip-note">
-      Newest first. Each row links to the full commit, its files, and its
-      inclusion proof.
+      Newest first, and never a parent above its own child. Each row links to the
+      full commit, its files, and its inclusion proof.
     </p>
   </div>
   <div class="strip-body">
     <div class="panel">
       <div class="table-wrap">
-        <table>
+        <table class="has-rail rail-w{{ rail.lanes }}">
           <thead>
             <tr>
+              {# The graph is a second reading of the Parent column, so it is
+                 hidden from assistive technology rather than described twice.
+                 The header still carries real text: an empty <th> leaves the
+                 column with no name in a table's row/column announcements. #}
+              <th class="rail"><span class="sr-only">Lineage</span></th>
               <th>Commit</th>
               <th>Parent</th>
               <th class="col-msg">Message</th>
@@ -161,15 +203,30 @@
           <tbody>
             {% for row in commits %}
             <tr>
+              <td class="rail lane-{{ row.lane }}">
+                {# preserveAspectRatio="none" stretches the 20-unit viewBox to the
+                   row's real height. Vertical lines are unaffected and the curves
+                   scale with it; the node is an element outside the SVG, because a
+                   circle under a non-uniform scale is an ellipse. #}
+                <svg class="rail-svg" viewBox="0 0 {{ rail.width }} {{ rail.height }}"
+                     preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                  {% for segment in row.segments %}
+                  <path class="{{ segment.cls }}" d="{{ segment.d }}"/>
+                  {% endfor %}
+                </svg>
+                <span class="rail-node{{ ' root' if row.is_root }}"
+                      title="{{ 'Root commit — no parent' if row.is_root else row.short }}"></span>
+              </td>
               <td>
-                <span class="dag-cell">
-                  <span class="dag-mark {{ 'root' if row.is_root else '' }}"
-                        title="{{ 'Root commit' if row.is_root else 'Commit' }}"></span>
-                  <a class="hash-strong" href="/c/{{ row.hash }}">{{ row.short }}</a>
-                </span>
+                <a class="hash-strong" href="/c/{{ row.hash }}">{{ row.short }}</a>
               </td>
               <td class="hash">{{ row.parent_short or '—' }}</td>
-              <td>{{ row.message }}</td>
+              <td>
+                {{ row.message }}
+                {%- for name in row.refs %}
+                <span class="ref-chip">{{ name }}</span>
+                {%- endfor %}
+              </td>
               <td>{{ row.author }}</td>
               <td class="num">
                 {% if row.accuracy is not none %}{{ '%.3f' | format(row.accuracy) }}{% else %}—{% endif %}
@@ -192,8 +249,10 @@
       </div>
     </div>
     <p class="footnote">
-      A hollow marker is a root commit (no parent). “Logged” means the commit is a
-      leaf in this Hub's append-only transparency log.
+      A line in the graph is one line of work; where two meet, the lower commit is
+      the fork point they share. A hollow marker is a root commit. A boxed name is
+      a branch tip &mdash; where that branch currently points. “Logged” means the
+      commit is a leaf in this Hub's append-only transparency log.
     </p>
   </div>
 </section>
@@ -205,7 +264,7 @@
     <p class="strip-note">Across every repository on this Hub.</p>
   </div>
   <div class="strip-body">
-    <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root) }}</p>
+    <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root, copy='log root') }}</p>
     <p class="footnote">Merkle root over {{ log_size }} {{ 'leaf' if log_size == 1 else 'leaves' }}.</p>
   </div>
 </section>

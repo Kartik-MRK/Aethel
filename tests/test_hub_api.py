@@ -766,6 +766,47 @@ class TestViews:
 
         assert "Logged" in response.text
 
+    def test_the_repository_page_draws_a_fork_as_two_lanes(self, pushed_forked):
+        """End-to-end: real objects, real refs, real rendered markup.
+
+        The lane arithmetic is unit-tested against dicts; this is the check that
+        the numbers survive the trip through the template. A rail drawn entirely
+        in lane 0 renders without error and shows a linear history that does not
+        exist, so the assertion is on the second lane specifically.
+        """
+        response = pushed_forked["client"].get("/r/demo")
+        page = response.text
+
+        assert response.status_code == 200
+        assert 'class="rail lane-1"' in page
+        assert 'class="has-rail rail-w2"' in page
+        # A curve is how a branch rejoins the lane its parent already holds. A
+        # fork with no cubic in it would mean both sides were drawn straight
+        # down, never meeting the commit they share.
+        assert "C" in page[page.index('class="rail lane-1"') :][:600]
+
+    def test_the_repository_page_names_each_branch_tip(self, pushed_forked):
+        """The graph shows two lines of work; only these chips say which is which."""
+        page = pushed_forked["client"].get("/r/demo").text
+
+        assert '<span class="ref-chip">main</span>' in page
+        assert '<span class="ref-chip">probe</span>' in page
+
+    def test_the_repository_page_puts_no_parent_above_its_own_child(self, pushed_forked):
+        """The one property the drawing rests on, asserted on the real page.
+
+        `side` is stamped a day before `tip` but shares its parent, so a page
+        ordered by date alone would still pass. The row that matters is the
+        shared ancestor: it must sit below both.
+        """
+        page = pushed_forked["client"].get("/r/demo").text
+        position = {
+            key: page.index(f'/c/{pushed_forked[key]}"') for key in ("base", "tip", "side")
+        }
+
+        assert position["base"] > position["tip"]
+        assert position["base"] > position["side"]
+
     def test_the_commit_page_shows_a_verified_inclusion_proof(self, pushed):
         response = pushed["client"].get(f"/c/{pushed['second']}")
 
@@ -848,6 +889,26 @@ class TestViewAccessibility:
 
         assert re.search(r'<svg class="chart-svg"[^>]*role="img"', html, re.S)
         assert "Values are also listed in the table below." in html
+
+    def test_the_visually_hidden_rule_cannot_widen_the_page(self, hub_client):
+        """`.sr-only` is absolutely positioned, so it needs a left edge.
+
+        Without one it keeps its static position, measured against the page
+        because nothing on these pages is positioned. The hidden column header
+        inside the files table then sat at document x=445 while the table
+        scrolled inside a 326px box -- and `overflow` does not clip an
+        absolutely positioned descendant. The whole page scrolled sideways by
+        85px at 375px wide to accommodate one invisible pixel.
+
+        Pinned here rather than left to a screenshot because the thing that
+        breaks is a scrollbar on a phone, and every value on the page still
+        reads correctly while it is broken.
+        """
+        css = hub_client.get("/static/hub.css").text
+        block = re.search(r"\.sr-only\s*\{([^}]*)\}", css)
+
+        assert block, "the visually-hidden helper is gone"
+        assert re.search(r"\bleft:\s*0", block.group(1)), block.group(1)
 
 
 def test_the_log_file_is_plain_jsonl_on_disk(pushed, hub_config):

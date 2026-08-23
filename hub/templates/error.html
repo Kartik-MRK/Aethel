@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ status }} — Aethel Hub{% endblock %}
+
+{#
+  The error page. Deliberately the plainest page on the site.
+
+  An error page's whole job is to answer three questions -- what happened, was it
+  my fault, what do I do now -- and it is read by someone who is already stuck.
+  Anything else on it is in the way. So: no illustration, no apology, no oversized
+  numeral. The status code is set in the mono face at the size of an eyebrow,
+  because a reader who cares about the number is copying it into a bug report and
+  a reader who does not is looking straight past it at the sentence underneath.
+
+  It extends the ordinary layout rather than standing alone, which puts the
+  masthead and its nav back within reach. That is the actual way out of a 404, and
+  a bespoke "go home" button would be a second, worse copy of a link that is
+  already there.
+#}
+
+{% block content %}
+<div class="lede">
+  <p class="lede-eyebrow">Error {{ status }}</p>
+  <h1>{{ heading }}</h1>
+  {% if explanation %}
+  <p class="lede-sub">{{ explanation }}</p>
+  {% endif %}
+</div>
+
+{# The specific failure, kept apart from the general explanation above it. The
+   two are different kinds of claim -- "no repository 'nope'" is about this
+   request, "a prefix is not a name" is about the system -- and running them
+   together as one paragraph makes the specific one hard to find. #}
+{% if detail %}
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Detail</h2>
+  </div>
+  <div class="strip-body">
+    <p class="error-detail">{{ detail }}</p>
+  </div>
+</section>
+{% endif %}
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Elsewhere</h2>
+  </div>
+  <div class="strip-body">
+    {# The link is the destination's name and nothing else. Wrapping the
+       description in it too would make each row a sentence-long target -- harder
+       to hit, and the hover underline runs under text that is not a destination,
+       which is the site's own signal for "this is clickable" spent on prose. #}
+    <ul class="plain-list">
+      <li><a href="/">Repositories</a> &mdash; everything this Hub holds</li>
+      <li><a href="/ops">Operations</a> &mdash; per-subsystem health, if you suspect this is not your fault</li>
+      <li><a href="/api">API reference</a> &mdash; the addresses that exist and what they answer</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

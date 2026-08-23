@@ -34,7 +34,7 @@ BLOB_HASH = hashlib.sha256(BLOB).hexdigest()
 #: Pages that render a template, as opposed to returning JSON. Each one must
 #: carry the strict policy, because each one is a place an inline script could
 #: be added later.
-DASHBOARD_PATHS = ["/", "/ops"]
+DASHBOARD_PATHS = ["/", "/ops", "/api"]
 
 
 def policy_of(response) -> str:
@@ -134,17 +134,6 @@ class TestDashboardPolicy:
         assert "unsafe-inline" not in script_src
         assert "unsafe-eval" not in script_src
 
-    def test_no_external_origin_is_allowed(self, hub_client):
-        """Every asset is same-origin, so no scheme or host may appear.
-
-        The demo network may be offline. A policy that permits a CDN invites a
-        template that depends on one, and that page is blank on demo day.
-        """
-        policy = policy_of(hub_client.get("/"))
-
-        assert "http://" not in policy
-        assert "https://" not in policy
-
     def test_the_nonce_is_new_on_every_response(self, hub_client):
         first = directive(policy_of(hub_client.get("/")), "script-src")
         second = directive(policy_of(hub_client.get("/")), "script-src")
@@ -189,13 +178,13 @@ class TestNoPageDependsOnAnInlineStyle:
     test in this suite. This is the one CSP directive whose violation is silent
     rather than loud, so it is the one worth a test.
 
-    All four rendered pages are checked, because the risk is a future template
+    All five rendered pages are checked, because the risk is a future template
     edit and there is no reason to think it lands on the two that need no data.
     """
 
     @staticmethod
     def paths(pushed) -> list[str]:
-        return ["/", "/ops", "/r/demo", f"/c/{pushed['second']}"]
+        return ["/", "/ops", "/api", "/r/demo", f"/c/{pushed['second']}"]
 
     def test_no_element_carries_a_style_attribute(self, pushed):
         for path in self.paths(pushed):
@@ -252,30 +241,57 @@ class TestBlobDownload:
         assert hashlib.sha256(response.content).hexdigest() == BLOB_HASH
 
 
-class TestDocsExemption:
-    """Swagger UI loads from a CDN, so it gets its own narrower policy.
+class TestOnePolicyEverywhere:
+    """There is no exempt path, and this is the test that keeps it that way.
 
-    Worth pinning in both directions: the exemption has to be wide enough that
-    /docs renders, and narrow enough that it stays confined to /docs.
+    There used to be a second, wider policy for FastAPI's bundled Swagger UI and
+    ReDoc, which fetch their bundles from a public CDN. Both pages are off and the
+    reference at `/api` is an ordinary template, so the exemption is gone -- and
+    the reason to test its absence is that an exemption is easy to reintroduce for
+    one page and hard to notice once a second page is routed through it.
     """
 
-    def test_docs_may_load_its_bundle(self, hub_client):
-        policy = policy_of(hub_client.get("/docs"))
+    #: Every path a browser can reach, template and JSON alike.
+    EVERY_PATH = [*DASHBOARD_PATHS, "/openapi.json", "/api/v1/health", "/api/v1/repos"]
 
-        assert "cdn.jsdelivr.net" in directive(policy, "script-src")
+    @pytest.mark.parametrize("path", EVERY_PATH)
+    def test_no_policy_names_an_external_origin(self, hub_client, path):
+        """The whole point of `default-src 'none'` is that the list stays empty.
+
+        Checked as "no scheme and no dot" rather than against a list of known
+        CDNs, so a host nobody thought to name still fails.
+        """
+        policy = policy_of(hub_client.get(path))
+        sources = policy.replace(";", " ").split()
+
+        assert policy, path
+        for source in sources:
+            assert "//" not in source, f"{path} allows {source}"
+            assert "." not in source, f"{path} allows {source}"
+
+    @pytest.mark.parametrize("path", EVERY_PATH)
+    def test_every_path_gets_the_same_directives(self, hub_client, path):
+        policy = policy_of(hub_client.get(path))
+
         assert directive(policy, "default-src") == "'none'"
+        assert directive(policy, "style-src") == "'self'"
+        assert directive(policy, "connect-src") == "'self'"
+        assert directive(policy, "frame-ancestors") == "'none'"
 
-    def test_the_relaxation_does_not_leak_to_the_dashboard(self, hub_client):
-        assert "jsdelivr" not in policy_of(hub_client.get("/"))
-        assert "jsdelivr" not in policy_of(hub_client.get("/api/v1/health"))
+    def test_the_generated_schema_is_still_served(self, hub_client):
+        """Turning off the two docs pages must not take `/openapi.json` with them.
 
-    def test_the_openapi_document_is_covered_too(self, hub_client):
-        """/openapi.json is what Swagger UI fetches; a strict connect-src there
-        would leave the docs page permanently loading."""
+        It is same-origin JSON with nothing to fetch, so it costs the policy
+        nothing, and a client generator still has something to read.
+        """
         response = hub_client.get("/openapi.json")
 
         assert response.status_code == 200
-        assert directive(policy_of(response), "connect-src") == "'self'"
+        assert response.json()["info"]["title"] == "Aethel Hub"
+
+    @pytest.mark.parametrize("path", ["/docs", "/redoc"])
+    def test_the_cdn_backed_pages_are_gone(self, hub_client, path):
+        assert hub_client.get(path).status_code == 404
 
 
 class TestConfigurationIsNotRequired:

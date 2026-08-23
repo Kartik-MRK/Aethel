@@ -83,7 +83,7 @@ class TestSharding:
 
 class TestStructuredObjects:
     def test_write_returns_the_canonical_hash(self, store):
-        payload = {"message": "hello", "author": "sathwik"}
+        payload = {"message": "hello", "author": "test-author"}
 
         assert store.write_json("commits", payload) == hash_json(payload)
 

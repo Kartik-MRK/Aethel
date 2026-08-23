@@ -8,11 +8,21 @@ never requires a code change.
 Chain settings are read but unused until the anchoring layer lands. They live
 here now so that the ops board can already report "not configured" rather than
 crashing, and so the deployment story is settled before the code arrives.
+
+**No credential this file reads can write to a third party.** The Pinata token
+and the wallet key that will sign anchor transactions are deliberately absent:
+they belong to the command-line tools that pin and anchor, not to the process
+that serves HTML to a browser. A web process that holds no outbound credential
+has none to leak, and the split costs nothing because pinning and anchoring are
+already client-side operations. What the Hub gets instead is `AETHEL_IPFS_GATEWAY`
+— a public URL, useful for building links, worthless to an attacker.
 """
 
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from aethel.core.env import load_env
 
 
 def _env_path(name: str, default: str) -> Path:
@@ -81,6 +91,25 @@ class HubConfig:
     pinning_endpoint: str | None = field(
         default_factory=lambda: os.environ.get("AETHEL_PINNING_ENDPOINT") or None
     )
+
+    #: Public gateway used to build "fetch this CID elsewhere" links. Any
+    #: gateway serves any CID, which is the property the demo shows off, so
+    #: which one is configured is a convenience rather than a dependency.
+    ipfs_gateway: str | None = field(
+        default_factory=lambda: os.environ.get("AETHEL_IPFS_GATEWAY") or None
+    )
+
+    @classmethod
+    def from_environment(cls) -> "HubConfig":
+        """Build a config, loading a `.env` first if one is present.
+
+        Only this constructor touches the filesystem looking for settings.
+        `HubConfig()` stays a pure read of the current environment, which is what
+        lets a test build a Hub without a stray `.env` two directories up
+        changing the result.
+        """
+        load_env()
+        return cls()
 
     @property
     def objects_dir(self) -> Path:

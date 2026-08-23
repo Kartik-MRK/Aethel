@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% set nav = 'api' %}
+{% block title %}API — Aethel Hub{% endblock %}
+
+{#
+  The route line is this page's one typographic device: a method chip, then the
+  path with its parameter slots pulled out of the literal segments. A path is
+  read by scanning for the parts that change, so those are the parts the type
+  distinguishes -- the same argument the digest treatment makes elsewhere on this
+  site, applied to a different kind of identifier.
+#}
+{% macro route_path(path) %}
+  {%- for segment in path.split('/') -%}
+    {%- if not loop.first %}<span class="route-sep">/</span>{% endif -%}
+    {%- if segment.startswith('{') -%}
+      <span class="route-slot">{{ segment[1:-1] }}</span>
+    {%- else -%}
+      {{ segment }}
+    {%- endif -%}
+  {%- endfor -%}
+{% endmacro %}
+
+{% block content %}
+<div class="lede">
+  <p class="lede-eyebrow">HTTP API</p>
+  <h1>The client names the hash. The server checks it.</h1>
+  <p class="lede-sub">
+    That one rule explains the shape of everything below. Objects are addressed
+    by the SHA-256 of their own bytes, uploads are rejected when the bytes do not
+    match the address, and downloads carry the digest back so a client can check
+    the server rather than trust it.
+  </p>
+</div>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Conventions</h2>
+    <p class="strip-note">True of every request. Assumed everywhere after this.</p>
+  </div>
+  <div class="strip-body">
+    <div class="card">
+      <dl class="kv convention">
+        {% for label, value, note in conventions %}
+        <dt>{{ label }}</dt>
+        <dd>
+          <span class="convention-value">{{ value | inline }}</span>
+          <span class="convention-note">{{ note | inline }}</span>
+        </dd>
+        {% endfor %}
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Errors</h2>
+    <p class="strip-note">
+      One vocabulary across the whole API, so a client handles a code once
+      rather than per endpoint.
+    </p>
+  </div>
+  <div class="strip-body">
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Code</th><th class="col-msg">Means</th></tr>
+          </thead>
+          <tbody>
+            {% for code, meaning in shared_errors %}
+            <tr>
+              <td><span class="code-chip">{{ code }}</span></td>
+              <td>{{ meaning | inline }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="footnote">
+      Every error body is <code>{"detail": "&hellip;"}</code> with a sentence a
+      person can read. A few endpoints add a code of their own; those are noted
+      where they occur.
+    </p>
+  </div>
+</section>
+
+{#
+  The only numbered list on this site. Justified because the numbers are load
+  bearing: step 4 fails with 409 if step 3 has not finished, and step 1 exists
+  purely to shrink step 2. An alphabetical endpoint list cannot express an
+  ordering constraint, which is the one thing a client author has to get right.
+#}
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">A push, in order</h2>
+    <p class="strip-note">Four calls. The order is a constraint, not a suggestion.</p>
+  </div>
+  <div class="strip-body">
+    <ol class="sequence">
+      {% for step in push_sequence %}
+      <li class="sequence-step">
+        <span class="sequence-no" aria-hidden="true">{{ loop.index }}</span>
+        <div class="sequence-body">
+          <h3 class="sequence-title">{{ step.title }}</h3>
+          <p class="sequence-call">
+            <span class="route-method">{{ step.method }}</span>
+            <code class="route-path">{{ route_path(step.path) }}</code>
+          </p>
+          <p class="sequence-note">{{ step.note | inline }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+
+{% for group in groups %}
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">{{ group.title }}</h2>
+    <p class="strip-note">{{ group.note | inline }}</p>
+  </div>
+  <div class="strip-body">
+    {% for endpoint in group.endpoints %}
+    <article class="route">
+      <div class="route-head">
+        <span class="route-method">{{ endpoint.method }}</span>
+        <code class="route-path">{{ route_path(endpoint.path) }}</code>
+        {% if endpoint.writes %}<span class="route-auth">token</span>{% endif %}
+      </div>
+      <div class="route-body">
+        <p class="route-purpose">{{ endpoint.purpose | inline }}</p>
+
+        {% if endpoint.detail %}
+        <div class="route-detail">{{ endpoint.detail | prose }}</div>
+        {% endif %}
+
+        {% if endpoint.params %}
+        <dl class="route-params">
+          {% for param in endpoint.params %}
+          <dt>
+            <span class="param-name">{{ param.name }}</span>
+            <span class="param-where">{{ param.where }}{% if not param.required %}, optional{% endif %}</span>
+          </dt>
+          <dd>{{ param.note | inline }}</dd>
+          {% endfor %}
+        </dl>
+        {% endif %}
+
+        {% if endpoint.returns %}
+        <p class="route-returns">
+          <span class="route-key">Returns</span>{{ endpoint.returns | inline }}
+        </p>
+        {% endif %}
+
+        {% for code, meaning in endpoint.notable %}
+        <p class="route-returns">
+          <span class="code-chip">{{ code }}</span>{{ meaning | inline }}
+        </p>
+        {% endfor %}
+
+        {% if endpoint.example %}
+        <pre class="sample"><code>{{ endpoint.example }}</code></pre>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Machine-readable</h2>
+    <p class="strip-note">For tooling. Not a substitute for the page above.</p>
+  </div>
+  <div class="strip-body">
+    <div class="card card-tight">
+      <dl class="kv">
+        <dt>Schema</dt>
+        <dd><a href="/openapi.json">/openapi.json</a></dd>
+        <dt>Health</dt>
+        <dd><a href="/api/v1/health">/api/v1/health</a></dd>
+        <dt>Version</dt>
+        <dd><a href="/api/v1/version">/api/v1/version</a></dd>
+      </dl>
+    </div>
+    <p class="footnote">
+      The schema describes paths and parameters accurately and response bodies
+      not at all &mdash; the handlers return plain dictionaries, so there is
+      nothing for it to introspect. Use it to generate a client's URLs; read this
+      page for what comes back.
+    </p>
+  </div>
+</section>
+{% endblock %}

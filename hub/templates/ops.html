@@ -87,7 +87,7 @@
   </div>
   <div class="strip-body">
     {% if log_root %}
-    <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root) }}</p>
+    <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root, copy='log root') }}</p>
     {% else %}
     <p class="nil">Log is empty &mdash; no root yet.</p>
     {% endif %}

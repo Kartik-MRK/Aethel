@@ -20,7 +20,7 @@
 {% if log_root %}
 <section class="rootline">
   <p class="rootline-label">Transparency log root</p>
-  {{ digest(log_root, size='xl', label=log_root) }}
+  {{ digest(log_root, size='xl', label=log_root, copy='transparency log root') }}
   <p class="rootline-note">
     Computed over all {{ log_size }} logged commit{{ '' if log_size == 1 else 's' }}.
     Publishing this root to a public chain is what makes the history

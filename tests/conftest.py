@@ -263,3 +263,60 @@ def pushed(hub_client, core_repo, base_hash):
         "second": second,
         "ref": response.json(),
     }
+
+
+ADAPTER_BYTES_C = b"\x00\x01aethel-fake-adapter-C" + bytes(range(128)) * 8
+
+
+@pytest.fixture
+def pushed_forked(hub_client, core_repo, base_hash):
+    """A Hub holding `demo` with two branches forking from one commit.
+
+        base ── tip        (main)
+             └─ side       (probe)
+
+    A linear history cannot tell you whether the repository page's commit graph
+    is right. Every lane sits at zero, every segment is a straight line, and the
+    drawing looks identical whether the lane assignment works or is absent
+    entirely. This fixture is the smallest history where a wrong answer is
+    visible: two lanes have to be open at once, and one of them has to curve
+    back into the other at the commit they share.
+
+    Timestamps are set explicitly and out of order relative to the fork, so the
+    ordering under test is topological rather than accidentally chronological.
+    """
+    from aethel.remote.objects import build_push_plan
+
+    base = make_commit(
+        core_repo, base_hash, "shared ancestor", ADAPTER_BYTES_A, timestamp="2026-01-01T00:00:00"
+    )
+    tip = make_commit(
+        core_repo, base_hash, "continued on main", ADAPTER_BYTES_B, timestamp="2026-01-03T00:00:00"
+    )
+
+    # Branch off the shared ancestor, the way `aethel branch` plus `checkout`
+    # do it: point a new ref at that commit, then move HEAD onto the ref.
+    core_repo.refs.create_branch("probe", base)
+    core_repo.refs.set_head_to_branch("probe")
+    side = make_commit(
+        core_repo, base_hash, "probed a variant", ADAPTER_BYTES_C, timestamp="2026-01-02T00:00:00"
+    )
+
+    tips = {"main": tip, "probe": side}
+    for branch in sorted(tips):
+        plan = build_push_plan(core_repo, branch, tips[branch])
+        upload_objects(hub_client, core_repo, plan)
+
+        response = hub_client.post(
+            "/api/v1/repos/demo/refs", json={"branch": branch, "commit": tips[branch]}
+        )
+        assert response.status_code == 200, response.text
+
+    return {
+        "client": hub_client,
+        "repo": core_repo,
+        "base": base,
+        "tip": tip,
+        "side": side,
+        "tips": tips,
+    }

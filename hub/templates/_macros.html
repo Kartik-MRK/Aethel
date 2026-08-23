@@ -12,9 +12,16 @@
   drift between pages.
 #}
 
-{% macro digest(value, size='', head=12, label='') %}
+{% macro digest(value, size='', head=12, label='', copy='') %}
   {%- if value -%}
+    {#- `data-copy` names the value for the copy button hub/static/copy.js puts
+        beside it, and its presence is what asks for a button at all. Only worth
+        setting where the digest is the subject of its block: a button on every
+        hash in a table is a column of chrome, and the value a reader came for is
+        the one the section is about. No button is rendered here -- whether this
+        browser can copy anything is a runtime question, so the script decides. -#}
     <span class="digest {{ size }}"{% if label %} title="{{ label }}"{% endif %}
+      {%- if copy %} data-copy="{{ copy }}"{% endif -%}
       ><b>{{ value[:head] }}</b><span class="digest-tail">{{ value[head:] }}</span
     ></span>
   {%- else -%}

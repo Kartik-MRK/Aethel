@@ -31,12 +31,46 @@
  *
  * TYPOGRAPHY. This system's primary content is hexadecimal digests, so the
  * monospace face is treated as a display face rather than a fallback for code:
- * it sets identifiers, figures, section labels, and the Merkle ladder. The
- * system sans is reserved for prose. The rule for a digest is that its leading
- * characters take full ink and the tail recedes (.digest) — that is how these
- * values are read in practice, and making the type say so is the cheapest
- * legibility win on the site. No web fonts: the demo network may not reach one.
+ * it sets identifiers, figures, section labels, and the Merkle ladder. The sans
+ * is reserved for prose. The rule for a digest is that its leading characters
+ * take full ink and the tail recedes (.digest) — that is how these values are
+ * read in practice, and making the type say so is the cheapest legibility win
+ * on the site.
+ *
+ * Both faces are served from this origin, subset by scripts/build_fonts.py,
+ * 36 KiB for the pair. Self-hosted rather than linked because the demo network
+ * may not reach a CDN, because the Content-Security-Policy names no external
+ * origin, and because a system-font stack renders as Cantarell here and Segoe
+ * UI on the presentation machine — two different sets of metrics, so the layout
+ * tuned on one is not the layout shown on the other.
  */
+
+/* ---------- faces ----------
+ * Two variable fonts, axis-limited to the weights actually used. Fallbacks are
+ * kept behind each one: a page that cannot load its font must still be
+ * readable, and every rule below sizes by rem rather than by glyph.
+ *
+ * The pair needs no optical size correction. Measured from the built files,
+ * Public Sans sits at x-height 0.5170em and Aethel Mono at 0.5160em — a 0.2%
+ * difference — so a digest set inline in a sentence aligns with the prose
+ * around it at the same font-size. That is a property of these two faces
+ * together and a reason to keep them together. */
+
+@font-face {
+  font-family: "Public Sans";
+  src: url("fonts/public-sans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Aethel Mono";
+  src: url("fonts/aethel-mono.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   color-scheme: light;
@@ -90,8 +124,8 @@
 
   --radius: 10px;
   --radius-sm: 6px;
-  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Aethel Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
   /* type scale — five steps, so a size is a choice from a set, not a guess */
   --step-s: 0.75rem;
@@ -102,6 +136,56 @@
 
   /* the label track width — one value, so every page aligns to it */
   --track: 168px;
+
+  /* motion — three durations and one curve, for the same reason the type scale
+   * has five steps: a duration should be a choice from a set rather than a
+   * number somebody typed. Before these existed the file held 380ms, 160ms and
+   * 120ms in three places with no relationship between them.
+   *
+   * --dur-tap    a control acknowledging the pointer: colour, border, opacity.
+   *              Short enough that it reads as responsiveness rather than as an
+   *              effect, which is the whole job.
+   * --dur-settle a state change the reader caused and will look at afterwards:
+   *              a rung resolving, a hover layer arriving.
+   * --dur-reveal something appearing that was not there. Only two things on the
+   *              site use it, and both are explained where they are used.
+   *
+   * One curve, and it decelerates: everything here either arrives or changes
+   * state, and nothing accelerates away. A symmetric ease on a 120ms colour
+   * change is indistinguishable from linear anyway, so a second curve would be
+   * a token nobody could tell was being used. */
+  --dur-tap: 120ms;
+  --dur-settle: 190ms;
+  --dur-reveal: 380ms;
+  --ease-out: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* The interval between staggered siblings. Read by the ladder, whose rungs
+   * enter in fold order. */
+  --stagger: 70ms;
+}
+
+/* Reduced motion, handled in one place for every transition on the site.
+ *
+ * Zeroing the tokens is deliberate and it is worth being precise about what it
+ * does and does not cover. A `transition-duration: 0s` is a state change that
+ * happens immediately, which is exactly right: the end state is the resting
+ * style, so the reader sees the result with no travel. Nothing on this site
+ * listens for `transitionend`, so nothing depends on a transition firing.
+ *
+ * Entrance *animations* are NOT handled here, and must not be. An animation
+ * with a zero duration and a `backwards` fill still applies its first keyframe
+ * for the length of its delay -- so zeroing these tokens would hold the ladder
+ * at `opacity: 0` for 420ms and then snap it in, which is a flash of missing
+ * content, produced in the name of respecting a preference against motion. The
+ * entrances are gated by `@media (prefers-reduced-motion: no-preference)`
+ * instead, so under `reduce` the rule does not exist at all. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-tap: 0s;
+    --dur-settle: 0s;
+    --dur-reveal: 0s;
+    --stagger: 0s;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -159,11 +243,70 @@ body {
   color: var(--text-primary);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+
+  /* Slashed zero, declared once and inherited. A page of hex needs a zero that
+   * cannot be read as an O, and this is the only place it has to be said:
+   * Public Sans carries no `zero` feature, so the declaration is inert on prose
+   * and takes effect exactly where the mono face is used.
+   *
+   * The property is not additive, so every rule that sets tabular-nums has to
+   * restate it — that is why they read `slashed-zero tabular-nums` rather than
+   * `tabular-nums` alone. */
+  font-variant-numeric: slashed-zero;
 }
 
 a { color: var(--series-1); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+/* ---------- what moves, and what does not ----------
+ * The rule this site follows: motion marks a change of state, and never marks
+ * arrival. So there is no fade-up on the page's sections as they load. That
+ * effect is the house style of a great many sites and it is decoration wearing
+ * the costume of craft -- it delays content the reader asked for in order to
+ * animate the fact that it arrived, which the reader can already see. It also
+ * has a real cost here: these pages are long columns of 64-character hashes,
+ * and a reader comparing two of them does not want the second one still moving.
+ *
+ * Exactly one thing animates on arrival, and it animates because the movement
+ * is the explanation rather than an ornament on it: the Merkle ladder assembles
+ * from the leaf upward, in fold order, because each step consumes the previous
+ * step's output. The sequence *is* the data dependency. Take the animation away
+ * and the drawing still shows a fold; it just no longer shows the direction.
+ *
+ * Everything else below is a transition on a state the reader is currently
+ * changing: a hover, a focus, a control mid-press, a rung resolving as the check
+ * reaches it. Those exist so the change is legible, not so it is decorated,
+ * which is why almost all of them are --dur-tap. */
+
+/* One transition declaration for the interactive vocabulary, rather than a
+ * property list repeated on nine components. Named properties rather than
+ * `all`: `all` transitions layout too, so a rule that changed padding on hover
+ * would animate the page's geometry, and a rule that changed `display` would
+ * fight the transition. These four are the only things a hover ever changes
+ * here -- ink, edge, ground, and opacity. */
+a,
+.nav a,
+.ledger-name,
+.theme-btn,
+.theme-glyph,
+.check-btn,
+.copy-btn,
+tbody tr {
+  transition:
+    color var(--dur-tap) var(--ease-out),
+    border-color var(--dur-tap) var(--ease-out),
+    background-color var(--dur-tap) var(--ease-out),
+    opacity var(--dur-tap) var(--ease-out);
+}
+
+/* The chart's hover readout is not in that list, and the difference is the
+ * reason it is its own rule. Everything above is a control acknowledging a
+ * pointer; this is a *value* being displayed, and a value that snaps in at 120ms
+ * as the pointer crosses eight commits in a row reads as flicker rather than as
+ * a reading. At --dur-settle it resolves as the pointer lands. */
+.hover-layer {
+  transition: opacity var(--dur-settle) var(--ease-out);
+}
 /* One focus treatment for everything, so a keyboard user never has to hunt for
  * the ring. Declared before components so a component can override position
  * but not visibility. */
@@ -242,7 +385,7 @@ a .digest b { color: var(--series-1); }
 
 .nil { color: var(--text-muted); }
 .ident { font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
-.tabular { font-variant-numeric: tabular-nums; }
+.tabular { font-variant-numeric: slashed-zero tabular-nums; }
 
 /* Available to assistive technology, absent from the visual design.
  *
@@ -252,9 +395,19 @@ a .digest b { color: var(--series-1); }
  *
  * `white-space: nowrap` matters: at 1px wide the text would otherwise wrap to
  * one character per line, and some screen readers read the resulting line breaks
- * as word breaks -- "F i l e n a m e". */
+ * as word breaks -- "F i l e n a m e".
+ *
+ * `left: 0` is the non-obvious one, and it is load-bearing. Without it the box
+ * keeps its static position, which is measured against the nearest positioned
+ * ancestor -- the page itself, since nothing here is positioned. The hidden
+ * column header inside the files table then sat at document x=445 while the
+ * table scrolled inside a 326px-wide box, and an absolutely positioned box is
+ * not clipped by an ancestor's `overflow`. So at 375px the entire page scrolled
+ * sideways by 85px to make room for one invisible pixel. Pinning it to the left
+ * edge means it can never widen anything, wherever it is used. */
 .sr-only {
   position: absolute;
+  left: 0;
   width: 1px;
   height: 1px;
   margin: -1px;
@@ -610,7 +763,7 @@ a .digest b { color: var(--series-1); }
   font-family: var(--mono);
   font-weight: 600;
   color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: slashed-zero tabular-nums;
 }
 .ledger-meta {
   margin: 7px 0 0;
@@ -734,7 +887,7 @@ a .digest b { color: var(--series-1); }
 .rung-no {
   font-family: var(--mono);
   font-size: var(--step-s);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: slashed-zero tabular-nums;
   color: var(--text-muted);
 }
 /* The fold direction is the one thing a reader must not misread — it decides
@@ -767,24 +920,145 @@ a .digest b { color: var(--series-1); }
 }
 
 /* One orchestrated moment: the fold assembles from the leaf upward on load,
- * which is the direction it is read in. Nothing else on the site animates. */
+ * which is the direction it is read in. It is the only thing on the site that
+ * animates on arrival -- see "what moves, and what does not" near the top of
+ * this file for why that is a rule rather than a shortage of ideas.
+ *
+ * `backwards`, not `both`, and the distinction is load bearing rather than
+ * pedantic. A filled-forwards animation keeps its last keyframe applied for the
+ * life of the element, and an animation's values beat ordinary declarations in
+ * the cascade -- so `opacity: 1` in the `to` frame would silently outrank the
+ * `.rung-pending` dimming that the browser check relies on. `backwards` applies
+ * the first frame during the delay and then lets go, which is all this needs:
+ * the `to` frame is already the resting style, so nothing jumps when it does.
+ *
+ * The delays are multiples of --stagger rather than six written-out values, so
+ * the interval is one number to change and the ordering is visible in the
+ * arithmetic. The root waits for the deepest rung it could have: a ladder with
+ * more than four folds collapses its middle onto one delay, because past that
+ * point the reader is watching a rhythm rather than counting steps. */
 @media (prefers-reduced-motion: no-preference) {
   .rung, .ladder-node {
-    animation: rung-in 380ms cubic-bezier(0.2, 0, 0.2, 1) both;
+    animation: rung-in var(--dur-reveal) var(--ease-out) backwards;
   }
   .ladder-node.leaf { animation-delay: 0ms; }
-  .rungs li:nth-last-child(1) { animation-delay: 70ms; }
-  .rungs li:nth-last-child(2) { animation-delay: 140ms; }
-  .rungs li:nth-last-child(3) { animation-delay: 210ms; }
-  .rungs li:nth-last-child(4) { animation-delay: 280ms; }
-  .rungs li:nth-last-child(n + 5) { animation-delay: 350ms; }
-  .ladder-node.root { animation-delay: 420ms; }
+  .rungs li:nth-last-child(1) { animation-delay: calc(1 * var(--stagger)); }
+  .rungs li:nth-last-child(2) { animation-delay: calc(2 * var(--stagger)); }
+  .rungs li:nth-last-child(3) { animation-delay: calc(3 * var(--stagger)); }
+  .rungs li:nth-last-child(4) { animation-delay: calc(4 * var(--stagger)); }
+  .rungs li:nth-last-child(n + 5) { animation-delay: calc(5 * var(--stagger)); }
+  .ladder-node.root { animation-delay: calc(6 * var(--stagger)); }
 }
 
 @keyframes rung-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+
+/* ---------- checking the proof in the browser ----------
+ * The panel below the Hub's own verdict, revealed by hub/static/verify.js.
+ *
+ * Two verdicts on one screen is a real design problem: the reader has to be able
+ * to tell "the server says so" from "your machine says so", or the second is
+ * decoration. So this block does not restate the pill treatment above it. It is
+ * a plain well with one control and one sentence, and its result lands on the
+ * ladder itself -- the rungs mark up as the fold reaches them, which is a claim
+ * the verdict box above cannot make. */
+
+.proof-check {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+.check-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.check-title {
+  margin: 0;
+  font-size: var(--step-m);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.check-btn {
+  font: inherit;
+  font-size: var(--step-b);
+  font-weight: 550;
+  padding: 7px 14px;
+  border: 1px solid var(--baseline);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.check-btn:hover { border-color: var(--series-1); color: var(--series-1); }
+/* Disabled while a check runs and left disabled once it has answered. A second
+ * press would recompute the same numbers from the same JSON, so re-enabling it
+ * only invites the reader to look for a different answer. */
+.check-btn:disabled {
+  cursor: default;
+  color: var(--text-muted);
+  border-color: var(--gridline);
+  border-style: dashed;
+}
+.check-state {
+  margin: 0;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+  /* The sentence changes length as it goes -- "Folding 3 sibling hashes…" then a
+   * paragraph -- and a box that resizes under a reader's eyes is worse than one
+   * that starts at its final height. */
+  min-height: 2.8em;
+}
+/* Tone is carried by a leading rule rather than a tint, because the tinted-panel
+ * idiom is already spent on the verdict box directly above and reusing it here
+ * would make the two look like one statement. */
+.check-state.ok, .check-state.warn, .check-state.bad {
+  padding-left: 12px;
+  border-left: 2px solid var(--baseline);
+}
+.check-state.ok { border-left-color: var(--status-good); color: var(--text-primary); }
+.check-state.warn { border-left-color: var(--status-warning); }
+.check-state.bad { border-left-color: var(--status-critical); color: var(--text-primary); }
+
+/* The per-rung states. `rung-pending` dims a rung the fold has not reached yet,
+ * so the sequence is legible as it advances; the other two are terminal.
+ *
+ * A tick and a cross would be the obvious markers and they are the wrong ones:
+ * the ladder already spends its glyph budget on the diamond nodes, and a column
+ * of green ticks makes the *drawing* look like the verdict. The rung is marked
+ * on its left edge instead -- where the spine already draws a line, so the state
+ * appears on the structure rather than beside it. */
+/* --dur-settle rather than --dur-tap: this is not a pointer acknowledgement but
+ * a rung resolving as the fold reaches it, paced against the 110ms step in
+ * verify.js so each one is legible before the next begins. */
+.rung { transition: opacity var(--dur-settle) var(--ease-out); }
+.rung.rung-pending { opacity: 0.45; }
+.rung-agrees, .rung-differs { position: relative; }
+.rung-agrees::after, .rung-differs::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+.rung-agrees::after { background: var(--status-good); }
+.rung-differs::after { background: var(--status-critical); }
+.rung-differs { background: color-mix(in srgb, var(--status-critical) 6%, transparent); }
+
+/* The root is where the check actually concludes, so it gets the one filled
+ * marker: the node's own diamond changes colour. */
+.ladder-node.node-agrees .node-mark { background: var(--status-good); }
+.ladder-node.node-differs .node-mark { background: var(--status-critical); }
 
 /* ---------- tables ----------
  * Every chart on these pages has a table twin. tabular-nums here is correct:
@@ -817,7 +1091,7 @@ td {
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
+.num { text-align: right; font-variant-numeric: slashed-zero tabular-nums; }
 /* Inside a table, a hash or a timestamp is a single atom in a narrow column.
  * The break-all that keeps a 64-character digest inside a card would split a
  * 12-character short hash across two lines here, which reads as two values. */
@@ -830,8 +1104,17 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
 /* One column absorbs the leftover width. Without this the auto table layout
  * splits residual space evenly, which starves the only column whose content is
  * a sentence -- the message ends up the narrowest cell on the page while a
- * timestamp that cannot wrap gets twice its width. */
-.col-msg { width: 100%; }
+ * timestamp that cannot wrap gets twice its width.
+ *
+ * The floor is what makes that column survive a phone. Once the fixed columns
+ * no longer fit, `width: 100%` has no residual left to claim and the message
+ * collapses to its longest word: "re-record / metadata: / dataset / path was"
+ * is four lines for four words. 13rem is about 26 characters, which is a short
+ * sentence's worth of measure. Below that the table pans instead of narrowing
+ * further, which is the same trade the chart makes at 780px -- the horizontal
+ * scroll is already there, and a few hundred pixels more of it costs a reader
+ * who is panning nothing at all. */
+.col-msg { width: 100%; min-width: 13rem; }
 
 /* ---------- chart ---------- */
 
@@ -876,7 +1159,7 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
   fill: var(--text-muted);
   font-size: 11px;
   font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: slashed-zero tabular-nums;
 }
 .series-line {
   fill: none;
@@ -887,13 +1170,37 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
 }
 /* 2px surface ring keeps markers legible where they overlap the line */
 .series-dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+
+/* One hue per branch line, cycling through the palette's three series tokens.
+ *
+ * The hue is never what identifies a line: each one is direct-labelled with its
+ * branch name at its own endpoint, and every plotted value is a row in the table
+ * below. That is the site's rule about colour, and it is what makes cycling safe
+ * -- a fourth branch reusing the first hue is a repeated decoration, not two
+ * lines claiming to be the same branch.
+ *
+ * The dash pattern is the second channel, for the same reason. It is not
+ * decoration: at these stroke widths deuteranopia collapses --series-2 toward
+ * --series-1, and a reader tracing a line back to a fork needs to know which of
+ * two adjacent strokes they are on without reading the label at the far end. */
+.series-line.hue-2 { stroke: var(--series-2); stroke-dasharray: 7 4; }
+.series-line.hue-3 { stroke: var(--series-3); stroke-dasharray: 2 3.5; }
+.series-dot.hue-2 { fill: var(--series-2); }
+.series-dot.hue-3 { fill: var(--series-3); }
+
+/* Labels stay in body ink by default, including the first line's -- text in the
+ * same blue as the links around it reads as something to click, and the trunk is
+ * the line a reader starts from. Only the lines that need telling apart from it
+ * take their hue, and only once there is more than one line to tell apart. */
 .point-label {
   fill: var(--text-secondary);
   font-size: 11px;
   font-family: var(--mono);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: slashed-zero tabular-nums;
 }
+.point-label.hue-2 { fill: var(--series-2); }
+.point-label.hue-3 { fill: var(--series-3); }
 /* Hit target is far larger than the 8px mark — a pinpoint dot is unhittable */
 .hit { fill: transparent; cursor: pointer; }
 .hit:hover ~ .hover-layer,
@@ -956,6 +1263,271 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
 }
 .pill.neutral { color: var(--text-secondary); background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
 
+/* ---------- API reference ----------
+ * One device carries this page: the route line. A method chip, then the path
+ * with its parameter slots marked as blanks to fill in. Everything under it is
+ * the same quiet prose the rest of the site uses, indented to the path's left
+ * edge so a long list of endpoints reads as hanging entries rather than a wall.
+ *
+ * The method chip is deliberately NOT coloured by verb, which is the one thing
+ * every other API reference does. Colour here would claim that the verb tells
+ * you whether a call is safe, and in this API it does not: POST /log/verify
+ * changes nothing and needs no token, while POST /repos/{name}/negotiate does
+ * both. The property a client author has to see is "does this write", so that is
+ * what gets the colour -- the token marker -- and the verb gets letterforms.
+ */
+
+.route {
+  padding: 20px 0 22px;
+  border-top: 1px solid var(--gridline);
+}
+.route:first-child { border-top: none; padding-top: 2px; }
+
+.route-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* min-width, not padding: the four verbs are three and four characters, and a
+ * fixed box is what lands every path on the same left edge down the page. */
+.route-method {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 7px;
+  min-width: 3.25rem;
+  text-align: center;
+  flex: none;
+}
+
+/* Overrides the global `code` chip. A path here is the heading of its entry, set
+ * at the same size as a repository name on the index, so the two read as the
+ * same kind of thing: the name of a record. */
+.route-path {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  min-width: 0;
+  word-break: break-word;
+}
+.route-sep {
+  color: var(--text-muted);
+  font-weight: 400;
+  padding: 0 1px;
+}
+/* A slot is drawn as a blank to fill in, because that is what it is. The dashed
+ * rule does the work and the accent only reinforces it -- the braces are gone
+ * from the text, so if colour were the only mark, a monochrome print or a reader
+ * who cannot separate the hues would not be able to tell a literal segment from
+ * a parameter. Same relief rule the charts and pills follow. */
+.route-slot {
+  color: var(--series-1);
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--series-1) 50%, transparent);
+  text-underline-offset: 3px;
+}
+
+/* Pushed to the far edge so the write-gated calls form a readable column down
+ * the right of a group instead of hiding at the end of paths of varying length.
+ *
+ * The ink is pulled toward --text-primary rather than left as the pure hue, for
+ * the reason documented on .pill.critical: the chip sets 12px text on a tint of
+ * its own colour, and --text-primary inverts with the theme, so one mix gains
+ * contrast in light and dark at once. */
+.route-auth {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--series-2) 70%, var(--text-primary));
+  background: color-mix(in srgb, var(--series-2) 12%, transparent);
+  border-radius: 3px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  flex: none;
+}
+
+.route-body { padding-left: calc(3.25rem + 10px); }
+
+.route-purpose {
+  margin: 9px 0 0;
+  max-width: 74ch;
+  color: var(--text-primary);
+}
+.route-detail p {
+  margin: 10px 0 0;
+  max-width: 76ch;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+}
+
+.route-params {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: 7px 22px;
+  margin: 14px 0 0;
+  font-size: var(--step-b);
+}
+.route-params dt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.param-name {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.param-where {
+  font-size: var(--step-s);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.route-params dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+/* A block, not a flex row: the value after the key is an anonymous box in flex
+ * layout, so it cannot be given min-width: 0 and a long sentence overflows the
+ * card instead of wrapping. Inline-block markers with a right margin get the
+ * same look and let the text flow. */
+.route-returns {
+  margin: 11px 0 0;
+  max-width: 76ch;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+}
+.route-key {
+  display: inline-block;
+  margin-right: 9px;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+/* Neutral, not red. These are the documented outcomes of a correct client, not
+ * alarms -- a 404 on a hash you have not pushed yet is the API working. The
+ * status hues stay reserved for the ops board, where a colour means something is
+ * wrong right now. */
+.code-chip {
+  display: inline-block;
+  margin-right: 9px;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  font-variant-numeric: slashed-zero tabular-nums;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.sample {
+  margin: 15px 0 0;
+  padding: 12px 14px;
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: var(--step-b);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+/* The global chip treatment is wrong for a <code> that fills a <pre>: it would
+ * draw a second ground and border inside the block's own. */
+.sample code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Sans, not mono, even though two of the four values are literal strings. Those
+ * two are written with backticks and get the global code chip from that, which
+ * leaves the face free to say something: a value in mono here would dress
+ * "the hash is the name" up as something a client can send. */
+.convention-value {
+  display: block;
+  font-weight: 550;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.convention-note {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-secondary);
+}
+
+/* The push sequence. Numerals in the gutter, kept at muted ink: their job is to
+ * be countable, not to be looked at. The step title carries the emphasis.
+ *
+ * No connecting spine, even though these steps do depend on each other. A
+ * vertical rule through numbered rows already means one specific thing on this
+ * site -- the Merkle fold -- and borrowing it here would suggest these four
+ * calls hash into each other, which they do not. Row rules instead, the same
+ * mark the repository list uses for "records in a list". */
+.sequence { list-style: none; margin: 0; padding: 0; }
+.sequence-step {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 0 14px;
+  padding: 17px 0;
+  border-top: 1px solid var(--gridline);
+}
+.sequence-step:first-child { border-top: none; padding-top: 2px; }
+.sequence-no {
+  font-family: var(--mono);
+  font-size: var(--step-l);
+  font-weight: 600;
+  font-variant-numeric: slashed-zero tabular-nums;
+  line-height: 1.15;
+  color: var(--text-muted);
+  text-align: right;
+}
+.sequence-body { min-width: 0; }
+.sequence-title {
+  margin: 0;
+  font-size: var(--step-m);
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+/* The same route line the reference entries use, one step down in size so the
+ * step's own title still leads. Reusing the device is the point: a reader who
+ * has learned to see the dashed slots up here reads them the same way below. */
+.sequence-call {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 7px 0 0;
+}
+.sequence-call .route-path { font-size: var(--step-m); }
+.sequence-note {
+  margin: 7px 0 0;
+  max-width: 74ch;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+}
+
 /* ---------- misc ---------- */
 
 .hash {
@@ -996,17 +1568,198 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
 }
 .footnote strong { color: var(--text-secondary); }
 
-.dag-mark {
-  display: inline-block;
+/* ---------- copy control ----------
+ * Injected by hub/static/copy.js beside the few digests a reader carries out of
+ * the page. Not rendered server-side, because whether the clipboard is reachable
+ * at all is a runtime question -- see the file for why.
+ *
+ * A chip rather than an icon. A clipboard glyph is the convention and it is the
+ * wrong choice on a page whose whole argument is that every mark means something
+ * checkable: the site has exactly one glyph vocabulary, the status pills, and
+ * spending a second one on a utility control makes both harder to read. The word
+ * also does the state change for free -- "copy" becoming "copied" is text, so the
+ * confirmation does not rest on a colour, which is the rule everywhere else here.
+ *
+ * Baseline-aligned so it sits on the last line of the value it belongs to, which
+ * is where a digest that has wrapped actually ends. */
+
+.copy-btn {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-left: 10px;
+  padding: 1px 7px;
+  vertical-align: baseline;
+  border: 1px solid var(--gridline);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.copy-btn:hover { border-color: var(--series-1); color: var(--series-1); }
+.copy-btn.is-copied { border-color: var(--status-good); color: var(--status-good); }
+.copy-btn.is-failed { border-color: var(--status-critical); color: var(--status-critical); }
+/* The display-size root is the one digest with nothing left over: 64 characters
+ * at 1.75rem reach within about 24px of the block's right edge, so an inline chip
+ * wraps to the next line anyway -- and lands there indented by its own left
+ * margin, which reads as a stray fragment rather than a control. Put under the
+ * value deliberately instead, flush with its left edge. `width: max-content`
+ * rather than plain `display: block`, or the chip stretches the full width of the
+ * well and stops looking like something to press. */
+.digest.xl + .copy-btn {
+  display: block;
+  width: max-content;
+  margin: 14px 0 0;
+}
+
+/* ---------- error pages ----------
+ * The specific failure, kept in the mono face and behind a rule. Mono because it
+ * is the server quoting itself -- it names an address or a repository the reader
+ * asked for, and that is machine text everywhere else on this site. The rule
+ * marks it as a quotation rather than the page's own voice, the same device the
+ * verifier's state line uses one section over. */
+
+.error-detail {
+  margin: 0;
+  max-width: 76ch;
+  padding-left: 12px;
+  border-left: 2px solid var(--baseline);
+  font-family: var(--mono);
+  font-size: var(--step-b);
+  line-height: 1.5;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* Links out, with no row rules on them. Rules would be wrong rather than merely
+ * plain: a bordered row means "one record in a list" on this site, and these are
+ * three ways out of a dead end, not three entries in a registry. */
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.plain-list li {
+  font-size: var(--step-b);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.plain-list li + li { margin-top: 9px; }
+
+/* ---------- the commit graph ----------
+ * A rail in the history table's first column: one vertical line per concurrent
+ * line of work, curving where a branch leaves or rejoins its parent.
+ *
+ * Drawn per row, not as one tall SVG beside the table. A single drawing would
+ * have to know every row's height in advance, and these rows grow when a message
+ * wraps -- so the graph would drift out of alignment with the values it belongs
+ * to, which is the one thing it cannot do. Each cell instead holds a 20-unit
+ * viewBox stretched to that row's real height, and the segments meet exactly at
+ * the row boundary.
+ *
+ * Monochrome on purpose. Colouring each lane would be the obvious move and it
+ * would break the site's rule that colour never carries a value on its own:
+ * lane colour would be the only thing saying which line is which. Position does
+ * that here, the branch chips name the tips, and the Parent column states the
+ * ancestry in text. The graph is a second reading of data that is already
+ * written down -- which is also why it is aria-hidden. */
+
+/* The rail's width is reserved as left padding, not as `width`. Under the auto
+ * table layout a `width` is only a suggestion -- the used width is at least the
+ * cell's min-content width, and this cell's content is an absolutely positioned
+ * SVG and marker, both out of flow, so its min-content width is zero. With
+ * `.col-msg` asking for 100% there is no spare space to grant the suggestion
+ * from, and the column collapses to nothing with the graph spilling over the
+ * commit hashes next to it.
+ *
+ * Padding is not negotiable that way: it is part of min-content width. And an
+ * absolutely positioned child resolves `inset: 0` against the padding box, so
+ * the SVG still spans the full reserved width -- the padding reserves the space
+ * without pushing anything into it. */
+/* The marker sits on the row's vertical centre, so the row's text has to as well
+ * -- otherwise a two-line message leaves the diamond floating between the lines
+ * while the hash it belongs to is above them. Scoped to tables that carry a rail:
+ * elsewhere `top` is right, because a wrapped cell should start level with its
+ * neighbours rather than drift down as it grows. */
+.has-rail td { vertical-align: middle; }
+
+th.rail, td.rail {
+  padding: 0 0 0 34px;
+  width: 0;
+  /* The lines have to reach the cell's own edges, and a percentage height needs
+   * a positioned ancestor to resolve against. */
+  position: relative;
+}
+.rail-w2 th.rail, .rail-w2 td.rail { padding-left: 48px; }
+.rail-w3 th.rail, .rail-w3 td.rail { padding-left: 62px; }
+.rail-w4 th.rail, .rail-w4 td.rail { padding-left: 76px; }
+.rail-w5 th.rail, .rail-w5 td.rail { padding-left: 90px; }
+.rail-w6 th.rail, .rail-w6 td.rail { padding-left: 104px; }
+
+.rail-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* non-scaling-stroke is load-bearing here, not a refinement. The viewBox is
+ * stretched vertically and not horizontally, and a stroke scales with the
+ * transform -- so without this a 1.5px line renders about twice as wide on a
+ * tall row as on a short one, and the graph's weight would change from row to
+ * row depending on whether a message wrapped. */
+.rail-line {
+  fill: none;
+  stroke: var(--baseline);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The parent exists but is further back than this page goes. The line stops
+ * short of the boundary so it cannot be read as continuing into the next row. */
+.rail-line.cut { stroke-dasharray: 2 3; opacity: 0.7; }
+
+/* The node is an element rather than a <circle> because the SVG around it is
+ * stretched vertically: a circle in that space comes out an ellipse, and by a
+ * different amount on every row. A rotated square in normal flow keeps its shape
+ * at any row height.
+ *
+ * The same diamond as the wordmark and the proof ladder -- one glyph for "an
+ * object in the chain", used everywhere that idea appears. */
+.rail-node {
+  position: absolute;
+  top: 50%;
   width: 9px;
   height: 9px;
+  margin: -4.5px 0 0 -4.5px;
   background: var(--series-1);
   transform: rotate(45deg);
-  margin-right: 9px;
-  flex: none;
 }
-.dag-mark.root { background: var(--surface-1); border: 1.5px solid var(--series-1); }
-.dag-cell { display: inline-flex; align-items: baseline; }
+.rail-node.root { background: var(--surface-1); border: 1.5px solid var(--series-1); }
+
+.rail.lane-0 .rail-node { left: 20px; }
+.rail.lane-1 .rail-node { left: 34px; }
+.rail.lane-2 .rail-node { left: 48px; }
+.rail.lane-3 .rail-node { left: 62px; }
+.rail.lane-4 .rail-node { left: 76px; }
+/* Lane 5 is also where every lane past it is drawn -- see MAX_LANES in views. */
+.rail.lane-5 .rail-node { left: 90px; }
+
+/* Where a branch currently points. Boxed rather than tinted: a branch name is a
+ * label, not a status, and the tinted-chip treatment on this site means "this
+ * value has a state". */
+.ref-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
 
 /* ---------- narrow screens ----------
  * The two-track grid collapses to one. The label keeps its mono treatment, so
@@ -1032,6 +1785,11 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
   .ladder-node, .rung { padding-left: 40px; }
   .ladder-node::before, .rung::before { left: 19px; }
   .node-mark { left: 14px; }
+  /* Follows the spine in, or the state marker floats off the structure it is
+   * meant to be marking. */
+  .rung-agrees::after, .rung-differs::after { left: 17px; }
+  .check-head { align-items: flex-start; flex-direction: column; }
+  .check-state { min-height: 0; }
 
   /* Three columns become two: the step number and its fold chip share the top
    * row, and both hashes stack underneath in the wide column.
@@ -1045,6 +1803,18 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
   .rung { grid-template-columns: 2.75rem minmax(0, 1fr); }
   .rung-sib, .rung-out { grid-column: 2; }
   th, td { padding: 10px 12px; }
+
+  /* The route entry loses its hanging indent. At this width the method chip and
+   * the path no longer share a line anyway, so an indent measured from the chip
+   * is aligning the body to an edge that is not there -- and it was costing 62px
+   * of the ~343px a phone has for a path that must not be broken mid-hash. */
+  .route-body { padding-left: 0; }
+  .route-path { font-size: var(--step-m); }
+  .route-auth { margin-left: 0; }
+  .route-params { grid-template-columns: minmax(0, 1fr); gap: 3px 0; }
+  .route-params dd { margin-bottom: 8px; }
+  .sequence-step { grid-template-columns: 1.75rem minmax(0, 1fr); gap: 0 12px; }
+  .sequence-no { font-size: var(--step-m); line-height: 1.35; }
 }
 
 /* Below this width the masthead row can no longer hold one line: three nav
@@ -1062,8 +1832,12 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
 
 @media print {
   .masthead, .skip, .theme-btn { display: none; }
+  /* A button on paper is a dead control, and the sentence beside it describes
+   * something the reader cannot do from a printout. */
+  .proof-check { display: none; }
   body { background: #fff; }
   .card, .panel, .chart-card, .ladder, .rootline { break-inside: avoid; }
+  .route, .sequence-step, .sample { break-inside: avoid; }
   .strip { border-top-color: #ccc; }
   .digest-tail { color: #666; }
 }

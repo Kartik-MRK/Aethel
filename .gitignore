@@ -111,6 +111,16 @@ secrets.txt
 .env.*
 !.env.example
 
+# Local demo store, rebuilt by scripts/seed_demo.py. The script is committed and
+# the store is not: it is ~5 MB of synthetic adapter bytes that one command
+# regenerates byte-for-byte.
+.demo/
+
+# Pinned font sources, downloaded by scripts/build_fonts.py. The built woff2
+# files under hub/static/fonts/ ARE committed -- the Hub serves them and must
+# work on a clean checkout. This is only the upstream cache the build reads.
+.font-cache/
+
 # Environments
 .env
 .venv

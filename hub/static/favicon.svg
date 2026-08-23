@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    The masthead's mark at tab size: the same rotated square, nothing else.
+
+    Drawn as a path rather than a <rect transform="rotate(45)"> because a rotated
+    rect's corners land on fractional pixels at 16px and the diamond comes out
+    with two soft edges and two hard ones. Four explicit points sit on the grid.
+
+    The diamond is inset to 22 of 32 units across. A mark drawn to the edges of a
+    favicon reads as a filled tile in a tab strip, where every neighbour is also
+    a 16px square -- the padding is what makes it a shape rather than a swatch.
+
+    Two colours, because a favicon sits in browser chrome that follows the OS
+    theme, not the page's. #1a5aa8 is nearly invisible against a dark tab strip
+    and #3987e5 is thin against a light one, so each gets the surface it was
+    contrast-checked against. This is the one asset the in-page theme toggle
+    cannot reach: the tab is not part of the document.
+  -->
+  <style>
+    .mark { fill: #1a5aa8; }
+    @media (prefers-color-scheme: dark) {
+      .mark { fill: #3987e5; }
+    }
+  </style>
+  <path class="mark" d="M16 5 L27 16 L16 27 L5 16 Z"/>
+</svg>

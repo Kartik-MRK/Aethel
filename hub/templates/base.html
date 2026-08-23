@@ -16,6 +16,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Aethel Hub{% endblock %}</title>
+
+  {# One SVG icon rather than a set of PNGs. It is the masthead's own diamond, so
+     it scales to any size a browser asks for, and it carries its own
+     `prefers-color-scheme` swap -- a tab strip follows the OS theme, not this
+     page's, so the in-page toggle cannot reach it. #}
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+
+  {# Fonts are preloaded because they are otherwise discovered late: the browser
+     cannot know a face is needed until it has fetched and parsed the stylesheet,
+     which costs a whole round trip before the first request goes out. Declaring
+     them here starts both downloads alongside the CSS instead of after it.
+
+     `crossorigin` is required even though these are same-origin. Fonts are
+     always fetched in CORS mode, and a preload whose mode does not match the
+     real request is simply downloaded twice. #}
+  <link rel="preload" href="/static/fonts/public-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/aethel-mono.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/hub.css">
   <script nonce="{{ request.state.csp_nonce }}">
     (function () {
@@ -40,7 +57,7 @@
       <nav class="nav" aria-label="Sections">
         <a href="/" {% if nav == 'repos' %}aria-current="page"{% endif %}>Repositories</a>
         <a href="/ops" {% if nav == 'ops' %}aria-current="page"{% endif %}>Operations</a>
-        <a href="/docs">API</a>
+        <a href="/api" {% if nav == 'api' %}aria-current="page"{% endif %}>API</a>
       </nav>
       <button class="theme-btn" id="theme-toggle" type="button" aria-label="Switch colour theme">
         <span class="theme-glyph" aria-hidden="true"></span>
@@ -76,6 +93,11 @@
       try { localStorage.setItem("aethel-theme", next); } catch (e) {}
     });
   </script>
+  {# Loaded on every page rather than per-template: it does nothing at all unless
+     the page contains a `data-copy` element, and deciding per page which ones
+     those are is the kind of bookkeeping that goes stale the first time a digest
+     moves. #}
+  <script nonce="{{ request.state.csp_nonce }}" src="/static/copy.js"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
