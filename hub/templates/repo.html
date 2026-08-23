@@ -1,189 +1,213 @@
 {% extends "base.html" %}
+{% from "_macros.html" import digest, figure, pill %}
 {% set nav = 'repos' %}
 {% block title %}{{ repo.name }} — Aethel Hub{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <div class="crumb"><a href="/">Repositories</a> / {{ repo.name }}</div>
-  <h1>{{ repo.name }}</h1>
-  <p>
+<div class="lede">
+  <p class="crumb"><a href="/">Repositories</a> <span aria-hidden="true">/</span> {{ repo.name }}</p>
+  <p class="lede-eyebrow">Repository</p>
+  <h1 class="lede-ident">{{ repo.name }}</h1>
+  <p class="lede-sub">
     {{ stats.versions }} version{{ '' if stats.versions == 1 else 's' }}
     across {{ stats.branches }} branch{{ '' if stats.branches == 1 else 'es' }},
     on {{ stats.bases }} base model{{ '' if stats.bases == 1 else 's' }}.
   </p>
 </div>
 
-<section>
-  <div class="kpis">
-    <div class="tile">
-      <div class="tile-label">Latest accuracy</div>
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Standing</h2>
+    <p class="strip-note">Latest is the newest measured version, not the best one.</p>
+  </div>
+  <div class="strip-body">
+    <div class="figures">
       {% if stats.latest_accuracy is not none %}
-      <div class="tile-value">{{ '%.1f' | format(stats.latest_accuracy * 100) }}%</div>
+      {{ figure('Latest accuracy', '%.1f' | format(stats.latest_accuracy * 100) ~ '%', lead=true) }}
       {% else %}
-      <div class="tile-value muted">—</div>
-      <div class="tile-sub">not measured</div>
+      {{ figure('Latest accuracy', '—', 'not measured', lead=true, muted=true) }}
       {% endif %}
-    </div>
-    <div class="tile">
-      <div class="tile-label">Best accuracy</div>
+
       {% if stats.best_accuracy is not none %}
-      <div class="tile-value">{{ '%.1f' | format(stats.best_accuracy * 100) }}%</div>
+      {{ figure('Best accuracy', '%.1f' | format(stats.best_accuracy * 100) ~ '%') }}
       {% else %}
-      <div class="tile-value muted">—</div>
+      {{ figure('Best accuracy', '—', muted=true) }}
       {% endif %}
-    </div>
-    <div class="tile">
-      <div class="tile-label">Versions</div>
-      <div class="tile-value">{{ stats.versions }}</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Branches</div>
-      <div class="tile-value">{{ stats.branches }}</div>
-      <div class="tile-sub">{{ repo.branches.keys() | join(', ') }}</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Base models</div>
-      <div class="tile-value">{{ stats.bases }}</div>
-      <div class="tile-sub">referenced by hash</div>
+
+      {{ figure('Versions', stats.versions) }}
+      {{ figure('Branches', stats.branches, repo.branches.keys() | join(', ')) }}
+      {{ figure('Base models', stats.bases, 'referenced by hash') }}
     </div>
   </div>
 </section>
 
 {# Accuracy over time: one series, so no legend box — the title names it.
    Trend over time -> line, per the form heuristic. #}
-<section>
-  <h2>Accuracy over versions</h2>
-  {% if series.points %}
-  <div class="chart-card">
-    <div class="chart-head">
-      <div class="chart-title">Evaluation accuracy per commit</div>
-      <div class="chart-sub">
-        Oldest to newest.
-        {% if series.unmeasured %}
-        {{ series.measured }} of {{ series.total_commits }} versions have a recorded
-        metric; {{ series.unmeasured }} unmeasured and omitted rather than plotted as zero.
-        {% endif %}
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Accuracy</h2>
+    <p class="strip-note">Over versions, oldest to newest.</p>
+  </div>
+  <div class="strip-body">
+    {% if series.points %}
+    {% set g = series.geometry %}
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-title">Evaluation accuracy per commit</div>
+        <div class="chart-sub">
+          Axis spans {{ g.low_pct }}&ndash;{{ g.high_pct }}%, not 0&ndash;100% &mdash; a line
+          shows change through its slope, which a full-domain axis would flatten
+          to nothing.
+          {% if series.unmeasured %}
+          {{ series.measured }} of {{ series.total_commits }} versions have a recorded
+          metric; {{ series.unmeasured }} unmeasured and omitted rather than plotted as zero.
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="chart-scroll">
+      <svg class="chart-svg" viewBox="0 0 {{ series.chart.width }} {{ series.chart.height }}"
+           role="img"
+           aria-label="Line chart of evaluation accuracy per commit, axis {{ g.low_pct }} to {{ g.high_pct }} percent. Values are also listed in the table below.">
+
+        {# Solid hairline gridlines, one step off the surface — never dashed #}
+        {% for line in g.grid %}
+        <line class="grid-line" x1="{{ g.left }}" y1="{{ line.y }}" x2="{{ g.right }}" y2="{{ line.y }}"/>
+        <text class="axis-text" x="{{ g.left - 8 }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
+        {% endfor %}
+
+        {# No filled area under the line. A fill reads as magnitude measured from
+           the baseline, and this baseline is not zero. #}
+        <path class="series-line" d="{{ g.path }}"/>
+
+        {% for p in g.points %}
+        <circle class="series-dot" cx="{{ p.px }}" cy="{{ p.py }}" r="4"/>
+        {% endfor %}
+
+        {# Direct-label the endpoint only. A number on every point is chaos and
+           goes unread; the axis and the table carry the rest. The latest value is
+           the one a reader looks for first, so it is the one worth spelling out
+           without a hover. #}
+        {% set last = g.points[-1] %}
+        <text class="point-label" x="{{ last.px }}" y="{{ last.py - 12 }}" text-anchor="end">
+          {{ last.pct }}%
+        </text>
+
+        {# Hover targets are full-height columns, far larger than the 8px mark.
+           They are focusable so a keyboard user gets the same readout a mouse
+           user gets, in place, rather than being sent to the table for it.
+
+           `role="img"` and not `role="button"`: the rect is not activatable, and
+           announcing "button" promises an Enter key that does nothing. A labelled
+           graphic is what this actually is -- a value you can land on and read. #}
+        {% for p in g.points %}
+        <g>
+          <rect class="hit"
+                x="{{ p.px - 18 }}" y="{{ g.top }}" width="36" height="{{ g.bottom - g.top }}"
+                tabindex="0"
+                role="img"
+                aria-label="{{ p.hash }}: {{ p.pct }} percent, {{ p.timestamp }}, {{ p.message }}"/>
+          <g class="hover-layer" opacity="0" pointer-events="none">
+            <line class="axis-line" x1="{{ p.px }}" y1="{{ g.top }}" x2="{{ p.px }}" y2="{{ g.bottom }}"/>
+            <circle class="series-dot" cx="{{ p.px }}" cy="{{ p.py }}" r="6"/>
+            <text class="point-label"
+                  x="{{ p.px if p.px < 700 else p.px - 10 }}"
+                  y="{{ g.top + 12 }}"
+                  text-anchor="{{ 'start' if p.px < 700 else 'end' }}">
+              {{ p.hash }} · {{ p.pct }}%
+            </text>
+          </g>
+        </g>
+        {% endfor %}
+      </svg>
       </div>
     </div>
-
-    {% set g = series.geometry %}
-    <svg class="chart-svg" viewBox="0 0 {{ series.chart.width }} {{ series.chart.height }}"
-         role="img"
-         aria-label="Line chart of evaluation accuracy per commit. Values are also listed in the table below.">
-
-      {# Solid hairline gridlines, one step off the surface — never dashed #}
-      {% for line in g.grid %}
-      <line class="grid-line" x1="{{ g.left }}" y1="{{ line.y }}" x2="{{ g.right }}" y2="{{ line.y }}"/>
-      <text class="axis-text" x="{{ g.left - 8 }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
-      {% endfor %}
-
-      <line class="axis-line" x1="{{ g.left }}" y1="{{ g.bottom }}" x2="{{ g.right }}" y2="{{ g.bottom }}"/>
-
-      <path class="series-area" d="{{ g.area }}"/>
-      <path class="series-line" d="{{ g.path }}"/>
-
-      {% for p in g.points %}
-      <circle class="series-dot" cx="{{ p.px }}" cy="{{ p.py }}" r="4"/>
-      {% endfor %}
-
-      {# Direct-label the endpoint only. A number on every point is chaos and
-         goes unread; the axis and the table carry the rest. The label is also
-         the relief for the sub-3:1 light-mode series colour. #}
-      {% set last = g.points[-1] %}
-      <text class="point-label" x="{{ last.px }}" y="{{ last.py - 12 }}" text-anchor="end">
-        {{ last.pct }}%
-      </text>
-
-      {# Hover targets are full-height columns, far larger than the 8px mark #}
-      {% for p in g.points %}
-      <g>
-        <rect class="hit"
-              x="{{ p.px - 18 }}" y="{{ g.top }}" width="36" height="{{ g.bottom - g.top }}"
-              tabindex="0"
-              role="button"
-              aria-label="{{ p.hash }}: {{ p.pct }} percent, {{ p.timestamp }}, {{ p.message }}"/>
-        <g class="hover-layer" opacity="0" pointer-events="none">
-          <line class="axis-line" x1="{{ p.px }}" y1="{{ g.top }}" x2="{{ p.px }}" y2="{{ g.bottom }}"/>
-          <circle class="series-dot" cx="{{ p.px }}" cy="{{ p.py }}" r="6"/>
-          <text class="point-label"
-                x="{{ p.px if p.px < 700 else p.px - 10 }}"
-                y="{{ g.top + 12 }}"
-                text-anchor="{{ 'start' if p.px < 700 else 'end' }}">
-            {{ p.hash }} · {{ p.pct }}%
-          </text>
-        </g>
-      </g>
-      {% endfor %}
-    </svg>
+    {% else %}
+    <div class="card empty">
+      <strong>No accuracy metrics recorded yet</strong>
+      Commits carry whatever <code>training_info.metrics</code> the trainer wrote.
+      Once evaluation runs during training, this chart fills in automatically.
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="card empty">
-    <strong>No accuracy metrics recorded yet</strong>
-    Commits carry whatever <code>training_info.metrics</code> the trainer wrote.
-    Once evaluation runs during training, this chart fills in automatically.
-  </div>
-  {% endif %}
 </section>
 
 {# The table twin: every charted value is also readable here, so nothing is
    gated behind hover and nothing depends on colour. #}
-<section>
-  <h2>Version history</h2>
-  <p class="section-note">
-    Newest first. Each row links to the full commit, its files, and its
-    inclusion proof.
-  </p>
-  <div class="card" style="padding:0">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Commit</th>
-            <th>Parent</th>
-            <th>Message</th>
-            <th>Author</th>
-            <th class="num">Accuracy</th>
-            <th class="num">Macro-F1</th>
-            <th>When</th>
-            <th>Log</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in commits %}
-          <tr>
-            <td>
-              <div class="dag-cell">
-                <span class="dag-mark {{ 'root' if row.is_root else '' }}"
-                      title="{{ 'Root commit' if row.is_root else 'Commit' }}"></span>
-                <a class="hash-strong" href="/c/{{ row.hash }}">{{ row.short }}</a>
-              </div>
-            </td>
-            <td class="hash">{{ row.parent_short or '—' }}</td>
-            <td>{{ row.message }}</td>
-            <td>{{ row.author }}</td>
-            <td class="num">
-              {% if row.accuracy is not none %}{{ '%.3f' | format(row.accuracy) }}{% else %}—{% endif %}
-            </td>
-            <td class="num">
-              {% if row.f1 is not none %}{{ '%.3f' | format(row.f1) }}{% else %}—{% endif %}
-            </td>
-            <td class="hash">{{ row.timestamp }}</td>
-            <td>
-              {% if row.hash in logged %}
-              <span class="pill good"><span class="pill-glyph" aria-hidden="true">✓</span>Logged</span>
-              {% else %}
-              <span class="pill neutral"><span class="pill-glyph" aria-hidden="true">○</span>Not logged</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+<section class="strip full">
+  <div class="strip-head">
+    <h2 class="strip-label">History</h2>
+    <p class="strip-note">
+      Newest first. Each row links to the full commit, its files, and its
+      inclusion proof.
+    </p>
   </div>
-  <p class="footnote">
-    A hollow marker is a root commit (no parent). “Logged” means the commit is a
-    leaf in this Hub's append-only transparency log.
-  </p>
+  <div class="strip-body">
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Commit</th>
+              <th>Parent</th>
+              <th class="col-msg">Message</th>
+              <th>Author</th>
+              <th class="num">Accuracy</th>
+              <th class="num">Macro-F1</th>
+              <th>When</th>
+              <th>Log</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in commits %}
+            <tr>
+              <td>
+                <span class="dag-cell">
+                  <span class="dag-mark {{ 'root' if row.is_root else '' }}"
+                        title="{{ 'Root commit' if row.is_root else 'Commit' }}"></span>
+                  <a class="hash-strong" href="/c/{{ row.hash }}">{{ row.short }}</a>
+                </span>
+              </td>
+              <td class="hash">{{ row.parent_short or '—' }}</td>
+              <td>{{ row.message }}</td>
+              <td>{{ row.author }}</td>
+              <td class="num">
+                {% if row.accuracy is not none %}{{ '%.3f' | format(row.accuracy) }}{% else %}—{% endif %}
+              </td>
+              <td class="num">
+                {% if row.f1 is not none %}{{ '%.3f' | format(row.f1) }}{% else %}—{% endif %}
+              </td>
+              <td class="hash">{{ row.timestamp }}</td>
+              <td>
+                {% if row.hash in logged %}
+                {{ pill('good', '✓', 'Logged') }}
+                {% else %}
+                {{ pill('neutral', '○', 'Not logged') }}
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="footnote">
+      A hollow marker is a root commit (no parent). “Logged” means the commit is a
+      leaf in this Hub's append-only transparency log.
+    </p>
+  </div>
 </section>
+
+{% if log_root %}
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Log root</h2>
+    <p class="strip-note">Across every repository on this Hub.</p>
+  </div>
+  <div class="strip-body">
+    <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root) }}</p>
+    <p class="footnote">Merkle root over {{ log_size }} {{ 'leaf' if log_size == 1 else 'leaves' }}.</p>
+  </div>
+</section>
+{% endif %}
 {% endblock %}

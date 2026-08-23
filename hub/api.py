@@ -31,6 +31,16 @@ router = APIRouter()
 #: because they are raw bytes rather than JSON.
 JSON_KINDS = ("commits", "trees", "bases")
 
+#: The closed vocabulary a health check may report, worst last.
+#:
+#: Named rather than inlined because `ops.html` cannot loop over these -- each
+#: tier needs its own glyph and its own word -- so the template hard-codes one
+#: branch per tier. A tier added here without a matching branch there would be
+#: rendered by the template's `{% else %}` as "Critical", which is a silent
+#: mis-report of system state. The test suite compares this tuple against the
+#: template's branches so the two cannot drift apart.
+HEALTH_STATUSES = ("good", "warning", "critical")
+
 
 def get_config(request: Request) -> HubConfig:
     return request.app.state.config
@@ -530,13 +540,11 @@ async def health(
         "token required" if config.auth_required else "open — no push token set",
     )
 
-    worst = "good"
-    for check in checks:
-        if check["status"] == "critical":
-            worst = "critical"
-            break
-        if check["status"] == "warning":
-            worst = "warning"
+    # The page's overall verdict is the worst row on it. Severity comes from the
+    # order of HEALTH_STATUSES rather than a hand-written comparison chain, so a
+    # tier inserted into that tuple is ranked correctly without touching this.
+    severity = {status: rank for rank, status in enumerate(HEALTH_STATUSES)}
+    worst = max((check["status"] for check in checks), key=severity.__getitem__, default="good")
 
     return JSONResponse(
         status_code=200 if worst != "critical" else 503,

@@ -1,20 +1,41 @@
 /* Aethel Hub — design tokens and layout.
  *
  * Palette values come from the validated reference instance. The three
- * categorical slots used here (blue / orange / aqua) were checked with the
- * data-viz validator under --pairs all in BOTH modes and pass every gate:
+ * categorical slots (blue / orange / aqua) were checked with the data-viz
+ * validator under --pairs all in BOTH modes and pass every gate:
  *
  *   light  worst-pair CVD ΔE 9.2 (deutan) · normal-vision 24.0
  *   dark   worst-pair CVD ΔE 9.4 (deutan) · normal-vision 20.9
  *
- * The light-mode aqua measures 2.74:1 against the light surface, below the 3:1
- * bar, so the "relief rule" applies: every value it encodes is ALSO carried by
- * a visible direct label and by the table view. Colour never carries a value
- * alone anywhere on these pages.
+ * Only slot 1 is drawn today: every chart on this dashboard plots one series.
+ * Slots 2 and 3 are declared anyway and left unused deliberately -- the ΔE
+ * figures above are a property of the three values together, so keeping the set
+ * intact is what makes a second series a lookup rather than a fresh guess. A
+ * reader should know they are unused; that is what this paragraph is for.
+ *
+ * Slot 3 carries a constraint with it. The light-mode aqua measures 2.74:1
+ * against the light surface, below the 3:1 a graphic needs, so whenever it is
+ * introduced the "relief rule" applies to it: every value it encodes must ALSO
+ * be carried by a visible direct label and by the table view. That rule already
+ * governs these pages for a different reason -- colour never carries a value
+ * alone anywhere on them -- so slot 3 costs nothing new when it arrives.
  *
  * Dark values are declared under both the media query and the [data-theme]
  * scope so an explicit toggle wins in both directions, and no colour has its
  * only definition inside a conditional block.
+ *
+ * Everything added on top of the palette is DERIVED with color-mix from the
+ * values above rather than introduced as new hex, so the measurements stay
+ * true. There is exactly one raw addition per theme — the recessed well — and
+ * it is a neutral, carrying no data.
+ *
+ * TYPOGRAPHY. This system's primary content is hexadecimal digests, so the
+ * monospace face is treated as a display face rather than a fallback for code:
+ * it sets identifiers, figures, section labels, and the Merkle ladder. The
+ * system sans is reserved for prose. The rule for a digest is that its leading
+ * characters take full ink and the tail recedes (.digest) — that is how these
+ * values are read in practice, and making the type say so is the cheapest
+ * legibility win on the site. No web fonts: the demo network may not reach one.
  */
 
 :root {
@@ -25,32 +46,62 @@
   --page: #f9f9f7;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted: #898781;
+  /* The quiet tier still has to be readable. The obvious grey for "de-emphasised"
+   * measures 3.4:1 on the page and 3.2:1 on the well, under the 4.5:1 that 12px
+   * text needs — and the text wearing it is a figure's label, a table header, and
+   * the tail of a hash, none of which is decorative enough to be exempt. So the
+   * floor, not the taste, sets this value: 4.7:1 on the well, 5.1:1 on the page.
+   *
+   * The cost is honest. Three ink tiers on a near-white ground were only three
+   * tiers because the bottom one sat outside the legible range; pulling it inside
+   * narrows the gap to --text-secondary. The remaining separation is carried by
+   * size as much as by ink, which is why the muted tier is nearly always 12px. */
+  --text-muted: #6d6b65;
   --gridline: #e1e0d9;
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
   --success-text: #006300;
 
-  /* categorical slots (fixed order — never cycled, never rank-assigned) */
-  --series-1: #2a78d6;
+  /* categorical slots (fixed order — never cycled, never rank-assigned)
+   *
+   * Slot 1 doubles as the accent: links, the fold chip, marks, focus rings. That
+   * makes it ink as well as a graphic, and ink answers to 4.5:1 rather than the
+   * 3:1 a stroke gets. A brighter blue clears the graphic bar and fails the text
+   * one, worst on the fold chip, where the ink sits on a 10% tint of itself and
+   * darkening the ink darkens the ground with it. This value clears every use:
+   * 6.7:1 on a card, 5.2:1 on that chip.
+   *
+   * Dark mode overrides it with a brighter blue, so the accent tracks its ground
+   * instead of holding one value across both.
+   *
+   * Slots 2 and 3 are the validated continuation of the ramp and no rule reads
+   * them yet — see the note at the top of this file. */
+  --series-1: #1a5aa8;
   --series-2: #eb6834;
   --series-3: #1baf7a;
-
-  /* sequential ramp (blue), for magnitude */
-  --seq-250: #86b6ef;
-  --seq-450: #2a78d6;
-  --seq-600: #184f95;
 
   /* status — reserved, never reused as a series colour */
   --status-good: #0ca30c;
   --status-warning: #fab219;
-  --status-serious: #ec835a;
   --status-critical: #d03b3b;
+
+  /* recessed surface for wells and ladders — neutral, carries no data */
+  --well: #f2f1ed;
 
   --radius: 10px;
   --radius-sm: 6px;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* type scale — five steps, so a size is a choice from a set, not a guess */
+  --step-s: 0.75rem;
+  --step-b: 0.875rem;
+  --step-m: 0.9375rem;
+  --step-l: 1.375rem;
+  --step-xl: 2.125rem;
+
+  /* the label track width — one value, so every page aligns to it */
+  --track: 168px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -64,15 +115,18 @@
     --gridline: #2c2c2a;
     --baseline: #383835;
     --border: rgba(255, 255, 255, 0.1);
-    --success-text: #0ca30c;
+    /* Brighter than --status-good, not equal to it. The OK pill sets this ink on
+     * a 12% tint of the status hue, so an ink equal to the hue is a colour on a
+     * tint of itself -- 4.2:1 at 12px, under the bar. Lifting it clears 5.0:1
+     * while the tint stays the measured status green. Light mirrors this in the
+     * other direction, where the ink is darker than the hue instead. */
+    --success-text: #22b322;
 
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
 
-    --seq-250: #86b6ef;
-    --seq-450: #3987e5;
-    --seq-600: #184f95;
+    --well: #141413;
   }
 }
 
@@ -86,15 +140,13 @@
   --gridline: #2c2c2a;
   --baseline: #383835;
   --border: rgba(255, 255, 255, 0.1);
-  --success-text: #0ca30c;
+  --success-text: #22b322;
 
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
 
-  --seq-250: #86b6ef;
-  --seq-450: #3987e5;
-  --seq-600: #184f95;
+  --well: #141413;
 }
 
 * { box-sizing: border-box; }
@@ -102,73 +154,396 @@
 body {
   margin: 0;
   font-family: var(--font);
+  font-size: var(--step-m);
   background: var(--page);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
 a { color: var(--series-1); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-code, .mono { font-family: var(--mono); font-size: 0.875em; }
+/* One focus treatment for everything, so a keyboard user never has to hunt for
+ * the ring. Declared before components so a component can override position
+ * but not visibility. */
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 
-/* ---------- layout ---------- */
+code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
 
-.shell { max-width: 1180px; margin: 0 auto; padding: 0 24px 72px; }
-
-.topbar {
-  border-bottom: 1px solid var(--border);
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  padding: 8px 14px;
   background: var(--surface-1);
+  border: 1px solid var(--series-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--step-b);
+  z-index: 20;
+}
+.skip:focus { left: 16px; }
+
+/* Where a fragment jump lands. The only fragment link on the site is the skip
+ * link, and without this the sticky masthead covers what it lands on: <main>
+ * scrolls to y=0 and the bar occupies the first 57px of the viewport.
+ *
+ * The clip is smaller than that sounds -- .lede contributes 52px of its own top
+ * padding, so only the top 4px of the breadcrumb is actually cut -- but a
+ * half-sliced line of text is exactly the sort of detail that reads as broken.
+ *
+ * The value is a constant rather than the bar's measured height because CSS
+ * cannot read a rendered height, and the bar has no single one: it holds 57px
+ * while the row fits, then wraps. Overshooting only adds whitespace above the
+ * target on a one-time jump; undershooting hides content. So each value clears
+ * the tallest bar its range can produce. */
+main { scroll-margin-top: 72px; }
+
+/* <main> carries tabindex="-1" so the skip link can move focus into it, which
+ * makes it match :focus-visible and inherit the ring above. On a 2400px-tall
+ * region that ring is a rectangle around the whole page, reading as an error
+ * rather than as a cursor. It is suppressed because <main> is a scroll
+ * destination, not a control: the visible result of the jump is that the
+ * content has moved to the top, and the next Tab lands on a real control that
+ * shows its own ring. This is the one place the site opts out. */
+main:focus,
+main:focus-visible { outline: none; }
+
+/* ---------- digests ----------
+ * The site's central typographic device. The head is the part a human
+ * compares; the tail is present, selectable and copyable, but recedes so a
+ * page carrying a dozen 64-character values stays readable. */
+
+.digest {
+  font-family: var(--mono);
+  font-size: var(--step-b);
+  letter-spacing: -0.01em;
+  word-break: break-all;
+}
+.digest b { font-weight: 600; color: var(--text-primary); }
+.digest-tail { color: var(--text-muted); font-weight: 400; }
+a .digest b { color: var(--series-1); }
+
+.digest.lg { font-size: 1.0625rem; }
+.digest.lg b { letter-spacing: -0.02em; }
+.digest.xl { font-size: clamp(1.125rem, 3.6vw, 1.75rem); line-height: 1.3; }
+.digest.xl b { letter-spacing: -0.03em; }
+
+.nil { color: var(--text-muted); }
+.ident { font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Available to assistive technology, absent from the visual design.
+ *
+ * `display: none` and `visibility: hidden` remove the text from the
+ * accessibility tree too, which is the opposite of the intent. This clips it to
+ * nothing instead, so it is announced but occupies no space and cannot be seen.
+ *
+ * `white-space: nowrap` matters: at 1px wide the text would otherwise wrap to
+ * one character per line, and some screen readers read the resulting line breaks
+ * as word breaks -- "F i l e n a m e". */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- masthead ---------- */
+
+.masthead {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(8px);
   position: sticky;
   top: 0;
   z-index: 10;
 }
-.topbar-inner {
+.masthead-inner {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 14px 24px;
+  padding: 13px 24px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   flex-wrap: wrap;
 }
-.brand {
-  font-weight: 650;
-  font-size: 1.0625rem;
-  letter-spacing: -0.01em;
+
+/* The mark is a small square rotated to a diamond — the same shape the ladder
+ * uses for a node. The wordmark and the proof therefore share one glyph, which
+ * is the only branding on the site.
+ *
+ * The vertical padding is the same 2px the nav links carry, and it is there for
+ * the same reason: a 15px line box is a 23px tap target, just under the 24px
+ * minimum. Both masthead link groups clear it by the same margin, and the row's
+ * height is unchanged because the 30px theme button still sets it. */
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 2px 0;
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
-.brand span { color: var(--text-muted); font-weight: 400; }
-.topnav { display: flex; gap: 18px; margin-left: auto; flex-wrap: wrap; }
-.topnav a { color: var(--text-secondary); font-size: 0.875rem; }
-.topnav a[aria-current="page"] { color: var(--text-primary); font-weight: 550; }
-
-.page-head { padding: 36px 0 24px; }
-.page-head h1 {
-  margin: 0 0 6px;
-  font-size: 1.625rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+.wordmark:hover { text-decoration: none; }
+.wordmark-mark {
+  width: 9px;
+  height: 9px;
+  background: var(--series-1);
+  transform: rotate(45deg);
+  flex: none;
 }
-.page-head p { margin: 0; color: var(--text-secondary); font-size: 0.9375rem; }
+.wordmark-slash { color: var(--text-muted); font-weight: 400; margin: 0 1px; }
+.wordmark-sub { color: var(--text-secondary); font-weight: 400; }
 
-.crumb { font-size: 0.8125rem; color: var(--text-muted); margin-bottom: 10px; }
+.nav { display: flex; gap: 20px; margin-left: auto; flex-wrap: wrap; }
+.nav a {
+  color: var(--text-secondary);
+  font-size: var(--step-b);
+  padding: 2px 0;
+  border-bottom: 1px solid transparent;
+}
+.nav a:hover { color: var(--text-primary); text-decoration: none; }
+.nav a[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 550;
+  border-bottom-color: var(--series-1);
+}
 
-section { margin-top: 32px; }
-section > h2 {
-  margin: 0 0 14px;
-  font-size: 1rem;
+.theme-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-1);
+  cursor: pointer;
+}
+.theme-btn:hover { border-color: var(--baseline); }
+/* Half-filled disc: the control shows both states at once, so it reads as a
+ * switch rather than as a claim about the current one. */
+.theme-glyph {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-secondary);
+  background: linear-gradient(90deg, var(--text-secondary) 50%, transparent 50%);
+}
+
+/* ---------- layout ---------- */
+
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 24px 40px; }
+
+/* The lede is the only full-bleed block. Everything after it sits in the
+ * two-track grid below, so the page opens wide and then settles into a
+ * structure — which is what gives the reading order its shape.
+ *
+ * The reading measure is set on the prose children rather than on the block, so
+ * a full-width child (a 64-character digest) can opt out of it. */
+.lede { padding: 52px 0 40px; }
+.lede-eyebrow,
+.lede h1,
+.lede-sub,
+.crumb { max-width: 62ch; }
+.lede-eyebrow {
+  margin: 0 0 12px;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.lede h1 {
+  margin: 0;
+  font-size: var(--step-xl);
+  font-weight: 640;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+.lede-ident {
+  font-family: var(--mono);
+  letter-spacing: -0.04em;
+}
+.lede-sub {
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+.lede-digest {
+  margin: 16px 0 0;
+  /* A 64-character hash needs more measure than prose does. Held to the shell
+   * rather than the lede's reading width so it lands on one line, because a
+   * digest broken across two lines invites comparing the wrong halves. */
+  max-width: none;
+}
+
+.crumb {
+  margin: 0 0 18px;
+  font-size: var(--step-b);
+  color: var(--text-muted);
+}
+.crumb span { margin: 0 6px; }
+
+/* The two-track grid. A section's label and its one-line rationale sit in the
+ * narrow track; the data sits in the wide one. Rationale next to the data
+ * rather than under a heading is the whole point — a reader can see what a
+ * number is for without leaving it. */
+.strip {
+  display: grid;
+  grid-template-columns: var(--track) minmax(0, 1fr);
+  gap: 12px 40px;
+  padding: 30px 0;
+  border-top: 1px solid var(--border);
+}
+.strip-head { position: relative; }
+
+/* A wide strip: label above, data across the full page width.
+ *
+ * The two-track grid spends 208px on the label gutter, which is right for prose
+ * and figures and wrong for a table -- there the gutter is taken out of the one
+ * column holding sentences. A table is the only element here whose natural width
+ * exceeds any reading measure, and it already scrolls when it has to, so the
+ * gutter buys nothing. The label still starts on the same left edge as every
+ * other section label, so the page's vertical rhythm survives. */
+.strip.full { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+.strip.full .strip-head { margin-bottom: 18px; }
+.strip.full .strip-note { max-width: 76ch; }
+
+.strip-label {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--step-s);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-primary);
 }
-.section-note {
-  margin: -8px 0 14px;
-  font-size: 0.8125rem;
+.strip-note {
+  margin: 8px 0 0;
+  font-size: var(--step-b);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.strip-body { min-width: 0; }
+
+.closing {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 56px;
+  border-top: 1px solid var(--border);
+}
+.closing p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--step-b);
+  color: var(--text-muted);
+}
+
+/* ---------- the root line ----------
+ * The landing page's thesis: the single value the whole history reduces to.
+ * A well rather than a card, because it is a quotation of data, not a panel. */
+
+.rootline {
+  padding: 26px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--well);
+  position: relative;
+  overflow: hidden;
+}
+/* A hairline in the series blue along the top edge, the one place an accent
+ * bar is warranted: this block is the thing the chain will sign. */
+.rootline::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, var(--series-1), color-mix(in srgb, var(--series-1) 20%, transparent));
+}
+.rootline-label {
+  margin: 0 0 12px;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
   color: var(--text-secondary);
 }
+.rootline-note {
+  margin: 16px 0 0;
+  max-width: 68ch;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+}
+.rootline-inline { margin: 0 0 14px; }
 
-/* ---------- cards ---------- */
+/* ---------- figure rail ----------
+ * A single headline value is a figure, never a one-bar chart. Dividers rather
+ * than boxes: five bordered tiles in a row read as five separate objects, when
+ * the point is that they describe one thing. */
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 28px;
+  row-gap: 22px;
+}
+.figure {
+  padding-left: 18px;
+  border-left: 1px solid var(--gridline);
+  min-width: 108px;
+}
+.figure:first-child { padding-left: 0; border-left: none; }
+.figure-label {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+/* Proportional figures: tabular-nums makes a large standalone number look
+ * loose. Columns of numbers get tabular treatment instead — see .num. */
+.figure-value {
+  font-size: var(--step-l);
+  font-weight: 620;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+.figure-value.muted { color: var(--text-muted); font-weight: 500; }
+.figure-note {
+  font-size: var(--step-s);
+  color: var(--text-muted);
+  margin-top: 5px;
+  max-width: 22ch;
+}
+.figure.lead .figure-value { font-size: 2rem; letter-spacing: -0.035em; }
+
+/* ---------- cards and panels ----------
+ * A card bounds one artifact. A panel bounds a table — same border, no padding,
+ * because a table brings its own. */
 
 .card {
   background: var(--surface-1);
@@ -176,42 +551,239 @@ section > h2 {
   border-radius: var(--radius);
   padding: 20px;
 }
-
-/* ---------- stat tiles ----------
- * Per the form heuristic: a single headline value is a stat tile, never a
- * one-bar chart. Values use proportional figures — tabular-nums makes a large
- * standalone number look loose. */
-
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
-  gap: 12px;
+.card-tight { padding: 16px 18px; }
+.card-sub {
+  font-size: var(--step-b);
+  font-weight: 600;
+  margin: 20px 0 10px;
 }
-.tile {
+
+.panel {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 18px;
+  overflow: hidden;
 }
-.tile-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-.tile-value {
-  font-size: 1.75rem;
-  font-weight: 620;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-.tile-value.muted { color: var(--text-muted); font-weight: 500; }
-.tile-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
 
-.hero-figure {
-  font-size: 3rem;
-  font-weight: 640;
-  letter-spacing: -0.03em;
-  line-height: 1;
+/* ---------- ledger list ----------
+ * Repositories as rows, not cards. A registry is a list of records; rows let a
+ * reader scan names down one edge, which a grid of tiles does not. */
+
+.ledger { list-style: none; margin: 0; padding: 0; }
+.ledger-row {
+  border-top: 1px solid var(--gridline);
+  padding: 16px 0 14px;
+}
+.ledger-row:first-child { border-top: none; padding-top: 2px; }
+/* A grid rather than space-between: at a wide viewport, space-between throws
+ * the facts against the far edge and leaves a void the eye has to jump. Fixed
+ * columns keep names aligned down one edge and facts aligned down another,
+ * which is what makes a list of records scannable. */
+.ledger-link {
+  display: grid;
+  grid-template-columns: minmax(0, 26ch) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px 36px;
+  color: inherit;
+}
+.ledger-link:hover { text-decoration: none; }
+.ledger-name {
+  font-family: var(--mono);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+}
+.ledger-link:hover .ledger-name {
+  color: var(--series-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ledger-facts {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+}
+.ledger-fact b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.ledger-meta {
+  margin: 7px 0 0;
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  color: var(--text-muted);
+}
+.ledger-when { margin-left: 12px; }
+
+/* ---------- the Merkle ladder ----------
+ * The inclusion proof drawn as the fold it is: leaf at the bottom, one rung per
+ * sibling, root at the top. Numbering is used here and nowhere else on the site
+ * because here the order is the content — folds do not commute, and a reader
+ * who takes them out of sequence gets a different root.
+ *
+ * Every value shown is recomputed in Python with the same two hash functions
+ * the verifier uses, so the drawing cannot assert something the check denies. */
+
+.proof { min-width: 0; }
+
+.proof-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.proof-verdict p {
+  margin: 0;
+  flex: 1 1 26ch;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+}
+.proof-verdict.ok {
+  border-color: color-mix(in srgb, var(--status-good) 30%, var(--border));
+  background: color-mix(in srgb, var(--status-good) 6%, var(--surface-1));
+}
+.proof-verdict.bad {
+  border-color: color-mix(in srgb, var(--status-critical) 35%, var(--border));
+  background: color-mix(in srgb, var(--status-critical) 7%, var(--surface-1));
+}
+
+.ladder {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--well);
+  padding: 6px 0;
+}
+
+.ladder-node {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 16px 20px 16px 46px;
+  position: relative;
+}
+/* The spine: a single continuous rule through the whole fold, drawn by the
+ * nodes and rungs rather than as a separate element, so it cannot fall out of
+ * alignment with the marks that sit on it. */
+.ladder-node::before,
+.rung::before {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--baseline);
+}
+.ladder-node.root::before { top: 50%; }
+.ladder-node.leaf::before { bottom: 50%; }
+
+.node-mark {
+  position: absolute;
+  left: 19px;
+  top: 21px;
+  width: 11px;
+  height: 11px;
+  background: var(--series-1);
+  transform: rotate(45deg);
+}
+.ladder-node.leaf .node-mark {
+  background: var(--surface-1);
+  border: 2px solid var(--series-1);
+}
+.node-label {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-primary);
+  flex: none;
+  min-width: 62px;
+}
+.node-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--step-s);
+}
+
+.rungs { list-style: none; margin: 0; padding: 0; }
+
+.rung {
+  display: grid;
+  grid-template-columns: 3.25rem 6.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 14px;
+  padding: 11px 20px 11px 46px;
+  position: relative;
+  border-top: 1px solid var(--gridline);
+  border-bottom: 1px solid var(--gridline);
+  margin-bottom: -1px;
+}
+.rung-no {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+/* The fold direction is the one thing a reader must not misread — it decides
+ * the argument order into the hash — so it gets a chip rather than plain text.
+ *
+ * The ink is pulled slightly toward --text-primary for the same reason the
+ * critical pill is: the chip's ground is a 10% tint of the ink's own colour, so
+ * the two move together and the pure accent lands at 4.54:1 in dark — passing,
+ * but 0.04 from failing, on the element that carries the argument order. A 12%
+ * pull buys margin in both themes at once (6.1:1 light, 5.3:1 dark) because
+ * --text-primary inverts, and it is too small a shift to read as a second blue. */
+.rung-op {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  color: color-mix(in srgb, var(--series-1) 88%, var(--text-primary));
+  background: color-mix(in srgb, var(--series-1) 10%, transparent);
+  border-radius: 3px;
+  padding: 2px 6px;
+  justify-self: start;
+  white-space: nowrap;
+}
+.rung-sib, .rung-out { min-width: 0; }
+.rung-out { grid-column: 3; }
+.rung-key {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+
+/* One orchestrated moment: the fold assembles from the leaf upward on load,
+ * which is the direction it is read in. Nothing else on the site animates. */
+@media (prefers-reduced-motion: no-preference) {
+  .rung, .ladder-node {
+    animation: rung-in 380ms cubic-bezier(0.2, 0, 0.2, 1) both;
+  }
+  .ladder-node.leaf { animation-delay: 0ms; }
+  .rungs li:nth-last-child(1) { animation-delay: 70ms; }
+  .rungs li:nth-last-child(2) { animation-delay: 140ms; }
+  .rungs li:nth-last-child(3) { animation-delay: 210ms; }
+  .rungs li:nth-last-child(4) { animation-delay: 280ms; }
+  .rungs li:nth-last-child(n + 5) { animation-delay: 350ms; }
+  .ladder-node.root { animation-delay: 420ms; }
+}
+
+@keyframes rung-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 /* ---------- tables ----------
@@ -223,27 +795,43 @@ section > h2 {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: var(--step-b);
 }
 th {
   text-align: left;
-  font-weight: 550;
-  font-size: 0.75rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--step-s);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
-  padding: 8px 12px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  background: var(--well);
 }
 td {
-  padding: 11px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--gridline);
   vertical-align: top;
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Inside a table, a hash or a timestamp is a single atom in a narrow column.
+ * The break-all that keeps a 64-character digest inside a card would split a
+ * 12-character short hash across two lines here, which reads as two values. */
+td.hash { white-space: nowrap; word-break: normal; }
+
+/* Fixed-content columns are padded tighter than prose ones. A hash cannot wrap,
+ * so every pixel of its padding is taken from the column that can. */
+td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
+
+/* One column absorbs the leftover width. Without this the auto table layout
+ * splits residual space evenly, which starves the only column whose content is
+ * a sentence -- the message ends up the narrowest cell on the page while a
+ * timestamp that cannot wrap gets twice its width. */
+.col-msg { width: 100%; }
 
 /* ---------- chart ---------- */
 
@@ -254,34 +842,30 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
   padding: 20px 20px 12px;
 }
 .chart-head { margin-bottom: 4px; }
-.chart-title { font-size: 0.9375rem; font-weight: 600; }
-.chart-sub { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 2px; }
-
-.legend {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin: 12px 0 0;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-.legend-item { display: flex; align-items: center; gap: 7px; }
-.legend-key {
-  width: 14px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--series-1);
-  flex: none;
-}
-.legend-key.dot { width: 9px; height: 9px; border-radius: 50%; }
+.chart-title { font-size: var(--step-m); font-weight: 600; }
+.chart-sub { font-size: var(--step-b); color: var(--text-secondary); margin-top: 4px; }
 
 /* The chart is authored at a fixed viewBox and scaled uniformly to whatever
  * width it is given. `height: auto` is what makes that work: with an explicit
  * height, preserveAspectRatio fits to the shorter axis and leaves the plot
- * floating in empty space on wide screens. */
+ * floating in empty space on wide screens.
+ *
+ * The floor exists because text inside an SVG scales with the drawing and cannot
+ * be exempted from it. Given a 588px content box the 860-unit viewBox lands at
+ * 0.58x, which sets an 11px axis label at 6.4px and shrinks the 36px hover
+ * columns to 21px -- below the 24px a touch target has to meet. Holding 780px
+ * keeps the label at 10px and the column at 32px, and below that the plot pans
+ * inside .chart-scroll rather than shrinking further.
+ *
+ * Panning is the same answer the history table already gives to the same
+ * problem, and for a time series it is the gesture the axis implies. Only the
+ * plot moves: the title and the sentence declaring the axis span stay in place,
+ * and every plotted value is also a row in the table below. */
+.chart-scroll { overflow-x: auto; }
 .chart-svg {
   display: block;
   width: 100%;
+  min-width: 780px;
   height: auto;
 }
 
@@ -291,7 +875,7 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
 .axis-text {
   fill: var(--text-muted);
   font-size: 11px;
-  font-family: var(--font);
+  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
 .series-line {
@@ -301,13 +885,13 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-.series-area { fill: var(--series-1); opacity: 0.1; }
 /* 2px surface ring keeps markers legible where they overlap the line */
 .series-dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
 .point-label {
   fill: var(--text-secondary);
   font-size: 11px;
-  font-family: var(--font);
+  font-family: var(--mono);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 /* Hit target is far larger than the 8px mark — a pinpoint dot is unhittable */
@@ -317,17 +901,18 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
 .hit:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
 
 .empty {
-  padding: 28px 20px;
-  text-align: center;
+  padding: 26px 20px;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--step-b);
 }
-.empty strong { color: var(--text-primary); display: block; margin-bottom: 4px; }
+.empty strong { color: var(--text-primary); display: block; margin-bottom: 6px; }
+.empty-cmd { margin: 12px 0 0; }
 
 /* ---------- status pills ----------
  * A status colour never carries meaning alone: every pill pairs a glyph with a
  * text label, which is the documented mitigation for the two light-mode status
- * colours that sit below 3:1. */
+ * colours that sit below 3:1. The pill macro is the only way to emit one, so
+ * that pairing cannot be dropped by a future page. */
 
 .pill {
   display: inline-flex;
@@ -335,107 +920,150 @@ tbody tr:hover { background: color-mix(in srgb, var(--series-1) 5%, transparent)
   gap: 6px;
   padding: 3px 9px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: var(--step-s);
   font-weight: 550;
   border: 1px solid var(--border);
   white-space: nowrap;
+  flex: none;
 }
-.pill-glyph { font-size: 0.8125rem; line-height: 1; }
+.pill-glyph { font-size: var(--step-b); line-height: 1; }
+
+/* Each pill picks its ink separately, and that is measurement rather than
+ * inconsistency. A pill sets 12px text on a tint of its own status hue, so the
+ * ink must clear 4.5:1 against that tint -- and the hues sit at wildly
+ * different luminances, so no single formula reaches the bar for all of them.
+ * Yellow at 72% of its hue measures 2.9:1 and needs the full ink; red at 72%
+ * measures 6.0:1 and can keep its colour. A uniform rule would either wash out
+ * the hues that are already readable or leave yellow failing.
+ *
+ * Which is also why only critical gets coloured ink. Warning takes
+ * --text-primary because nothing else clears; critical keeps its red because it
+ * can, and because the top severity is the one place worth spending colour. */
 .pill.good { color: var(--success-text); background: color-mix(in srgb, var(--status-good) 12%, transparent); }
 .pill.warning { color: var(--text-primary); background: color-mix(in srgb, var(--status-warning) 20%, transparent); }
-.pill.serious { color: var(--text-primary); background: color-mix(in srgb, var(--status-serious) 20%, transparent); }
-.pill.critical { color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 14%, transparent); }
+/* Critical needs its own ink, not the status hue.
+ *
+ * A pill sets 12px text on a 14% tint of its own colour, and #d03b3b on that
+ * tint measures 3.8:1 light and 3.3:1 dark -- under the 4.5:1 that small text
+ * needs, in the one state that must be readable. Pulling the ink toward
+ * --text-primary fixes both at once, because that token inverts with the theme:
+ * the same 72% mix darkens to 6.0:1 on the light tint and lightens to 5.0:1 on
+ * the dark one. The tint itself stays the measured status hue, so the pill still
+ * reads as the same colour it always did. */
+.pill.critical {
+  color: color-mix(in srgb, var(--status-critical) 72%, var(--text-primary));
+  background: color-mix(in srgb, var(--status-critical) 14%, transparent);
+}
 .pill.neutral { color: var(--text-secondary); background: color-mix(in srgb, var(--text-muted) 12%, transparent); }
 
 /* ---------- misc ---------- */
 
 .hash {
   font-family: var(--mono);
-  font-size: 0.8125rem;
+  font-size: var(--step-b);
   color: var(--text-secondary);
+  word-break: break-all;
 }
-.hash-strong { font-family: var(--mono); color: var(--text-primary); }
+.hash-strong {
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
 
-.kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; font-size: 0.875rem; }
-.kv dt { color: var(--text-secondary); }
-.kv dd { margin: 0; word-break: break-all; }
-
-.repo-grid {
+.kv {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px 24px;
+  margin: 0;
+  font-size: var(--step-b);
 }
-.repo-card {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px;
-  display: block;
-  color: inherit;
+.kv dt {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding-top: 2px;
 }
-.repo-card:hover { border-color: var(--series-1); text-decoration: none; }
-.repo-name { font-weight: 600; font-size: 1rem; margin-bottom: 10px; }
-.repo-meta { display: flex; gap: 14px; font-size: 0.8125rem; color: var(--text-secondary); flex-wrap: wrap; }
+.kv dd { margin: 0; min-width: 0; word-break: break-word; }
 
-/* Status is carried by a tint across the whole surface plus a border in the
- * same hue, matching how .pill above reads. An accent bar down one edge would
- * say the same thing louder and pull the eye to the border instead of the
- * sentence, which on /ops is the part that matters. */
-.banner {
-  border: 1px solid color-mix(in srgb, var(--status-warning) 35%, var(--border));
-  border-radius: var(--radius-sm);
-  padding: 12px 16px;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--status-warning) 8%, var(--surface-1));
+.footnote {
+  margin-top: 12px;
+  max-width: 76ch;
+  font-size: var(--step-s);
+  color: var(--text-muted);
+  line-height: 1.5;
 }
-.banner.critical {
-  border-color: color-mix(in srgb, var(--status-critical) 35%, var(--border));
-  background: color-mix(in srgb, var(--status-critical) 7%, var(--surface-1));
-}
-.banner.good {
-  border-color: color-mix(in srgb, var(--status-good) 30%, var(--border));
-  background: color-mix(in srgb, var(--status-good) 6%, var(--surface-1));
-}
-.banner strong { color: var(--text-primary); }
-
-.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-
-.btn {
-  font: inherit;
-  font-size: 0.8125rem;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.btn:hover { color: var(--text-primary); border-color: var(--baseline); }
-.btn[aria-pressed="true"] { color: var(--text-primary); border-color: var(--series-1); }
-
-.footnote { margin-top: 10px; font-size: 0.75rem; color: var(--text-muted); }
+.footnote strong { color: var(--text-secondary); }
 
 .dag-mark {
   display: inline-block;
   width: 9px;
   height: 9px;
-  border-radius: 50%;
   background: var(--series-1);
-  margin-right: 8px;
+  transform: rotate(45deg);
+  margin-right: 9px;
   flex: none;
 }
-.dag-mark.root { background: var(--surface-1); border: 2px solid var(--series-1); }
-.dag-cell { display: flex; align-items: baseline; }
+.dag-mark.root { background: var(--surface-1); border: 1.5px solid var(--series-1); }
+.dag-cell { display: inline-flex; align-items: baseline; }
+
+/* ---------- narrow screens ----------
+ * The two-track grid collapses to one. The label keeps its mono treatment, so
+ * the hierarchy survives the loss of the second column. */
+
+@media (max-width: 860px) {
+  .strip { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .strip-note { max-width: 60ch; }
+  .ledger-link { grid-template-columns: minmax(0, 1fr); }
+}
 
 @media (max-width: 640px) {
-  .shell { padding: 0 16px 56px; }
-  .topbar-inner { padding: 12px 16px; }
-  .hero-figure { font-size: 2.25rem; }
+  .shell { padding: 0 16px 32px; }
+  .masthead-inner { padding: 12px 16px; gap: 14px; }
+  .closing { padding: 24px 16px 44px; }
+  .lede { padding: 36px 0 30px; }
+  .lede h1 { font-size: 1.75rem; }
+  .lede-sub { font-size: var(--step-m); }
+  .rootline { padding: 20px 18px; }
+  .figures { gap: 0 20px; row-gap: 18px; }
+  .figure { padding-left: 14px; min-width: 92px; }
+  .figure.lead .figure-value { font-size: 1.75rem; }
+  .ladder-node, .rung { padding-left: 40px; }
+  .ladder-node::before, .rung::before { left: 19px; }
+  .node-mark { left: 14px; }
+
+  /* Three columns become two: the step number and its fold chip share the top
+   * row, and both hashes stack underneath in the wide column.
+   *
+   * Both hashes must name their column explicitly. Pinning only one leaves the
+   * other to auto-placement, which drops it into the 44px number column -- a
+   * 64-character digest wrapping there is 342px tall, turning one rung into 392px
+   * and a four-fold ladder into something no phone reader will scroll through.
+   * The number column then sits empty beside the two hashes, which is the point:
+   * it reads as indentation under the step that owns them. */
+  .rung { grid-template-columns: 2.75rem minmax(0, 1fr); }
+  .rung-sib, .rung-out { grid-column: 2; }
+  th, td { padding: 10px 12px; }
+}
+
+/* Below this width the masthead row can no longer hold one line: three nav
+ * links are 222px of incompressible text, and at 438px the row wraps and the
+ * bar doubles from 55px to 96px. A pinned bar that tall is a fifth of a phone
+ * screen spent on navigation, on a site whose pages are long columns of
+ * 64-character hashes -- so it stops sticking and gives the height back.
+ *
+ * With nothing pinned over the viewport, nothing can cover a fragment jump
+ * either, so the skip-link offset returns to zero. */
+@media (max-width: 438px) {
+  .masthead { position: static; }
+  main { scroll-margin-top: 0; }
 }
 
 @media print {
-  .topbar, .toolbar, .btn { display: none; }
+  .masthead, .skip, .theme-btn { display: none; }
   body { background: #fff; }
-  .card, .tile, .chart-card { break-inside: avoid; }
+  .card, .panel, .chart-card, .ladder, .rootline { break-inside: avoid; }
+  .strip { border-top-color: #ccc; }
+  .digest-tail { color: #666; }
 }

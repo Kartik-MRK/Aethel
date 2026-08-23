@@ -227,3 +227,39 @@ def upload_objects(client, repo, plan, *, headers=None):
                 f"/api/v1/{kind}/{object_hash}", content=data, headers=headers or {}
             )
             assert response.status_code == 200, response.text
+
+
+@pytest.fixture
+def pushed(hub_client, core_repo, base_hash):
+    """A Hub holding one repository, `demo`, with two commits on `main`.
+
+    Built by running the real plan-and-upload path rather than by writing files
+    into the Hub's store directly: a fixture that bypassed the API would test
+    the assertions against a state the API cannot actually produce.
+
+    Lives here rather than in one test module because both the API tests and the
+    security tests need a Hub with pages worth rendering -- an empty Hub has no
+    repository page and no commit page, so half the response surface would go
+    unexercised.
+    """
+    from aethel.remote.objects import build_push_plan
+
+    first = make_commit(core_repo, base_hash, "first version", ADAPTER_BYTES_A)
+    second = make_commit(core_repo, base_hash, "second version", ADAPTER_BYTES_B)
+
+    plan = build_push_plan(core_repo, "main", second)
+    upload_objects(hub_client, core_repo, plan)
+
+    response = hub_client.post(
+        "/api/v1/repos/demo/refs", json={"branch": "main", "commit": second}
+    )
+    assert response.status_code == 200, response.text
+
+    return {
+        "client": hub_client,
+        "repo": core_repo,
+        "plan": plan,
+        "first": first,
+        "second": second,
+        "ref": response.json(),
+    }

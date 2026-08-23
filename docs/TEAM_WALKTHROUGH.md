@@ -445,10 +445,31 @@ Four decisions worth defending:
   history sits) separately from `appended_indices` (what this call created), so
   an idempotent sync can't be misread as a change.
 
-The log is currently **global** — keyed by commit hash across all repos — so two
-repositories that push byte-identical commits share one leaf, and `repo` records
-which one got there first. That is a real design decision with a consequence for
-the contract, and §9 lists it as open.
+**One log for the whole Hub, not one per repository.** Leaves are keyed by commit
+hash across every repo, so two repositories that push byte-identical commits
+share one leaf and `repo` records which one got there first.
+
+This is the decision that shapes the contract, so it is worth being able to
+defend:
+
+- **A single tree makes deletion of a whole repository detectable.** Every
+  commit's proof binds it into the same tree as every other repo's commits, so
+  the operator cannot quietly drop a repository from the anchored history without
+  invalidating every proof already published for every other repo. With per-repo
+  trees, removing a repository removes its tree, and nothing that survives is
+  inconsistent — you would have to already know the repo existed to notice it was
+  gone. Omission is the failure this layer exists to catch.
+- **A verifier needs only a commit hash.** Per-repo trees mean leaves must be
+  `hash(repo || commit)`, so checking inclusion requires knowing the repo name
+  and spelling it exactly as the Hub did. The leaf stops being the thing the
+  commit hash already commits to.
+- **It is cheaper.** One anchor transaction per batch, regardless of how many
+  repositories were active in it.
+
+Per-repo *views* are still available, and belong on the dashboard: repo
+membership is Hub metadata, and filtering leaves by `repo` is a display concern,
+not a cryptographic one. What the chain indexes is ordering (`batchIndex`) and
+reverse lookup (`root`) — see §9.
 
 ### 7.5 What the tests actually cover
 
@@ -531,11 +552,14 @@ Be honest about these — a panel will find them.
    "never anchored" rather than implying a guarantee. Until the root is pinned
    outside the Hub, the log proves inclusion, not that the operator never
    rewrote the whole thing.
-5. **Global vs per-repo log.** The log is keyed by commit hash across all repos,
-   but the planned contract has `mapping(bytes32 repoId => Batch[])` — per-repo
-   roots. Either anchor the global log under one hub-wide `repoId`, or key
-   leaves by `(repo, commit)`. **Decide before writing the contract**, not
-   after; it changes what a proof means.
+5. **The contract's signature is settled, the contract is not.** §7.4 decided
+   one hub-wide log, so `AethelAnchor` anchors a single stream rather than
+   `mapping(repoId => Batch[])`. The three indexed event parameters — Solidity
+   allows exactly three — go to `batchIndex` (ordering), `root` (reverse lookup
+   from a root to its transaction) and `logSize` (which prefix of the log the
+   root covers). `repoId` is deliberately not one of them: a leaf is not
+   per-repo, so indexing by repo on-chain would advertise a filter the tree
+   cannot honour.
 6. **No `pull`/`clone`.** Publishing works; fetching a published patch back into
    a fresh repository is not built. The API serves everything needed for it.
 7. **No `diff`, no `merge`, no chain, no IPFS mirror.** Planned, none built.
@@ -554,7 +578,7 @@ Be honest about these — a panel will find them.
 | Karthik | `aethel diff <a> <b>` — per-layer ΔW norms, cosine similarity, prediction flips on the eval set |
 | Karthik | Fix S2.4: task type from YAML config |
 | Aadya | Extend the base object with `config_sha256` + `tokenizer_sha256`; `aethel base verify` |
-| Sathwik | Decide global vs per-repo log keying, then `AethelAnchor` on Sepolia |
+| Sathwik | `AethelAnchor` on Sepolia — one hub-wide log, per §7.4 |
 | Sathwik | `aethel anchor` — batch the root, record block number and confirmations |
 | Sathwik | Verification page: recompute the root client-side against the on-chain value |
 | Sathwik | Pinata mirror: record `ipfs_cid` alongside `blob_sha256` |

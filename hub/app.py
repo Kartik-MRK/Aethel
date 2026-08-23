@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from hub.api import router as api_router
 from hub.config import HubConfig
 from hub.log import AnchorStore, TransparencyLog
+from hub.security import SecurityHeadersMiddleware
 from hub.storage import HubStorage
 from hub.views import router as views_router
 
@@ -81,6 +82,10 @@ def create_app(config: HubConfig | None = None) -> FastAPI:
     static_dir = PACKAGE_DIR / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    # Added before the routers so it wraps every response, including the ones
+    # StaticFiles and the error handlers produce.
+    app.add_middleware(SecurityHeadersMiddleware)
 
     app.include_router(api_router)
     app.include_router(views_router)

@@ -1,226 +1,270 @@
 {% extends "base.html" %}
+{% from "_macros.html" import digest, figure, pill %}
 {% set nav = 'repos' %}
 {% block title %}{{ commit_hash[:12] }} — Aethel Hub{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <div class="crumb"><a href="/">Repositories</a> / commit</div>
+<div class="lede">
+  <p class="crumb"><a href="/">Repositories</a> <span aria-hidden="true">/</span> commit</p>
+  <p class="lede-eyebrow">Commit</p>
   <h1>{{ commit.message or 'Commit' }}</h1>
-  <p class="hash">{{ commit_hash }}</p>
+  <p class="lede-digest">{{ digest(commit_hash, size='lg', label=commit_hash) }}</p>
 </div>
 
-<section>
-  <div class="kpis">
-    <div class="tile">
-      <div class="tile-label">Accuracy</div>
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Measured</h2>
+    <p class="strip-note">Whatever evaluation recorded at training time.</p>
+  </div>
+  <div class="strip-body">
+    <div class="figures">
       {% if accuracy is not none %}
-      <div class="tile-value">{{ '%.1f' | format(accuracy * 100) }}%</div>
+      {{ figure('Accuracy', '%.1f' | format(accuracy * 100) ~ '%', lead=true) }}
       {% else %}
-      <div class="tile-value muted">—</div>
-      <div class="tile-sub">not measured</div>
+      {{ figure('Accuracy', '—', 'not measured', lead=true, muted=true) }}
       {% endif %}
-    </div>
-    <div class="tile">
-      <div class="tile-label">Macro-F1</div>
+
       {% if f1 is not none %}
-      <div class="tile-value">{{ '%.3f' | format(f1) }}</div>
+      {{ figure('Macro-F1', '%.3f' | format(f1)) }}
       {% else %}
-      <div class="tile-value muted">—</div>
+      {{ figure('Macro-F1', '—', muted=true) }}
       {% endif %}
-    </div>
-    <div class="tile">
-      <div class="tile-label">Files</div>
-      <div class="tile-value">{{ files | length }}</div>
-      <div class="tile-sub">content-addressed</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">In transparency log</div>
+
+      {{ figure('Files', files | length, 'content-addressed') }}
+
       {% if proof %}
-      <div class="tile-value" style="font-size:1.25rem">
-        <span class="pill good"><span class="pill-glyph" aria-hidden="true">✓</span>Leaf {{ proof.leaf_index }}</span>
-      </div>
-      <div class="tile-sub">of {{ proof.log_size }} entries</div>
+      {{ figure('Log position', 'Leaf ' ~ proof.leaf_index, 'of ' ~ proof.log_size ~ ' entries') }}
       {% else %}
-      <div class="tile-value muted" style="font-size:1.25rem">
-        <span class="pill neutral"><span class="pill-glyph" aria-hidden="true">○</span>Not logged</span>
-      </div>
+      {{ figure('Log position', 'None', 'not logged', muted=true) }}
       {% endif %}
     </div>
   </div>
 </section>
 
-{# Provenance first: this is the point of the whole system. #}
-<section>
-  <h2>Provenance</h2>
-  <div class="card">
-    <dl class="kv">
-      <dt>Parent</dt>
-      <dd>
-        {% if commit.parent_hash %}
-        <a class="hash-strong" href="/c/{{ commit.parent_hash }}">{{ commit.parent_hash }}</a>
-        {% else %}
-        <span class="hash">none — this is a root commit</span>
-        {% endif %}
-      </dd>
-
-      <dt>Author</dt>
-      <dd>{{ commit.author or '—' }}</dd>
-
-      <dt>Timestamp</dt>
-      <dd class="hash">{{ commit.timestamp or '—' }}</dd>
-
-      <dt>Adapter weights</dt>
-      <dd class="hash">{{ commit.adapter_blob or '—' }}</dd>
-
-      <dt>Tree</dt>
-      <dd class="hash">{{ commit.tree or '—' }}</dd>
-    </dl>
-  </div>
-</section>
-
-<section>
-  <h2>Base model</h2>
-  {% if base %}
-  <div class="card">
-    <dl class="kv">
-      <dt>Model</dt>
-      <dd><strong>{{ base.model_id }}</strong></dd>
-      <dt>Revision</dt>
-      <dd class="hash">{{ base.revision_sha }}</dd>
-      <dt>Source</dt>
-      <dd>{{ base.source or 'huggingface' }}</dd>
-    </dl>
-    <p class="footnote">
-      The base model's weights are not stored here. Pinning the immutable
-      revision SHA — not a tag, which can move — is what makes this version
-      reproducible: download that exact revision and apply the adapter below.
+{# The inclusion proof is the point of the whole system, so it is shown as the
+   fold it actually is: leaf at the bottom, one rung per sibling, root at the
+   top. Every value here is recomputed with the same two hash functions the
+   verifier uses, so the picture cannot claim something the check would deny. #}
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Inclusion proof</h2>
+    <p class="strip-note">
+      Read bottom to top. Each rung folds in one sibling hash; the last one must
+      land on the published root.
     </p>
   </div>
-  {% else %}
-  <div class="card empty">Base reference object not available.</div>
-  {% endif %}
-</section>
-
-<section>
-  <h2>Files</h2>
-  <div class="card" style="padding:0">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Filename</th><th>Content hash (SHA-256)</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for name, blob in files | dictsort %}
-          <tr>
-            <td><code>{{ name }}</code></td>
-            <td class="hash">{{ blob }}</td>
-            <td><a href="/api/v1/blobs/{{ blob }}">Download</a></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <p class="footnote">
-    Re-hash any download and compare it against the value shown here. Because
-    the filename <em>is</em> the hash, that check makes the transport — this
-    Hub, an IPFS gateway, a USB stick — irrelevant to integrity.
-  </p>
-</section>
-
-<section>
-  <h2>Inclusion proof</h2>
-  {% if proof %}
-  <div class="banner {{ 'good' if proof_valid else 'critical' }}">
-    <strong>
-      {% if proof_valid %}
-      Proof verifies against the log root
-      {% else %}
-      Proof does NOT verify — the log may have been altered
-      {% endif %}
-    </strong>
-    <div class="footnote" style="margin-top:6px">
-      Recomputing the root from this commit's leaf and its
-      {{ proof.proof | length }} sibling hash{{ '' if proof.proof | length == 1 else 'es' }}
-      {% if proof_valid %}reproduces{% else %}does not reproduce{% endif %}
-      the published root.
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:12px">
-    <dl class="kv">
-      <dt>Leaf index</dt>
-      <dd>{{ proof.leaf_index }} of {{ proof.log_size }}</dd>
-      <dt>Log root</dt>
-      <dd class="hash">{{ proof.root }}</dd>
-      <dt>Anchored</dt>
-      <dd>
-        {% if anchor and anchor.root == proof.root %}
-        <span class="pill good"><span class="pill-glyph" aria-hidden="true">✓</span>On chain</span>
-        <span class="hash">block {{ anchor.block }}</span>
+  <div class="strip-body">
+    {% if proof %}
+    <div class="proof">
+      <div class="proof-verdict {{ 'ok' if proof_valid else 'bad' }}">
+        {% if proof_valid %}
+        {{ pill('good', '✓', 'Verified') }}
+        <p>
+          Folding this commit's leaf through {{ ladder | length }}
+          sibling hash{{ '' if ladder | length == 1 else 'es' }} reproduces the
+          published root exactly.
+        </p>
         {% else %}
-        <span class="pill warning"><span class="pill-glyph" aria-hidden="true">!</span>Not yet anchored</span>
+        {{ pill('critical', '✕', 'Failed') }}
+        <p>
+          The fold does <strong>not</strong> reproduce the published root. The
+          log may have been altered since this commit was accepted.
+        </p>
         {% endif %}
-      </dd>
-    </dl>
+      </div>
 
-    <details style="margin-top:16px">
-      <summary style="cursor:pointer;font-size:0.875rem;color:var(--text-secondary)">
-        Sibling path ({{ proof.proof | length }} steps)
-      </summary>
-      <div class="table-wrap" style="margin-top:10px">
+      <div class="ladder">
+        <div class="ladder-node root">
+          <span class="node-mark" aria-hidden="true"></span>
+          <span class="node-label">Root</span>
+          {{ digest(proof.root, label=proof.root) }}
+          <span class="node-tag">
+            {% if anchor and anchor.root == proof.root %}
+            {{ pill('good', '✓', 'On chain') }}
+            <span class="hash">block {{ anchor.block }}</span>
+            {% else %}
+            {{ pill('warning', '!', 'Not yet anchored') }}
+            {% endif %}
+          </span>
+        </div>
+
+        <ol class="rungs">
+          {% for rung in ladder | reverse %}
+          <li class="rung">
+            <span class="rung-no">{{ '%02d' | format(rung.index) }}</span>
+            <span class="rung-op">fold&nbsp;{{ rung.side }}</span>
+            <span class="rung-sib">
+              <span class="rung-key">sibling</span>
+              {{ digest(rung.sibling, label=rung.sibling) }}
+            </span>
+            <span class="rung-out">
+              <span class="rung-key">gives</span>
+              {{ digest(rung.result, label=rung.result) }}
+            </span>
+          </li>
+          {% endfor %}
+        </ol>
+
+        <div class="ladder-node leaf">
+          <span class="node-mark" aria-hidden="true"></span>
+          <span class="node-label">Leaf {{ proof.leaf_index }}</span>
+          {{ digest(leaf_hash, label=leaf_hash) }}
+          <span class="node-tag"><span class="hash">SHA-256 of 0x00 &#8214; this commit hash</span></span>
+        </div>
+      </div>
+
+      <p class="footnote">
+        The leading byte is a domain tag: leaves are hashed with <code>0x00</code>
+        and internal nodes with <code>0x01</code>, so no leaf value can be passed
+        off as a subtree. Fetch the same proof as JSON from
+        <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> and run the fold
+        yourself &mdash; it needs the leaf, the path, and the root, and never
+        this server.
+      </p>
+    </div>
+    {% else %}
+    <div class="card empty">
+      <strong>Not in the transparency log</strong>
+      This commit object exists in the store but has not been logged. That happens
+      when objects were uploaded without a branch ref update.
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Lineage</h2>
+    <p class="strip-note">Where this version came from, by hash.</p>
+  </div>
+  <div class="strip-body">
+    <div class="card">
+      <dl class="kv">
+        <dt>Parent</dt>
+        <dd>
+          {% if commit.parent_hash %}
+          <a href="/c/{{ commit.parent_hash }}">{{ digest(commit.parent_hash, label=commit.parent_hash) }}</a>
+          {% else %}
+          <span class="nil">none &mdash; this is a root commit</span>
+          {% endif %}
+        </dd>
+
+        <dt>Author</dt>
+        <dd>{{ commit.author or '—' }}</dd>
+
+        <dt>Timestamp</dt>
+        <dd class="hash">{{ commit.timestamp or '—' }}</dd>
+
+        <dt>Adapter weights</dt>
+        <dd>{{ digest(commit.adapter_blob, label=commit.adapter_blob) }}</dd>
+
+        <dt>Tree</dt>
+        <dd>{{ digest(commit.tree, label=commit.tree) }}</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Base model</h2>
+    <p class="strip-note">Referenced, never stored.</p>
+  </div>
+  <div class="strip-body">
+    {% if base %}
+    <div class="card">
+      <dl class="kv">
+        <dt>Model</dt>
+        <dd><strong class="ident">{{ base.model_id }}</strong></dd>
+        <dt>Revision</dt>
+        <dd>{{ digest(base.revision_sha, label=base.revision_sha) }}</dd>
+        <dt>Source</dt>
+        <dd>{{ base.source or 'huggingface' }}</dd>
+      </dl>
+      <p class="footnote">
+        The base model's weights are not stored here. Pinning the immutable
+        revision SHA &mdash; not a tag, which can move &mdash; is what makes this
+        version reproducible: download that exact revision and apply the adapter
+        below.
+      </p>
+    </div>
+    {% else %}
+    <div class="card empty">Base reference object not available.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Files</h2>
+    <p class="strip-note">The filename is the hash.</p>
+  </div>
+  <div class="strip-body">
+    <div class="panel">
+      <div class="table-wrap">
         <table>
-          <thead><tr><th>Step</th><th>Side</th><th>Sibling hash</th></tr></thead>
-          <tbody>
-            {% for step in proof.proof %}
+          <thead>
+            {# The download column's header is announced but not drawn: a visible
+               word above a column of "Download" links is redundant to a sighted
+               reader, while an empty <th> leaves a screen-reader user hearing
+               "blank" as the column name. #}
             <tr>
-              <td class="num">{{ loop.index }}</td>
-              <td>{{ step.side }}</td>
-              <td class="hash">{{ step.sibling }}</td>
+              <th>Filename</th>
+              <th>Content hash (SHA-256)</th>
+              <th><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for name, blob in files | dictsort %}
+            <tr>
+              <td><code>{{ name }}</code></td>
+              <td>{{ digest(blob, label=blob) }}</td>
+              {# Every row's link reads "Download", so a reader tabbing through
+                 links hears the same word three times with no way to tell them
+                 apart. The filename in the accessible name fixes that; keeping
+                 "Download" as its prefix is what keeps the visible label a
+                 subset of it, so voice control still matches what is on screen. #}
+              <td><a href="/api/v1/blobs/{{ blob }}" aria-label="Download {{ name }}">Download</a></td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    </details>
-
+    </div>
     <p class="footnote">
-      Fetch this proof as JSON from
-      <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> and verify it
-      yourself. The verification needs only the leaf, the path, and the root —
-      never this server — which is precisely why a dishonest Hub cannot fake it.
+      Re-hash any download and compare it against the value shown here. Because
+      the filename <em>is</em> the hash, that check makes the transport &mdash; this
+      Hub, an IPFS gateway, a USB stick &mdash; irrelevant to integrity.
     </p>
   </div>
-  {% else %}
-  <div class="card empty">
-    <strong>Not in the transparency log</strong>
-    This commit object exists in the store but has not been logged. That happens
-    when objects were uploaded without a branch ref update.
-  </div>
-  {% endif %}
 </section>
 
 {% if commit.training_info %}
-<section>
-  <h2>Training record</h2>
-  <div class="card">
-    <dl class="kv">
-      {% for key, value in commit.training_info | dictsort %}
-      {% if key != 'metrics' %}
-      <dt>{{ key }}</dt>
-      <dd>{{ value }}</dd>
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Training record</h2>
+    <p class="strip-note">As written by the trainer at commit time.</p>
+  </div>
+  <div class="strip-body">
+    <div class="card">
+      <dl class="kv">
+        {% for key, value in commit.training_info | dictsort %}
+        {% if key != 'metrics' %}
+        <dt>{{ key }}</dt>
+        <dd>{{ value }}</dd>
+        {% endif %}
+        {% endfor %}
+      </dl>
+      {% if commit.training_info.metrics %}
+      <h3 class="card-sub">Metrics</h3>
+      <dl class="kv">
+        {% for key, value in commit.training_info.metrics | dictsort %}
+        <dt>{{ key }}</dt>
+        <dd class="tabular">{{ value }}</dd>
+        {% endfor %}
+      </dl>
       {% endif %}
-      {% endfor %}
-    </dl>
-    {% if commit.training_info.metrics %}
-    <h3 style="font-size:0.875rem;margin:18px 0 8px">Metrics</h3>
-    <dl class="kv">
-      {% for key, value in commit.training_info.metrics | dictsort %}
-      <dt>{{ key }}</dt>
-      <dd class="num" style="text-align:left">{{ value }}</dd>
-      {% endfor %}
-    </dl>
-    {% endif %}
+    </div>
   </div>
 </section>
 {% endif %}

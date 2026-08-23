@@ -1,0 +1,53 @@
+{#
+  Shared display macros.
+
+  `digest` is the typographic rule for hashes on this site: the leading
+  characters carry full ink and the tail recedes. That is how these values are
+  actually used -- a reader compares a prefix and treats the rest as machine
+  detail -- so the type makes the useful part findable without hiding the fact
+  that the whole 64-character value is present and copyable.
+
+  It is one macro rather than a filter so the markup stays in the template
+  layer, and one definition rather than per-page markup so the treatment cannot
+  drift between pages.
+#}
+
+{% macro digest(value, size='', head=12, label='') %}
+  {%- if value -%}
+    <span class="digest {{ size }}"{% if label %} title="{{ label }}"{% endif %}
+      ><b>{{ value[:head] }}</b><span class="digest-tail">{{ value[head:] }}</span
+    ></span>
+  {%- else -%}
+    {#- An em dash is the visual form of "no value", but it is not the spoken one:
+        read aloud it is either silence or the words "em dash". `aria-label` will
+        not fix that here -- a bare span has the `generic` role, and ARIA
+        prohibits naming generic elements, so assistive technology is entitled to
+        drop the label. Clipped real text is honoured everywhere. -#}
+    <span class="nil"><span aria-hidden="true">&mdash;</span><span class="sr-only">not recorded</span></span>
+  {%- endif -%}
+{% endmacro %}
+
+
+{#
+  A status pill. The glyph is not decoration: two of the light-mode status
+  colours measure below 3:1, and pairing every colour with a glyph and a word
+  is the documented mitigation. Keeping that pairing inside a macro is what
+  stops a future page from emitting a colour-only pill.
+#}
+{% macro pill(tone, glyph, label) %}
+  <span class="pill {{ tone }}"><span class="pill-glyph" aria-hidden="true">{{ glyph }}</span>{{ label }}</span>
+{% endmacro %}
+
+
+{#
+  A figure in the rail: a label, one value, and an optional note. Used instead
+  of a chart wherever there is a single headline number -- a one-bar chart is
+  never the right form for one value.
+#}
+{% macro figure(label, value, note='', lead=false, muted=false) %}
+  <div class="figure{{ ' lead' if lead }}">
+    <div class="figure-label">{{ label }}</div>
+    <div class="figure-value{{ ' muted' if muted }}">{{ value }}</div>
+    {% if note %}<div class="figure-note">{{ note }}</div>{% endif %}
+  </div>
+{% endmacro %}

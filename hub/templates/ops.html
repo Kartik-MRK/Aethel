@@ -1,99 +1,106 @@
 {% extends "base.html" %}
+{% from "_macros.html" import digest, figure, pill %}
 {% set nav = 'ops' %}
 {% block title %}Operations — Aethel Hub{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <h1>Operations</h1>
-  <p>Per-subsystem health, so a failure is findable rather than guessed at.</p>
+<div class="lede">
+  <p class="lede-eyebrow">Operations</p>
+  <h1>
+    {% if overall == 'good' %}All subsystems healthy
+    {% elif overall == 'critical' %}Critical fault
+    {% else %}Operational, with warnings{% endif %}
+  </h1>
+  <p class="lede-sub">
+    Per-subsystem health, so a failure is findable rather than guessed at.
+    Hub {{ version.hub }} · build {{ version.git_sha }} · started
+    {{ version.started_at }} UTC.
+  </p>
 </div>
-
-<section>
-  <div class="banner {{ 'good' if overall == 'good' else ('critical' if overall == 'critical' else '') }}">
-    <strong>
-      {% if overall == 'good' %}All subsystems healthy
-      {% elif overall == 'critical' %}Critical fault — see the red rows below
-      {% else %}Operational, with warnings{% endif %}
-    </strong>
-    <div class="footnote" style="margin-top:4px">
-      Hub {{ version.hub }} · build {{ version.git_sha }} · started {{ version.started_at }} UTC
-    </div>
-  </div>
-</section>
 
 {# Each row pairs a glyph with a text label, so status never rests on colour
    alone. That is the required mitigation for the two status colours that sit
    below 3:1 on the light surface. #}
-<section>
-  <h2>Subsystems</h2>
-  <div class="card" style="padding:0">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Check</th><th>Status</th><th>Detail</th></tr>
-        </thead>
-        <tbody>
-          {% for check in checks %}
-          <tr>
-            <td><strong>{{ check.name }}</strong></td>
-            <td>
-              {% if check.status == 'good' %}
-              <span class="pill good"><span class="pill-glyph" aria-hidden="true">✓</span>OK</span>
-              {% elif check.status == 'warning' %}
-              <span class="pill warning"><span class="pill-glyph" aria-hidden="true">!</span>Warning</span>
-              {% elif check.status == 'serious' %}
-              <span class="pill serious"><span class="pill-glyph" aria-hidden="true">▲</span>Degraded</span>
-              {% else %}
-              <span class="pill critical"><span class="pill-glyph" aria-hidden="true">✕</span>Critical</span>
-              {% endif %}
-            </td>
-            <td>{{ check.detail }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Subsystems</h2>
+    <p class="strip-note">Each check degrades its own row rather than failing the page.</p>
   </div>
-  <p class="footnote">
-    <strong>Log vs anchored root</strong> is the row that matters most: it
-    recomputes the Merkle root from the log on disk and compares it to the root
-    published on chain. A mismatch means the log has been altered since it was
-    anchored — a live self-audit of the exact property this project claims.
-  </p>
-</section>
-
-<section>
-  <h2>Object store</h2>
-  <div class="kpis">
-    {% for kind, count in counts | dictsort %}
-    <div class="tile">
-      <div class="tile-label">{{ kind }}</div>
-      <div class="tile-value">{{ count }}</div>
+  <div class="strip-body">
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Check</th><th>Status</th><th>Detail</th></tr>
+          </thead>
+          <tbody>
+            {% for check in checks %}
+            <tr>
+              <td><strong>{{ check.name }}</strong></td>
+              <td>
+                {# Three tiers, because /api/v1/health emits exactly three.
+                   A fourth branch here would render a state the system cannot
+                   produce, which is a legend entry that never appears. #}
+                {% if check.status == 'good' %}
+                {{ pill('good', '✓', 'OK') }}
+                {% elif check.status == 'warning' %}
+                {{ pill('warning', '!', 'Warning') }}
+                {% else %}
+                {{ pill('critical', '✕', 'Critical') }}
+                {% endif %}
+              </td>
+              <td>{{ check.detail }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
-    {% endfor %}
-    <div class="tile">
-      <div class="tile-label">Log entries</div>
-      <div class="tile-value">{{ log_size }}</div>
-    </div>
+    <p class="footnote">
+      <strong>Log vs anchored root</strong> is the row that matters most: it
+      recomputes the Merkle root from the log on disk and compares it to the root
+      published on chain. A mismatch means the log has been altered since it was
+      anchored &mdash; a live self-audit of the exact property this project claims.
+    </p>
   </div>
 </section>
 
-<section>
-  <h2>Current log root</h2>
-  <div class="card">
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Object store</h2>
+    <p class="strip-note">Counts by object kind.</p>
+  </div>
+  <div class="strip-body">
+    <div class="figures">
+      {% for kind, count in counts | dictsort %}
+      {{ figure(kind, count) }}
+      {% endfor %}
+      {{ figure('Log entries', log_size) }}
+    </div>
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Current log root</h2>
+    <p class="strip-note">Recomputed from the log file on every request.</p>
+  </div>
+  <div class="strip-body">
     {% if log_root %}
-    <p class="hash-strong" style="word-break:break-all;margin:0">{{ log_root }}</p>
+    <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root) }}</p>
     {% else %}
-    <p class="empty" style="padding:0">Log is empty — no root yet.</p>
+    <p class="nil">Log is empty &mdash; no root yet.</p>
     {% endif %}
-    <dl class="kv" style="margin-top:16px">
-      <dt>Data directory</dt>
-      <dd class="hash">{{ version.data_dir }}</dd>
-      <dt>Health JSON</dt>
-      <dd><a href="/api/v1/health">/api/v1/health</a></dd>
-      <dt>Log JSON</dt>
-      <dd><a href="/api/v1/log">/api/v1/log</a></dd>
-    </dl>
+    <div class="card card-tight">
+      <dl class="kv">
+        <dt>Data directory</dt>
+        <dd class="hash">{{ version.data_dir }}</dd>
+        <dt>Health JSON</dt>
+        <dd><a href="/api/v1/health">/api/v1/health</a></dd>
+        <dt>Log JSON</dt>
+        <dd><a href="/api/v1/log">/api/v1/log</a></dd>
+      </dl>
+    </div>
   </div>
 </section>
 {% endblock %}
