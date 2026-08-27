@@ -7,12 +7,13 @@ Creating one is cheap and involves no copying of weights.
 
 import typer
 
-from aethel.commands._common import console, err_console, handle_errors, short
+from aethel.commands._common import INTERSPERSED, console, err_console, handle_errors, short
 from aethel.core.commits import read_commit, resolve_commitish
 from aethel.core.errors import BranchNotFound, InvalidRef
 from aethel.core.repo import Repo
 
 app = typer.Typer()
+app.info.context_settings = INTERSPERSED
 
 
 @app.callback(invoke_without_command=True)

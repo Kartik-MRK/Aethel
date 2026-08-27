@@ -17,6 +17,16 @@ from aethel.core.errors import AethelError, DetachedHead, RepositoryNotFound
 console = Console()
 err_console = Console(stderr=True)
 
+#: Context settings for a command that takes a positional argument.
+#:
+#: Every command here is registered with ``add_typer`` and so is a Click group,
+#: and a group stops parsing options at the first positional. Without this,
+#: ``aethel checkout main --force`` fails with "Missing argument 'TARGET'" while
+#: ``aethel checkout --force main`` works -- and nobody types them in that order
+#: under pressure. Applies to ``checkout`` and ``branch``; the option-only
+#: commands are unaffected either way.
+INTERSPERSED = {"allow_interspersed_args": True}
+
 
 def render_detached_head(exc: DetachedHead, attempted: str) -> None:
     """Explain detached HEAD and how to recover.
