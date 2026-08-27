@@ -17,7 +17,7 @@ append-only Merkle transparency log the chain will anchor.
 
 | | Before | After |
 |---|---|---|
-| Tests | **0** | **693** |
+| Tests | **0** | **702** |
 | Core coverage | 0% | **96%** |
 | Hub + remote coverage | — | **91%** |
 | Linter | none | ruff, clean across the whole tree |
@@ -206,7 +206,7 @@ same commit format as the client, while the client stays installable without a
 web framework.
 
 **Why it matters practically:** the whole VCS *and its publishing path* are
-testable with no GPU, no model download, and no network. 693 tests run in
+testable with no GPU, no model download, and no network. 702 tests run in
 **under 10 seconds**, including full pushes — the Hub's tests drive the ASGI app
 in-process instead of over a socket. That is why we can afford to run them on
 every push.
@@ -316,7 +316,7 @@ the same trade-off Git makes with `index.lock`.
 |---|---|---|
 | **S1.1** | Commit metadata overwritten between identical-weight commits | Commits keyed by own hash |
 | **S1.2** | No evaluation anywhere | Accuracy surfaced in `log`; metrics module next (Shravan) |
-| **S1.3** | Zero tests | 693 tests, 96% core coverage |
+| **S1.3** | Zero tests | 702 tests, 96% core coverage |
 | **S2.1** | Documented IMDB quickstart crashed (Arrow vs CSV) | Detects Arrow dirs, explains the conversion |
 | **S2.2** | Typo'd dataset path → silently trained on fake text, still committable | Refuses; requires explicit `--allow-stub` |
 | **S2.3** | No atomicity in commit | `atomic.py` everywhere |
@@ -504,7 +504,7 @@ the Hub imports before running anything.
 ```bash
 # from the repository root
 
-python3 -m pytest                      # 693 passed in ~8s
+python3 -m pytest                      # 702 passed in ~8s
 python3 -m pytest --cov=aethel.core    # 96%
 ruff check .                           # All checks passed
 

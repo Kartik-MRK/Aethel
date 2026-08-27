@@ -70,7 +70,7 @@ without the client ever depending on a web framework.
 Three consequences worth knowing:
 
 - The entire VCS is testable with no GPU, no model download, and no network.
-  693 tests run in under 10 seconds — including a full push, because the Hub's tests
+  702 tests run in under 10 seconds — including a full push, because the Hub's tests
   run the ASGI application in-process rather than over a socket.
 - `pip install -e .` gives a working repository tool *that can push*. PyTorch is
   the separate `[ml]` extra, needed only by `aethel train`; FastAPI is the
@@ -795,7 +795,7 @@ tamper becomes detectable without anyone knowing the old root.
 ## 9. Development
 
 ```bash
-python3 -m pytest                   # 693 tests, ~8s, no GPU or network
+python3 -m pytest                   # 702 tests, ~8s, no GPU or network
 pytest tests/ --cov=aethel.core     # 96%
 ruff check .
 ```
