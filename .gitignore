@@ -116,6 +116,11 @@ secrets.txt
 # regenerates byte-for-byte.
 .demo/
 
+# The Hub's own store. AETHEL_HUB_DATA defaults to ./hub-data relative to the
+# process CWD, so running the server from the repo root creates one right here.
+# It is state, not source.
+hub-data/
+
 # Pinned font sources, downloaded by scripts/build_fonts.py. The built woff2
 # files under hub/static/fonts/ ARE committed -- the Hub serves them and must
 # work on a clean checkout. This is only the upstream cache the build reads.

@@ -629,3 +629,5 @@ dataset fingerprinting, the reproducibility record, and commit signing are for.
   design rationale
 - [`docs/TEAM_WALKTHROUGH.md`](docs/TEAM_WALKTHROUGH.md) — engineering record
   of the rebuild
+- [`docs/CONTRIBUTING_BRANCHES.md`](docs/CONTRIBUTING_BRANCHES.md) — how to sync,
+  cut a branch, and land work on `foundation` without breaking it
