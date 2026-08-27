@@ -814,6 +814,56 @@ class TestViews:
         assert pushed["second"] in response.text
         assert "second version" in response.text
 
+    def test_an_evaluated_commit_shows_its_accuracy_on_both_pages(
+        self, hub_client, core_repo, base_hash
+    ):
+        """A held-out score reaches the pages, from the shape the evaluator writes.
+
+        `aethel commit` stores its evaluation under
+        `training_info.evaluation.current`, not in `training_info.metrics`. The
+        pages read only the latter for a while, which failed silently in the
+        worst way: the evaluator worked, the number was in the commit object, and
+        the dashboard printed "not measured" over the top of it.
+
+        Asserted through a real push and a rendered page rather than against the
+        extraction helper alone, because the helper being right is not the claim
+        -- the claim is that the figure appears on screen.
+        """
+        from aethel.core.commits import create_commit
+        from aethel.remote.objects import build_push_plan
+        from tests.conftest import ADAPTER_BYTES_A, stage_adapter, upload_objects
+
+        stage_adapter(core_repo.root, ADAPTER_BYTES_A)
+        commit_hash = create_commit(
+            core_repo,
+            message="evaluated version",
+            author="test-author",
+            base_hash=base_hash,
+            training_info={
+                "model_id": "distilbert-base-uncased",
+                "dataset": "sst2",
+                "evaluation": {
+                    "current": {"eval_loss": 0.284, "accuracy": 0.934},
+                    "parent": None,
+                    "comparison": None,
+                },
+            },
+        )
+
+        plan = build_push_plan(core_repo, "main", commit_hash)
+        upload_objects(hub_client, core_repo, plan)
+        hub_client.post(
+            "/api/v1/repos/demo/refs", json={"branch": "main", "commit": commit_hash}
+        )
+
+        commit_page = hub_client.get(f"/c/{commit_hash}").text
+        repo_page = hub_client.get("/r/demo").text
+
+        assert "93.4%" in commit_page
+        assert "93.4%" in repo_page
+        assert "0.934" in repo_page  # the per-commit table
+        assert "not measured" not in repo_page
+
     def test_the_ops_page_renders(self, pushed):
         response = pushed["client"].get("/ops")
 

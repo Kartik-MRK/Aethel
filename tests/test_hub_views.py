@@ -67,6 +67,17 @@ def with_metrics(**metrics) -> dict:
     return {"training_info": {"metrics": metrics}}
 
 
+def with_evaluation(current=None, **rest) -> dict:
+    """A commit as the commit-time evaluator writes it.
+
+    Its numbers live under `training_info.evaluation.current`, beside a `parent`
+    block and a `comparison` block, not in `training_info.metrics`.
+    """
+    evaluation = {"current": current, "parent": None, "comparison": None}
+    evaluation.update(rest)
+    return {"training_info": {"evaluation": evaluation}}
+
+
 class TestMetricExtraction:
     """The metrics dict is written by the trainer, so key spelling varies."""
 
@@ -119,6 +130,73 @@ class TestMetricExtraction:
         A flag that leaked into the metrics dict would plot as 100% accuracy.
         """
         assert _accuracy_of(with_metrics(eval_accuracy=True)) is None
+
+
+class TestEvaluationBlockMetrics:
+    """Held-out numbers live in a second place, and must reach the pages too.
+
+    `aethel commit` scores the adapter against a validation split and stores the
+    result under `training_info.evaluation.current`, not under
+    `training_info.metrics`. Reading only the latter is a silent failure: the
+    commit page and the accuracy chart show an em dash for a commit that was in
+    fact measured, and the reader concludes the evaluator does not work.
+    """
+
+    def test_accuracy_is_read_from_the_evaluation_block(self):
+        record = with_evaluation({"eval_loss": 0.31, "accuracy": 0.93})
+
+        assert _accuracy_of(record) == pytest.approx(0.93)
+
+    def test_a_measured_number_beats_a_training_one(self):
+        """Both present: prefer the held-out score.
+
+        Training metrics are computed on data the adapter fitted; the evaluation
+        block is computed on data it did not see. When they disagree the second
+        is the honest figure to publish.
+        """
+        record = {
+            "training_info": {
+                "metrics": {"eval_accuracy": 0.99},
+                "evaluation": {"current": {"accuracy": 0.87}},
+            }
+        }
+
+        assert _accuracy_of(record) == pytest.approx(0.87)
+
+    def test_training_metrics_still_work_when_there_is_no_evaluation(self):
+        """The older shape must keep working; most commits still use it."""
+        assert _accuracy_of(with_metrics(eval_accuracy=0.91)) == pytest.approx(0.91)
+
+    def test_the_first_commit_has_no_parent_and_still_reports(self):
+        """`parent` and `comparison` are None on a root commit."""
+        record = with_evaluation({"accuracy": 0.88})
+
+        assert record["training_info"]["evaluation"]["parent"] is None
+        assert _accuracy_of(record) == pytest.approx(0.88)
+
+    def test_a_bare_adapter_size_is_not_mistaken_for_a_score(self):
+        """The evaluator also stores a size in MB, which is not a metric here."""
+        assert _accuracy_of(with_evaluation({"adapter_size_mb": 2.25})) is None
+
+    @pytest.mark.parametrize(
+        "evaluation",
+        [None, {}, "failed", {"current": None}, {"current": "n/a"}, {"current": {}}],
+    )
+    def test_a_malformed_evaluation_block_costs_a_number_not_the_page(self, evaluation):
+        """Commit objects arrive over HTTP from a client.
+
+        A push carrying junk here must render an em dash. Walking into it with
+        `.get` on a string would raise inside a template and return a 500 for
+        the whole page, taking every other commit's row down with it.
+        """
+        record = {"training_info": {"evaluation": evaluation}}
+
+        assert _accuracy_of(record) is None
+        assert _f1_of(record) is None
+
+    def test_a_boolean_in_the_evaluation_block_is_rejected_too(self):
+        """The strictness applies to both sources, not just the first one."""
+        assert _accuracy_of(with_evaluation({"accuracy": True})) is None
 
 
 class TestShorten:

@@ -469,7 +469,7 @@ footer p { font-family: var(--mono); font-size: var(--step-s); color: var(--text
     layer does, why it is built that way, what is finished, and what is left.</p>
 
   <div class="stats">
-    <div class="stat"><b>702</b><span>tests passing</span></div>
+    <div class="stat"><b>715</b><span>tests passing</span></div>
     <div class="stat"><b>17.6k</b><span>lines of code</span></div>
     <div class="stat"><b>0</b><span>core deps</span></div>
     <div class="stat"><b>~0.6 MB</b><span>per version</span></div>
@@ -1749,17 +1749,17 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
   <div class="grid">
     <div class="rail"><div class="idx">14</div><div class="eyebrow">Quality</div></div>
     <div class="col">
-      <h2>702 tests, and a CI job whose purpose is to fail</h2>
+      <h2>715 tests, and a CI job whose purpose is to fail</h2>
 
-      <p>The audit's third severity-1 finding was <em>zero tests</em> &mdash; not few, none. Today there are 572
-        test functions which expand to <strong>702 collected cases</strong> under parametrisation, running in
+      <p>The audit's third severity-1 finding was <em>zero tests</em> &mdash; not few, none. Today there are 580
+        test functions which expand to <strong>715 collected cases</strong> under parametrisation, running in
         about nine seconds. That number is measured, not quoted.</p>
 
       <div class="tw"><table>
         <thead><tr><th class="mono">test file</th><th class="num">fns</th><th>what it pins down</th></tr></thead>
         <tbody>
-          <tr><td class="mono">test_hub_views.py</td><td class="num">97</td><td>every dashboard page renders, every chart's geometry is right</td></tr>
-          <tr><td class="mono">test_hub_api.py</td><td class="num">77</td><td>every route, every status code, every rejection</td></tr>
+          <tr><td class="mono">test_hub_views.py</td><td class="num">104</td><td>every dashboard page renders, every chart's geometry is right</td></tr>
+          <tr><td class="mono">test_hub_api.py</td><td class="num">78</td><td>every route, every status code, every rejection</td></tr>
           <tr><td class="mono">test_hub_errors.py</td><td class="num">50</td><td>error pages and exit paths</td></tr>
           <tr><td class="mono">test_push.py</td><td class="num">41</td><td>the protocol, including interrupted uploads and idempotent re-push</td></tr>
           <tr><td class="mono">test_core_objects.py</td><td class="num">29</td><td>store round-trips, sharding, corruption detection</td></tr>
@@ -1768,11 +1768,14 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <tr><td class="mono">test_core_refs.py</td><td class="num">25</td><td>ref naming, traversal escapes, HEAD handling</td></tr>
           <tr><td class="mono">test_core_commits.py</td><td class="num">23</td><td>schema, parent chains, timestamp handling</td></tr>
           <tr><td class="mono">test_hub_security.py</td><td class="num">21</td><td>CSP nonce uniqueness, headers present on every response</td></tr>
+          <tr><td class="mono">test_hub_apidocs.py</td><td class="num">21</td><td>the API reference describes routes that exist, with the statuses they really return</td></tr>
+          <tr><td class="mono">test_core_hashing.py</td><td class="num">20</td><td>canonical JSON, streaming file hashes, the short-hash rules</td></tr>
           <tr><td class="mono">test_core_merkle.py</td><td class="num">18</td><td>domain separation, promotion, the forgery is rejected</td></tr>
           <tr><td class="mono">test_core_atomic.py</td><td class="num">18</td><td>fsync ordering, interrupt cleanup, lock timeouts</td></tr>
           <tr><td class="mono">test_hub_verify.py</td><td class="num">18</td><td>the JS verifier's vectors and its refusal-to-render path</td></tr>
           <tr><td class="mono">test_hub_motion.py</td><td class="num">15</td><td>reduced-motion rules exist and animations are <em>removed</em>, not zeroed</td></tr>
           <tr><td class="mono">test_hub_fonts.py</td><td class="num">14</td><td>subset fonts are self-hosted and actually cover the glyphs used</td></tr>
+          <tr><td class="mono">test_core_resolve.py</td><td class="num">11</td><td>branch names, short hashes and HEAD resolving to one commit, or refusing</td></tr>
           <tr><td class="mono">test_s1_corruption.py</td><td class="num">8</td><td>S1.1 cannot recur &mdash; and was not "fixed" by duplicating weights per commit</td></tr>
           <tr><td class="mono">test_cli_parsing.py</td><td class="num">9</td><td>option order on the commands that take a positional argument, parsed but not run</td></tr>
         </tbody>
@@ -1829,7 +1832,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
             <li>Self-contained inclusion proofs <i>log&#8322;(n) siblings, no callback</i></li>
             <li>Five-page dashboard <i>server-rendered, no build step, nonce CSP</i></li>
             <li>In-browser verifier <i>hand-written SHA-256, self-testing, refuses on vector failure</i></li>
-            <li>702 tests + two CI jobs <i>one exists purely to fail on a core dep</i></li>
+            <li>715 tests + two CI jobs <i>one exists purely to fail on a core dep</i></li>
           </ul>
         </div>
 
@@ -1899,7 +1902,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
 
       <div class="callout good">
         <h5>How to present this without undercutting the work</h5>
-        <p>The infrastructure is excellent and unusually rigorous for a capstone &mdash; 702 tests, a
+        <p>The infrastructure is excellent and unusually rigorous for a capstone &mdash; 715 tests, a
           structurally-impossible-by-construction bug class, RFC-conformant crypto with a demonstrated attack in
           the docstring, a from-scratch SHA-256 with published-vector self-tests. Lead with that. Then name the
           two gaps yourself, in one sentence each: <em>"evaluation is unwritten, and the anchor is designed but
@@ -2084,7 +2087,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
 <footer>
   <p>Sources: <code>README.md</code> &middot; <code>docs/SYSTEM_REFERENCE.md</code> &middot;
     <code>docs/PROJECT_PLAN.md</code> &middot; <code>docs/TEAM_WALKTHROUGH.md</code> &middot;
-    <code>docs/design/dashboard.md</code>, read against the actual tree. Line counts and the 702-test figure
+    <code>docs/design/dashboard.md</code>, read against the actual tree. Line counts and the 715-test figure
     were measured on the <code>foundation</code> branch, not quoted from documentation. Every digest on this page
     was produced by running <code>aethel.core.aggregator</code>; none is a placeholder. Palette, type scale and
     motion tokens are the project's own, from <code>hub/static/hub.css</code>.</p>

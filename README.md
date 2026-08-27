@@ -562,7 +562,7 @@ hotspot is the quickest way around it. And the port is configurable
 ## Development
 
 ```bash
-python -m pytest                    # 702 tests, no GPU or network required
+python -m pytest                    # 715 tests, no GPU or network required
 python -m pytest --cov=aethel.core  # 96% core coverage
 ruff check .
 ```

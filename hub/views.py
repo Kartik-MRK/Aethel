@@ -50,30 +50,56 @@ def _is_metric(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _mapping(value: object) -> dict:
+    """`value` if it is a dict, otherwise an empty one.
+
+    Commit objects arrive from a client over HTTP. A malformed one should cost a
+    number on a page, not a 500 on it, so every step down into the metadata
+    checks rather than assumes.
+    """
+    return value if isinstance(value, dict) else {}
+
+
+def _metric_sources(commit: dict) -> tuple[dict, dict]:
+    """The two places a commit can carry numbers, in preference order.
+
+    `training_info["metrics"]` is what the trainer writes at the end of a run.
+    `training_info["evaluation"]["current"]` is what the commit-time evaluator
+    writes after scoring the adapter against a held-out split, and it is the
+    better number of the two: it is measured on data the adapter did not train
+    on. Both shapes are in the wild, so both are read, and neither side has to
+    know about the other.
+    """
+    info = _mapping(commit.get("training_info"))
+    evaluated = _mapping(_mapping(info.get("evaluation")).get("current"))
+    return evaluated, _mapping(info.get("metrics"))
+
+
+def _first_metric(commit: dict, keys: tuple[str, ...]) -> float | None:
+    """First numeric value under any of `keys`, evaluation results winning."""
+    for source in _metric_sources(commit):
+        for key in keys:
+            value = source.get(key)
+            if _is_metric(value):
+                return float(value)
+    return None
+
+
 def _accuracy_of(commit: dict) -> float | None:
     """Pull an accuracy metric out of a commit's training info.
 
-    Tolerates several key spellings because the metrics pipeline is still being
-    built. Returns None when there is genuinely no number — the dashboard then
-    shows an em dash rather than inventing a zero, which would read as "this
-    model scored 0%" instead of "not measured".
+    Tolerates several key spellings because two independent pieces of the
+    metrics pipeline write them: the trainer emits HuggingFace's `eval_`
+    prefixes, the commit-time evaluator emits a bare `accuracy`. Returns None
+    when there is genuinely no number — the dashboard then shows an em dash
+    rather than inventing a zero, which would read as "this model scored 0%"
+    instead of "not measured".
     """
-    metrics = (commit.get("training_info") or {}).get("metrics") or {}
-
-    for key in ("eval_accuracy", "accuracy", "eval_acc"):
-        value = metrics.get(key)
-        if _is_metric(value):
-            return float(value)
-    return None
+    return _first_metric(commit, ("eval_accuracy", "accuracy", "eval_acc"))
 
 
 def _f1_of(commit: dict) -> float | None:
-    metrics = (commit.get("training_info") or {}).get("metrics") or {}
-    for key in ("eval_f1_macro", "eval_macro_f1", "macro_f1", "eval_f1"):
-        value = metrics.get(key)
-        if _is_metric(value):
-            return float(value)
-    return None
+    return _first_metric(commit, ("eval_f1_macro", "eval_macro_f1", "macro_f1", "eval_f1"))
 
 
 def _shorten(value: str | None, size: int = 12) -> str:
