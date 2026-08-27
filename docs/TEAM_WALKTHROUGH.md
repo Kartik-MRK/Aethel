@@ -143,8 +143,8 @@ original got this right.
 
 No eval split, no `compute_metrics`. The only recorded numbers were training
 loss and runtime. An ML project that could not say whether its models were any
-good. `aethel log` now shows accuracy per commit; the metrics pipeline itself
-is Shravan's module and is next.
+good. `aethel log` now shows accuracy per commit; the module that computes those
+metrics is written and is waiting to be merged onto `foundation`.
 
 ---
 
@@ -552,8 +552,11 @@ Be honest about these — a panel will find them.
    `AutoModelForCausalLM` and falls back to `SequenceClassification` on *any*
    error. A causal model fed a classification CSV trains on garbage. Should
    come from config.
-2. **No real eval yet.** `log` displays accuracy, but nothing computes it —
-   Shravan's `aethel/ml/eval.py` is the missing piece.
+2. **The evaluator is not merged yet.** `log` and the dashboard both read
+   `training_info["evaluation"]["current"]`, and `aethel/evaluation/` — which
+   produces it — exists on a separate branch. Until it lands, the accuracy
+   numbers on screen come from `scripts/seed_demo.py` fixtures, not a real run.
+   See `docs/CONTRIBUTING_BRANCHES.md`.
 3. **`train.py` is untested** (477 lines). It needs torch, so it sits outside
    the fast suite. Needs its own marked test file.
 4. **Nothing anchors the log yet.** The log is honest about this: `/ops` reports
@@ -582,10 +585,10 @@ Be honest about these — a panel will find them.
 
 | Owner | Task |
 |---|---|
-| Shravan | `aethel/ml/eval.py` — real train/eval split, accuracy + macro-F1 into `training_info` |
-| Karthik | `aethel diff <a> <b>` — per-layer ΔW norms, cosine similarity, prediction flips on the eval set |
+| Shravan | Merge `aethel/evaluation/` onto `foundation` with its own marked test file, and record one real run |
+| Karthik | Merge divergence detection (cosine similarity between consecutive patches + the branch prompt) with tests; then `aethel diff <a> <b>` over the same code path |
 | Karthik | Fix S2.4: task type from YAML config |
-| Aadya | Extend the base object with `config_sha256` + `tokenizer_sha256`; `aethel base verify` |
+| Adyaa | Extend the base object with `config_sha256` + `tokenizer_sha256`; `aethel base verify` |
 | Sathwik | `AethelAnchor` on Sepolia — one hub-wide log, per §7.4 |
 | Sathwik | `aethel anchor` — batch the root, record block number and confirmations |
 | Sathwik | Verification page: recompute the root client-side against the on-chain value |
