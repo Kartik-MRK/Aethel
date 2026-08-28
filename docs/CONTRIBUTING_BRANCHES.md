@@ -55,6 +55,36 @@ If either of those is red on a fresh clone, stop and say so in the group — tha
 > `ruff check .` — with the dot. Never `ruff check *`, which the shell expands into a file list that
 > silently skips dotfiles and directories.
 
+### If you are on Windows, read this bit
+
+The repository carries a `.gitattributes` that stores every text file with LF and checks it out with
+LF, so a Windows clone and a Linux clone hold identical bytes. You do not have to configure anything
+for that to work. Two things are still worth doing once:
+
+```powershell
+git config --global core.autocrlf false     # let .gitattributes decide, not a global setting
+git config --global core.longpaths true     # this tree nests deeply enough to hit the 260-char limit
+```
+
+Then tell your editor to save with LF. VS Code: bottom-right status bar shows `CRLF` or `LF`; click it
+and pick LF. Notepad and older PowerShell ISE write CRLF and will not ask.
+
+Two reasons this matters more here than in a normal repository. A file committed with CRLF shows as
+*every line changed*, so a two-line fix arrives as a 400-line diff and nobody can review it. And this
+project addresses content by SHA-256 — the same text checked out with CRLF hashes to something
+different from the LF original, so mixed endings could produce two different object hashes for
+identical content. That is the one bug class the whole storage layer exists to prevent.
+
+If you already have a clone with CRLF in it, fix it in place rather than re-cloning:
+
+```powershell
+git add --renormalize .
+git status --short          # if this lists files, commit them as: style(repo): normalise line endings
+```
+
+Everything else in this guide is identical on both platforms. `scripts/dev.ps1` is the Windows
+equivalent of `scripts/dev.sh`; both are idempotent and safe to re-run.
+
 ---
 
 ## 3. Sync, then cut your branch
@@ -212,6 +242,16 @@ What already exists on the other side of the seam, so **do not change it**:
 
 Still owed with it: its own test file, `tests/test_evaluation.py`, guarded as in section 5, and a real
 run recorded so the numbers on the dashboard stop being seeded fixtures.
+
+And one correction to make on the way in, because it changes what the number means. The evaluator
+currently calls `load_validation_dataset`, which reads `dataset_file` out of `training_info.json` —
+that is the file the adapter *trained* on, so the accuracy it reports is accuracy on seen data. The
+current-versus-parent comparison is still meaningful, because both sides are scored the same way, but
+the absolute figure is not quotable until there is a deterministic train/validation split and the
+evaluator scores the held-out half. Do that in the same branch if there is time, or immediately after
+it merges. Until it exists, say "accuracy on the training split" and not "accuracy" — the deck and
+`README.md` both already say so, and a number that quietly overstates itself is the one thing a panel
+will find.
 
 ### Divergence detection between consecutive patches
 
