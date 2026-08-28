@@ -13,8 +13,8 @@ demo pressure nobody remembers which order a tool wants, so both are supported
 and both are asserted here.
 """
 
-import click
 import pytest
+import typer
 import typer.main
 
 from aethel.commands import branch, checkout
@@ -46,7 +46,14 @@ class TestCheckoutArgumentOrder:
 
     def test_a_missing_target_is_still_an_error(self):
         # Relaxing the parser must not make the argument optional.
-        with pytest.raises(click.UsageError):
+        #
+        # The exception class comes from typer, not from an `import click`.
+        # Typer vendored Click in 0.27, so the parser raises
+        # typer._click's MissingParameter there and click's own on older
+        # versions; typer.BadParameter is the public base that is the right
+        # class either way, and asking typer keeps the assertion pointed at
+        # whichever Click the parser is actually using.
+        with pytest.raises(typer.BadParameter):
             parse(checkout.app, ["--force"])
 
 
