@@ -179,7 +179,7 @@ Then check the list:
 - Commit messages are one line, conventional style, no body and no trailers:
 
   ```
-  feat(evaluation): compute held-out accuracy and adapter size for a commit
+  feat(evaluation): score a commit against its parent and record whether it improved
   fix(refs): reject a branch name that ends in .lock
   test(core): cover the resolve path for an ambiguous prefix
   ```
@@ -226,8 +226,22 @@ changed, which is the point of the seams — the interfaces are already there.
 ### The evaluation and comparison package
 
 Lands as `aethel/evaluation/` — dataset loading, base-plus-adapter loading, loss/accuracy/adapter
-size, and the current-versus-parent comparison — plus the hook already present in
-`aethel/commands/commit.py` that writes the result into `training_info["evaluation"]`.
+size, and the current-versus-parent comparison. Two call sites come with it, and **both have to be
+written; neither exists on `foundation` today**:
+
+- `aethel/commands/commit.py` calls the evaluator and writes the result into
+  `training_info["evaluation"]` before the commit object is built.
+- `aethel/commands/log.py` prefers `training_info["evaluation"]["current"]["accuracy"]` over the
+  trainer metrics, falling back to the existing `metrics.get("eval_accuracy", ...)` when there is no
+  evaluation block. Line 81 is the one to change.
+
+**The import in `commit.py` must be deferred into the function body.** `aethel/evaluation/` imports
+torch, transformers and peft at module scope, `aethel/main.py` imports `commit` at module scope, and
+the four `core` CI jobs install `.[dev]` with no ML stack. A top-level
+`from aethel.evaluation.evaluator import ...` in `commit.py` therefore breaks `aethel --help` and
+collapses every core test into a collection error. `aethel/main.py:33-53` is the pattern to copy: the
+import sits inside the function, inside `try/except ImportError`, and the command degrades instead of
+dying. Evaluation should skip with a warning on a base install, not fail the commit.
 
 What already exists on the other side of the seam, so **do not change it**:
 
