@@ -1,7 +1,7 @@
 # Aethel — Project Plan
 
 **Status:** agreed, ready to execute
-**Audience:** Sathwik, Karthik, Aadya, Shravan
+**Audience:** Sathwik, Karthik, Adyaa, Shravan
 **Next review:** ~2 weeks out
 **Owner of this document:** Sathwik — keep it current; a stale plan is worse than none
 
@@ -461,7 +461,7 @@ actually matters disappears into them. So the chain phase adds a fourth status b
 
 ## 7. Roles
 
-Sathwik and Karthik carry the project. Aadya and Shravan own **real but decoupled** modules — not
+Sathwik and Karthik carry the project. Adyaa and Shravan own **real but decoupled** modules — not
 paper tasks, because a panel *will* ask them a direct question and a small honest answer beats
 silence. Both of their modules are genuinely missing from the codebase right now.
 
@@ -470,7 +470,7 @@ silence. Both of their modules are genuinely missing from the codebase right now
 | **Sathwik** | L5 chain + L4 Merkle log, **co-owns L0 object model** | The log is the bridge between core and chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves. |
 | **Karthik** | L0/L1 core rebuild + L2 train / diff / merge | Knows the existing code; the rebuild is the highest-value thing to own. |
 | **Shravan** | `aethel/ml/eval.py` — eval split, metrics, `compute_metrics` | Fully isolated, genuinely needed, currently absent entirely (defect S1.2). |
-| **Aadya** | Base-model registry + encoder-model support (config-driven) | Clean seam; directly serves "more base models later". |
+| **Adyaa** | Base-model registry + encoder-model support (config-driven) | Clean seam; directly serves "more base models later". |
 
 ### Learning protocol
 
@@ -514,7 +514,7 @@ itself.
 | 4 | `aethel fsck` and `aethel reindex` | Sathwik |
 | 5 | **Real evaluation** — eval split, accuracy + macro-F1 into commit metadata | Shravan |
 | 6 | S3 fixes: `USER` fallback, CSV/Arrow mismatch, pin all deps, `--allow-stub` flag | Karthik |
-| 7 | Base-model reference object + `aethel base verify` | Aadya |
+| 7 | Base-model reference object + `aethel base verify` | Adyaa |
 | 8 | CI: pytest + ruff on push | Sathwik |
 | 9 | Create Pinata account + throwaway Sepolia deployer wallet | Sathwik |
 
@@ -523,7 +523,7 @@ itself.
 | # | Task | Owner |
 |---|---|---|
 | 10 | `aethel diff` — per-layer ΔW norms, cosine similarity, prediction flips | Karthik |
-| 11 | **FastAPI Hub + dashboard**: commit DAG, metrics per commit, patch download, base ref | Sathwik + Aadya |
+| 11 | **FastAPI Hub + dashboard**: commit DAG, metrics per commit, patch download, base ref | Sathwik + Adyaa |
 | 12 | `aethel push` → Hub; Pinata mirror; record `ipfs_cid` + `blob_sha256` | Sathwik |
 | 13 | **Append-only Merkle log** in the Hub (`aggregator.py` finally earns its place) | Sathwik |
 | 14 | **`AethelAnchor` on Sepolia**, Etherscan-verified, `aethel anchor`, verify page PASS → tamper → FAIL | Sathwik |
@@ -547,6 +547,17 @@ itself.
 12. Tamper a leaf in the Hub's log → verify page → **FAIL**
 
 Steps 11 and 12 are the entire thesis in two screens. Everything else is supporting evidence.
+
+**Where this actually stands, as of the review.** Steps 1-4, 7 and 8 run today. Step 5 trains and
+records loss and runtime; the accuracy and F1 half is written on a separate branch and not yet
+merged, so the number on screen is fixture data. Steps 6, 9, 10 and 11 are not built: `aethel diff`
+is designed and unwritten, there is no Pinata mirror, and nothing is anchored. Step 12 has a
+runnable form — tamper a leaf and the root moves, so a proof issued earlier stops verifying — but
+only for someone who wrote the old root down first, because the Hub reissues proofs consistent with
+whatever it now holds. Removing that "wrote it down first" caveat is precisely what step 10 buys.
+
+`docs/TEAM_WALKTHROUGH.md` §11 carries the script we actually give on 3 September, in the order we
+give it. This list is the plan; that one is the demo.
 
 **Framing for the review:** *"We audited the prototype, found a silent data-loss defect, rebuilt the
 core so it cannot recur, and built the Hub and anchoring layer on top."* That reads as engineering
@@ -632,7 +643,9 @@ tests now.
 
 ## 11. Verification checklist
 
-- `pytest -q` — 60+ green including the corruption regression test; `--cov` ≥ 80% on `core/` + `vcs/`
+- `pytest -q` — green including the corruption regression test; `--cov` ≥ 80% on `core/`. The floor
+  was 60 tests when this was written; the suite currently stands at 715 with 96% coverage on
+  `aethel.core`, and CI enforces the 80% floor rather than the count
 - **Corruption regression:** commit identical weights twice with different messages; assert both
   commit objects survive and each checkout returns *its own* metadata
 - **Atomicity:** fault-inject a kill at each commit step; repo stays valid and `fsck` passes
@@ -676,5 +689,5 @@ tests now.
 | Campus network blocks PC-to-PC traffic | Four rehearsed fallbacks (§9) |
 | Pinata key expires or quota hit | `/ops` surfaces it before the demo; Hub stays authoritative so the demo survives |
 | Panel asks "why not just a database?" | §5.2 — the Hub operator is the untrusted party |
-| Panel asks a question of Aadya or Shravan | They own real modules (§7), not paper tasks |
+| Panel asks a question of Adyaa or Shravan | They own real modules (§7), not paper tasks |
 | Generated code looks right and is wrong | Definition of done (§7) — tests that fail if behaviour is removed |

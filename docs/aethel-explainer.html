@@ -1,0 +1,2115 @@
+<title>Aethel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ---------------------------------------------------------------------------
+   Palette, type scale and motion tokens are lifted verbatim from the project's
+   own hub/static/hub.css. They are not chosen here; they were measured there
+   (worst-pair CVD separation of dE 9.2 light / 9.4 dark) and this page inherits
+   them so the explainer looks like the thing it explains.
+   --------------------------------------------------------------------------- */
+:root {
+  --surface-1: #fcfcfb;
+  --page:      #f9f9f7;
+  --well:      #f2f1ed;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #6d6b65;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border:   rgba(11, 11, 11, 0.10);
+  --border-strong: rgba(11, 11, 11, 0.22);
+  --success-text: #006300;
+
+  --series-1: #1a5aa8;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-critical: #d03b3b;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --step-s:  .75rem;
+  --step-b:  .875rem;
+  --step-m:  .9375rem;
+  --step-l:  1.375rem;
+  --step-xl: 2.125rem;
+
+  --track: 168px;
+
+  --dur-tap:    120ms;
+  --dur-settle: 190ms;
+  --dur-reveal: 380ms;
+  --stagger:     70ms;
+  --ease-out: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-1: #1a1a19;
+    --page:      #0d0d0d;
+    --well:      #141413;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border:   rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.24);
+    --success-text: #22b322;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface-1: #1a1a19;
+  --page:      #0d0d0d;
+  --well:      #141413;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border:   rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.24);
+  --success-text: #22b322;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: var(--step-m);
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(20px, 4vw, 56px); }
+
+/* --- masthead ----------------------------------------------------------- */
+
+.masthead { padding: clamp(56px, 9vh, 104px) 0 44px; border-bottom: 1px solid var(--baseline); }
+
+.wordmark {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: clamp(2.4rem, 7vw, 4.25rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+  margin: 0;
+}
+.wordmark .dot { color: var(--series-2); }
+
+.tagline {
+  font-family: var(--mono);
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+  margin: 18px 0 0;
+  max-width: 58ch;
+  line-height: 1.55;
+}
+.deck { margin: 26px 0 0; max-width: 66ch; font-size: 1.0625rem; color: var(--text-secondary); }
+.deck strong { color: var(--text-primary); font-weight: 600; }
+
+/* hairlines come from each cell's outline bridging a 1px gap, not from a
+   coloured container showing through. when 5 cells wrap into a 3-column grid
+   the trailing empty cell then reads as nothing, instead of a shaded tile. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 1px;
+  margin: 38px 0 0;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.stat { background: var(--surface-1); outline: 1px solid var(--border); padding: 14px 16px 15px; }
+.stat b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.stat span {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+/* --- section shell (label track + prose column) ------------------------- */
+
+section { padding: 52px 0; border-bottom: 1px solid var(--gridline); }
+section:last-of-type { border-bottom: 0; }
+
+.grid { display: grid; grid-template-columns: var(--track) minmax(0, 1fr); gap: clamp(20px, 3vw, 44px); }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; gap: 14px; } }
+
+.rail { position: relative; }
+.rail .idx {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  font-weight: 600;
+  color: var(--series-2);
+  letter-spacing: 0.04em;
+}
+.rail .eyebrow {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+@media (max-width: 760px) {
+  .rail { display: flex; gap: 12px; align-items: baseline; }
+  .rail .eyebrow { margin-top: 0; }
+}
+
+.col { min-width: 0; }
+h2 {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: clamp(1.375rem, 2.6vw, 1.75rem);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0 0 18px;
+}
+h3 {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--step-m);
+  letter-spacing: -0.005em;
+  margin: 34px 0 10px;
+}
+h4 {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--step-b);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 26px 0 8px;
+}
+p { margin: 0 0 14px; max-width: 68ch; }
+.col > ul, .col > ol { max-width: 68ch; padding-left: 1.15em; margin: 0 0 14px; }
+li { margin-bottom: 7px; }
+strong { font-weight: 600; }
+em { font-style: italic; }
+a { color: var(--series-1); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.08em 0.34em;
+  word-break: break-word;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  line-height: 1.6;
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+pre .c { color: var(--text-muted); }
+pre .k { color: var(--series-1); }
+pre .s { color: var(--series-3); }
+
+/* digest treatment: head carries full ink, tail recedes. full digest always present. */
+.d { font-family: var(--mono); font-size: 0.875em; word-break: break-all; }
+.d b { font-weight: 600; color: var(--text-primary); }
+.d span { color: var(--text-muted); }
+
+blockquote {
+  margin: 0 0 16px;
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--series-2);
+  color: var(--text-secondary);
+  max-width: 66ch;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+/* Asides carry tone on a 2px leading rule against the page, not as a tab on a
+   filled card. This is the idiom hub.css already uses for .check-state and
+   .error-detail, and its reasoning applies here too: the page has spent the
+   boxed-panel idiom on figures, tables and code blocks, so boxing the asides
+   as well flattens the hierarchy instead of ranking it. Tone stays on the rule
+   alone — the eyebrow is never tinted, because --status-warning is a marker
+   yellow with no contrast as text. */
+.callout {
+  padding: 1px 0 1px 15px;
+  border-left: 2px solid var(--baseline);
+  margin: 0 0 20px;
+  max-width: 68ch;
+}
+.callout.warn { border-left-color: var(--status-warning); }
+.callout.bad  { border-left-color: var(--status-critical); }
+.callout.good { border-left-color: var(--status-good); }
+.callout h5 {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin: 0 0 7px;
+  font-weight: 600;
+}
+.callout p:last-child { margin-bottom: 0; }
+
+/* --- tables -------------------------------------------------------------- */
+
+.tw { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-1); }
+table { border-collapse: collapse; width: 100%; font-size: var(--step-b); }
+th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--gridline); vertical-align: top; }
+th {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--well);
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.mono, th.mono { font-family: var(--mono); font-size: var(--step-s); white-space: nowrap; }
+td.num { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- state pills --------------------------------------------------------- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 2px 8px 3px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.pill.done    { color: var(--success-text); }
+.pill.part    { color: var(--series-2); }
+.pill.plan    { color: var(--text-muted); }
+.pill.done::before { background: var(--status-good); }
+.pill.part::before { background: var(--status-warning); }
+.pill.plan::before { background: var(--baseline); }
+
+/* --- figures ------------------------------------------------------------- */
+
+figure {
+  margin: 22px 0 24px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 20px 14px;
+}
+figure .canvas { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; min-width: 480px; }
+figcaption {
+  font-family: var(--mono);
+  font-size: var(--step-s);
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gridline);
+}
+figcaption b { color: var(--text-secondary); font-weight: 600; }
+
+/* svg conventions: structure in the ink colour, one accent hue for the point.
+   fill/stroke-width live on the <svg> root so per-element attributes still win
+   (a CSS rule on <text> would outrank a fill="" presentation attribute). */
+svg { fill: var(--text-primary); stroke-width: 1; }
+svg text { font-family: var(--mono); }
+svg .lbl  { font-size: 12px; }
+svg .sm   { font-size: 10.5px; fill: var(--text-muted); }
+svg .hd   { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; }
+svg .box  { fill: var(--well); stroke: var(--border-strong); }
+svg .box-plain { fill: none; stroke: var(--baseline); }
+svg .accent { stroke: var(--series-2); }
+svg .accent-f { fill: var(--series-2); }
+svg .cool { stroke: var(--series-1); }
+svg .cool-f { fill: var(--series-1); }
+svg .arrow { stroke: var(--baseline); stroke-width: 1.25; fill: none; }
+svg .dash { stroke-dasharray: 4 3; }
+svg .ghost { opacity: 0.45; }
+
+/* --- fold ladder (inclusion proof) -------------------------------------- */
+
+.ladder { display: grid; gap: 10px; margin: 20px 0 0; }
+.rung {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  background: var(--well);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+}
+.rung .step {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
+.rung .body { min-width: 0; font-size: var(--step-s); }
+.rung .body .op { font-family: var(--mono); color: var(--text-secondary); display: block; margin-bottom: 4px; }
+.rung.final { border-color: var(--series-3); background: var(--surface-1); }
+.rung.final .step { color: var(--series-3); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ladder .rung {
+    opacity: 0;
+    animation: rise var(--dur-reveal) var(--ease-out) forwards;
+  }
+  .ladder .rung:nth-child(1) { animation-delay: 0ms; }
+  .ladder .rung:nth-child(2) { animation-delay: var(--stagger); }
+  .ladder .rung:nth-child(3) { animation-delay: calc(var(--stagger) * 2); }
+  .ladder .rung:nth-child(4) { animation-delay: calc(var(--stagger) * 3); }
+  .ladder .rung:nth-child(5) { animation-delay: calc(var(--stagger) * 6); }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+/* --- board (done / not done) -------------------------------------------- */
+
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; margin: 0 0 20px; }
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 17px 6px;
+}
+.card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.card h4 { margin: 0; text-transform: none; letter-spacing: 0; font-size: var(--step-m); color: var(--text-primary); }
+.card ul { list-style: none; padding: 0; margin: 0; }
+.card li {
+  font-size: var(--step-b);
+  padding: 7px 0 8px 22px;
+  border-bottom: 1px solid var(--gridline);
+  position: relative;
+  margin: 0;
+}
+.card li:last-child { border-bottom: 0; }
+.card li::before {
+  position: absolute; left: 0; top: 7px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+}
+.card.is-done li::before { content: "\2713"; color: var(--success-text); }
+.card.is-part li::before { content: "\2015"; color: var(--series-2); }
+.card.is-plan li::before { content: "\25CB"; color: var(--text-muted); }
+.card li i { font-style: normal; display: block; color: var(--text-muted); font-size: var(--step-s); }
+
+/* --- footer -------------------------------------------------------------- */
+
+footer { padding: 40px 0 64px; }
+footer p { font-family: var(--mono); font-size: var(--step-s); color: var(--text-muted); max-width: 72ch; }
+
+.toc { columns: 2; column-gap: 34px; margin: 30px 0 0; padding: 0; list-style: none; max-width: 720px; }
+@media (max-width: 620px) { .toc { columns: 1; } }
+.toc li { margin: 0 0 4px; font-family: var(--mono); font-size: var(--step-s); break-inside: avoid; }
+.toc a { color: var(--text-secondary); text-decoration: none; }
+.toc a:hover { color: var(--series-1); text-decoration: underline; }
+.toc .n { color: var(--series-2); }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <h1 class="wordmark">aethel<span class="dot">.</span></h1>
+  <p class="tagline">git for fine-tuned models &mdash; content-addressed, crash-safe,<br>and publicly auditable.</p>
+  <p class="deck">A version control system whose unit of history is a <strong>LoRA adapter</strong>, not a
+    250&nbsp;MB checkpoint. Every artifact is named by the SHA-256 of its own bytes, every commit is
+    appended to a <strong>Merkle transparency log</strong>, and every claim the server makes can be
+    re-derived by a stranger with a browser. This page is the module-by-module walkthrough: what each
+    layer does, why it is built that way, what is finished, and what is left.</p>
+
+  <div class="stats">
+    <div class="stat"><b>715</b><span>tests passing</span></div>
+    <div class="stat"><b>17.6k</b><span>lines of code</span></div>
+    <div class="stat"><b>0</b><span>core deps</span></div>
+    <div class="stat"><b>~0.6 MB</b><span>per version</span></div>
+    <div class="stat"><b>4 / 6</b><span>layers built</span></div>
+  </div>
+
+  <ol class="toc">
+    <li><span class="n">01</span> <a href="#idea">The one-sentence idea</a></li>
+    <li><span class="n">02</span> <a href="#why">Why a chain, not a database</a></li>
+    <li><span class="n">03</span> <a href="#stack">The layer stack</a></li>
+    <li><span class="n">04</span> <a href="#store">The object store</a></li>
+    <li><span class="n">05</span> <a href="#s11">The bug that forced the rebuild</a></li>
+    <li><span class="n">06</span> <a href="#crash">Crash safety</a></li>
+    <li><span class="n">07</span> <a href="#life">The lifecycle</a></li>
+    <li><span class="n">08</span> <a href="#push">The push protocol</a></li>
+    <li><span class="n">09</span> <a href="#log">The transparency log</a></li>
+    <li><span class="n">10</span> <a href="#forge">The forgery it prevents</a></li>
+    <li><span class="n">11</span> <a href="#proof">Inclusion proofs</a></li>
+    <li><span class="n">12</span> <a href="#hub">The Hub</a></li>
+    <li><span class="n">13</span> <a href="#modules">Module reference</a></li>
+    <li><span class="n">14</span> <a href="#tests">Tests &amp; CI</a></li>
+    <li><span class="n">15</span> <a href="#board">Done / not done</a></li>
+    <li><span class="n">16</span> <a href="#scope">Honest scope check</a></li>
+    <li><span class="n">17</span> <a href="#chain">What the chain proves</a></li>
+    <li><span class="n">18</span> <a href="#road">Roadmap &amp; owners</a></li>
+    <li><span class="n">19</span> <a href="#qa">Panel Q&amp;A</a></li>
+  </ol>
+</header>
+</div>
+
+<main class="wrap">
+
+<!-- ===================== 01 ===================== -->
+<section id="idea">
+  <div class="grid">
+    <div class="rail"><div class="idx">01</div><div class="eyebrow">The idea</div></div>
+    <div class="col">
+      <h2>One frozen base, many small patches</h2>
+
+      <p>Fine-tuning a language model with <strong>LoRA</strong> does not produce a new model. It produces a
+        small set of low-rank matrices &mdash; a <em>patch</em> &mdash; that sits on top of a base model whose
+        weights never change. That patch is around <strong>0.6&nbsp;MB</strong>. The base is around
+        <strong>250&nbsp;MB</strong>.</p>
+
+      <p>Every existing tool versions the 250&nbsp;MB. Aethel versions the 0.6&nbsp;MB and stores the base
+        <em>by reference</em>:</p>
+
+      <pre><code>{
+  <span class="k">"model_id"</span>: <span class="s">"distilbert-base-uncased"</span>,
+  <span class="k">"revision"</span>:  <span class="s">"12040accade4e8a0f71eabdb258fecc2f7"</span>,   <span class="c">// immutable commit SHA</span>
+  <span class="k">"source"</span>:    <span class="s">"huggingface"</span>
+}</code></pre>
+
+      <p>The <code>revision</code> is a Hugging Face <em>commit SHA</em>, never a tag. Tags move. A repo owner
+        can retag <code>main</code> tomorrow and every "reproducible" pipeline pinned to it silently trains
+        against different weights. A SHA cannot move &mdash; if the bytes change, the SHA changes, and
+        resolution fails loudly instead of succeeding wrongly.</p>
+
+      <div class="callout">
+        <h5>The consequence</h5>
+        <p>A hundred experiments cost ~60&nbsp;MB instead of ~25&nbsp;GB, and a version's identity is a
+          64-character hex string that anyone can recompute from the bytes. That single property is what
+          makes everything downstream &mdash; dedup, transparency logging, third-party verification &mdash;
+          possible at all.</p>
+      </div>
+
+      <h3>What you actually type</h3>
+      <pre><code>aethel init          <span class="c"># create .aethel/ (no database, no server)</span>
+aethel train         <span class="c"># LoRA fine-tune -> adapter in the workspace</span>
+aethel commit -m ..  <span class="c"># snapshot workspace -> content-addressed objects</span>
+aethel log           <span class="c"># walk history from refs through the store</span>
+aethel branch/checkout
+aethel fsck          <span class="c"># re-hash every object, report corruption</span>
+aethel push          <span class="c"># upload to Hub, get a transparency-log receipt</span></code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section id="why">
+  <div class="grid">
+    <div class="rail"><div class="idx">02</div><div class="eyebrow">Design premise</div></div>
+    <div class="col">
+      <h2>Why a chain and not a database</h2>
+
+      <p>The first version of Aethel kept a SQLite file, <code>repo.db</code>, alongside the weights. It
+        held commit rows, branch pointers and metrics. It was the fastest thing to build and it was the
+        source of every serious defect in the audit.</p>
+
+      <div class="callout bad">
+        <h5>The failure mode</h5>
+        <p>A database next to the objects is a <em>second source of truth</em>. Once two places can disagree,
+          one of them is lying and you cannot tell which. <code>checkout.py</code> could not resolve a commit
+          without <code>repo.db</code>, which made the headline claim &mdash; "copy the folder and you have
+          the version" &mdash; false.</p>
+      </div>
+
+      <p>The rebuild deleted SQLite entirely. History is walked from refs, through the object store, one
+        <code>parent_hash</code> at a time. Three things fall out of that decision:</p>
+
+      <ol>
+        <li><strong>Portability becomes true, not aspirational.</strong> <code>.aethel/</code> is a directory of
+          hash-named files. Copy it, zip it, rsync it &mdash; it works, because there is nothing else to bring.</li>
+        <li><strong><code>reindex</code> became unnecessary.</strong> The plan specified a command to rebuild the
+          cache from objects. With no cache, there is nothing to rebuild. A whole subsystem was deleted rather
+          than written &mdash; the best kind of progress.</li>
+        <li><strong>Verification becomes possible for outsiders.</strong> You cannot hand someone a SQLite file and
+          ask them to check your integrity claim. You can hand them a digest and a proof.</li>
+      </ol>
+
+      <p>The cost is real and worth naming: reads walk the graph instead of hitting an index. For a
+        history of hundreds of commits that is microseconds. For a history of millions it would not be, and
+        the honest answer is that we would add a cache back &mdash; but as a <em>derived</em> cache that no read
+        path is allowed to require.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section id="stack">
+  <div class="grid">
+    <div class="rail"><div class="idx">03</div><div class="eyebrow">Architecture</div></div>
+    <div class="col">
+      <h2>Six layers, each usable without the one above</h2>
+
+      <p>Every layer depends only downward. That is not an aesthetic preference &mdash; it is what lets the
+        core ship with <strong>zero third-party dependencies</strong> while the Hub uses FastAPI and training
+        uses PyTorch. You can run <code>aethel commit</code> on a machine with neither installed.</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 424" role="img" aria-label="Six-layer architecture stack. L0 primitives, L1 object store and refs, L2 machine learning operations, L3 remote protocol, L4 hub, L5 chain anchor. L0, L1, L3 and L4 are built; L2 is partial; L5 is planned.">
+          <!-- L5 : planned -->
+          <text class="hd" x="84" y="44" text-anchor="end" opacity="0.55">L5</text>
+          <rect class="box-plain dash ghost" x="100" y="16" width="660" height="56" rx="6"/>
+          <text class="lbl ghost" x="116" y="40">Anchor &amp; mirror</text>
+          <text class="sm ghost" x="116" y="58">Sepolia AethelAnchor contract &middot; IPFS/Pinata mirror &middot; Ed25519 signing</text>
+          <text class="sm" x="892" y="49" text-anchor="end">planned</text>
+
+          <!-- L4 : built -->
+          <text class="hd" x="84" y="116" text-anchor="end">L4</text>
+          <rect class="box" x="100" y="88" width="660" height="56" rx="6"/>
+          <text class="lbl" x="116" y="112">Hub</text>
+          <text class="sm" x="116" y="130">FastAPI JSON API &middot; Jinja dashboard &middot; Merkle transparency log</text>
+          <text class="sm" x="892" y="121" text-anchor="end" style="fill:var(--success-text)">built</text>
+
+          <!-- L3 : built -->
+          <text class="hd" x="84" y="188" text-anchor="end">L3</text>
+          <rect class="box" x="100" y="160" width="660" height="56" rx="6"/>
+          <text class="lbl" x="116" y="184">Remote protocol</text>
+          <text class="sm" x="116" y="202">version &rarr; negotiate &rarr; upload &rarr; move ref &middot; hash-verified at both ends</text>
+          <text class="sm" x="892" y="193" text-anchor="end" style="fill:var(--success-text)">built</text>
+
+          <!-- L2 : partial -->
+          <text class="hd" x="84" y="260" text-anchor="end">L2</text>
+          <rect class="box accent" x="100" y="232" width="660" height="56" rx="6" stroke-width="1.5"/>
+          <text class="lbl" x="116" y="256">ML operations</text>
+          <text class="sm" x="116" y="274"><tspan style="fill:var(--text-secondary)">train &#10003;</tspan>  &middot;  eval &#9675;  &middot;  diff &#9675;  &middot;  merge &#9675;</text>
+          <text class="sm" x="892" y="265" text-anchor="end" style="fill:var(--series-2)">partial</text>
+
+          <!-- L1 : built -->
+          <text class="hd" x="84" y="332" text-anchor="end">L1</text>
+          <rect class="box" x="100" y="304" width="660" height="56" rx="6"/>
+          <text class="lbl" x="116" y="328">Object store &amp; refs</text>
+          <text class="sm" x="116" y="346">blobs &middot; trees &middot; commits &middot; bases &middot; branch refs &middot; history walk &middot; fsck</text>
+          <text class="sm" x="892" y="337" text-anchor="end" style="fill:var(--success-text)">built</text>
+
+          <!-- L0 : built -->
+          <text class="hd" x="84" y="404" text-anchor="end">L0</text>
+          <rect class="box" x="100" y="376" width="660" height="40" rx="6"/>
+          <text class="lbl" x="116" y="401">Primitives <tspan class="sm">&nbsp;&nbsp;SHA-256 &middot; canonical JSON &middot; atomic writes &middot; advisory locks</tspan></text>
+          <text class="sm" x="892" y="401" text-anchor="end" style="fill:var(--success-text)">built</text>
+
+          <!-- dependency arrow -->
+          <path class="arrow" d="M 90 404 C 40 404 40 44 84 44" marker-end="url(#a1)"/>
+          <text class="sm" x="24" y="228" transform="rotate(-90 24 228)" text-anchor="middle">depends only downward</text>
+          <defs>
+            <marker id="a1" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+        </svg>
+        </div>
+        <figcaption><b>Fig 1.</b> The stack as it actually stands. L0/L1 are pure stdlib &mdash; <code>aethel commit</code>
+          needs no wheel from PyPI. L2 is where the gap is: training works, evaluation is written but still on a
+          separate branch, and diff and merge are unwritten &mdash; which is why the ML story is the weakest part
+          of the demo. L5 exists only on paper.</figcaption>
+      </figure>
+
+      <div class="tw"><table>
+        <thead><tr><th>Layer</th><th>Package</th><th>Third-party deps</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td>L0 + L1</td><td class="mono">aethel/core/</td><td>none (stdlib only, enforced in CI)</td><td><span class="pill done">built</span></td></tr>
+          <tr><td>L2</td><td class="mono">aethel/commands/train.py</td><td>torch, transformers&nbsp;&ge;&nbsp;4.46, peft</td><td><span class="pill part">partial</span></td></tr>
+          <tr><td>L3</td><td class="mono">aethel/remote/</td><td>none (urllib)</td><td><span class="pill done">built</span></td></tr>
+          <tr><td>L4</td><td class="mono">hub/</td><td>fastapi, uvicorn, jinja2</td><td><span class="pill done">built</span></td></tr>
+          <tr><td>L5</td><td class="mono">&mdash; does not exist &mdash;</td><td>web3, eth-account, requests</td><td><span class="pill plan">planned</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section id="store">
+  <div class="grid">
+    <div class="rail"><div class="idx">04</div><div class="eyebrow">Layer 1</div></div>
+    <div class="col">
+      <h2>The object store</h2>
+
+      <p>Four kinds of object. Each is named by the SHA-256 of its own content, and each name is sharded on
+        the first two hex characters so no directory ever accumulates tens of thousands of entries &mdash; the
+        same trick Git uses.</p>
+
+      <pre><code>.aethel/
+├── objects/
+│   ├── blobs/1b/b2d78c6d043feb…   <span class="c">raw bytes: weights, configs</span>
+│   ├── trees/8f/3a91c4…           <span class="c">manifest: filename -> blob hash</span>
+│   ├── commits/34/78ef8f…         <span class="c">commit metadata, keyed by COMMIT hash</span>
+│   └── bases/c0/1de9…             <span class="c">base-model reference objects</span>
+├── refs/heads/main                <span class="c">one line: a commit hash</span>
+└── HEAD                           <span class="c">ref: refs/heads/main</span></code></pre>
+
+      <p>There is no <code>index.db</code>, no <code>repo.db</code>, no daemon and no lock daemon. The
+        directory <em>is</em> the repository.</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 330" role="img" aria-label="Object graph. A commit points to its parent commit, to a tree, and to a base reference object. The tree points to three blobs. The commit also points directly at the adapter blob.">
+          <defs>
+            <marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+            <marker id="a2o" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--series-2)"/>
+            </marker>
+          </defs>
+
+          <!-- parent commit -->
+          <rect class="box-plain ghost" x="14" y="132" width="132" height="58" rx="6"/>
+          <text class="lbl ghost" x="30" y="156">commit c1</text>
+          <text class="sm ghost" x="30" y="174">parent: null</text>
+
+          <!-- commit c2 -->
+          <rect class="box cool" x="212" y="126" width="146" height="70" rx="6" stroke-width="1.5"/>
+          <text class="lbl" x="228" y="150" font-weight="600">commit c2</text>
+          <text class="sm" x="228" y="167">schema 2</text>
+          <text class="sm" x="228" y="183">3478ef8f…</text>
+
+          <path class="arrow" d="M 208 161 L 152 161" marker-end="url(#a2)"/>
+          <text class="sm" x="180" y="152" text-anchor="middle">parent_hash</text>
+
+          <!-- tree -->
+          <rect class="box" x="440" y="34" width="150" height="52" rx="6"/>
+          <text class="lbl" x="456" y="56">tree</text>
+          <text class="sm" x="456" y="73">name → blob</text>
+          <path class="arrow" d="M 362 142 C 400 120 404 68 436 60" marker-end="url(#a2)"/>
+          <text class="sm" x="392" y="104">tree</text>
+
+          <!-- base -->
+          <rect class="box" x="440" y="248" width="196" height="56" rx="6"/>
+          <text class="lbl" x="456" y="272">base reference</text>
+          <text class="sm" x="456" y="289">model_id + revision SHA</text>
+          <path class="arrow" d="M 362 182 C 400 208 404 262 436 272" marker-end="url(#a2)"/>
+          <text class="sm" x="392" y="232">base</text>
+
+          <!-- blobs -->
+          <rect class="box" x="674" y="6" width="212" height="42" rx="6"/>
+          <text class="sm" x="688" y="26">adapter_model.safetensors</text>
+          <text class="sm" x="688" y="40" style="fill:var(--series-2)">1bb2d78c…  ~0.6 MB</text>
+
+          <rect class="box" x="674" y="60" width="212" height="34" rx="6"/>
+          <text class="sm" x="688" y="81">adapter_config.json</text>
+
+          <rect class="box" x="674" y="106" width="212" height="34" rx="6"/>
+          <text class="sm" x="688" y="127">training_info.json</text>
+
+          <path class="arrow" d="M 594 54 C 630 46 640 32 670 27" marker-end="url(#a2)"/>
+          <path class="arrow" d="M 594 60 L 670 77" marker-end="url(#a2)"/>
+          <path class="arrow" d="M 594 68 C 634 82 640 116 670 123" marker-end="url(#a2)"/>
+
+          <!-- adapter_blob shortcut -->
+          <path class="arrow accent dash" d="M 300 122 C 300 40 500 -2 670 14" marker-end="url(#a2o)"/>
+          <text class="sm" x="470" y="12" style="fill:var(--series-2)">adapter_blob — the weights specifically</text>
+
+          <text class="sm" x="14" y="216">every arrow is a SHA-256; nothing is a filename, a row id or a path</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 2.</b> A commit records the <em>whole workspace</em> through its tree, not just the weights,
+          so a checkout can restore <code>adapter_config.json</code> from content-addressed storage instead of
+          from whatever happens to be lying around on disk. <code>adapter_blob</code> is a second, direct pointer
+          at the weights so tooling never has to guess which tree entry is the model.</figcaption>
+      </figure>
+
+      <h3>Three properties this buys</h3>
+      <div class="tw"><table>
+        <thead><tr><th>Property</th><th>Mechanism</th><th>Test</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Deduplication</strong> &mdash; identical weights are stored once, however many commits reference them</td><td>blob key <em>is</em> the content hash</td><td class="mono">test_core_objects</td></tr>
+          <tr><td><strong>Tamper evidence</strong> &mdash; a flipped byte anywhere is detectable without a reference copy</td><td><code>fsck</code> re-hashes every object and compares to its own name</td><td class="mono">test_s1_corruption</td></tr>
+          <tr><td><strong>Portability</strong> &mdash; the folder is the whole repository</td><td>no database; history walked from refs</td><td class="mono">test_core_resolve</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>fsck, demonstrated</h4>
+      <pre><code>$ printf 'x' &gt;&gt; .aethel/objects/blobs/1b/b2d78c6d043feb…
+$ aethel fsck
+<span class="c">CORRUPT</span>  blobs/1bb2d78c6d043feb1f72c4bb4b7294722bc7d3e7c87a0c57cb980c3797d513d3
+         stored bytes hash to 9c4e2f…, not to their own name
+1 corrupt object, 0 missing  <span class="c">(exit 1)</span></code></pre>
+      <p>Nothing external was consulted. The name is the checksum, so corruption is self-announcing.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section id="s11">
+  <div class="grid">
+    <div class="rail"><div class="idx">05</div><div class="eyebrow">Defect S1.1</div></div>
+    <div class="col">
+      <h2>The bug that forced the rebuild</h2>
+
+      <p>This is the most important slide in the deck, because it is the reason the project was rewritten
+        rather than patched.</p>
+
+      <p>Version 1 stored commit metadata <em>inside the adapter's folder</em>:
+        <code>objects/&lt;adapter_hash&gt;/commit.json</code>. Adapter hashes deduplicate by design. So two
+        commits with byte-identical weights &mdash; say you commit, tweak the message, commit again &mdash;
+        resolved to <strong>the same path</strong>. The second <code>commit.json</code> overwrote the first.
+        Both commits still had rows in SQLite, so history <em>looked</em> intact.</p>
+
+      <p>Then <code>checkout.py</code> resolved <code>commit_hash → adapter_hash → folder → commit.json</code>.
+        Checking out commit A returned <strong>B's</strong> message, author and parent. Silently. With exit code 0.</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 296" role="img" aria-label="Before and after comparison. In version one, two commits with identical weights both resolve to one commit.json path and the second overwrites the first. In version two, each commit is keyed by its own hash so they occupy distinct paths while still sharing one weights blob.">
+          <defs>
+            <marker id="a3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+            <marker id="a3b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--status-critical)"/>
+            </marker>
+          </defs>
+
+          <!-- ==== left: v1 ==== -->
+          <text class="hd" x="14" y="20" style="fill:var(--status-critical)">v1 — KEYED BY ADAPTER HASH</text>
+          <line x1="14" y1="30" x2="418" y2="30" stroke="var(--status-critical)" stroke-width="1"/>
+
+          <rect class="box-plain" x="14" y="52" width="128" height="44" rx="6"/>
+          <text class="sm" x="28" y="72">commit A</text>
+          <text class="sm" x="28" y="87">"first try"</text>
+
+          <rect class="box-plain" x="14" y="122" width="128" height="44" rx="6"/>
+          <text class="sm" x="28" y="142">commit B</text>
+          <text class="sm" x="28" y="157">"fix typo"</text>
+
+          <path class="arrow" d="M 146 74 C 190 74 200 100 236 108" marker-end="url(#a3)"/>
+          <path d="M 146 144 C 190 144 200 122 236 116" stroke="var(--status-critical)" stroke-width="1.5" fill="none" marker-end="url(#a3b)"/>
+
+          <rect x="240" y="90" width="178" height="46" rx="6" style="fill:var(--well)" stroke="var(--status-critical)" stroke-width="1.5"/>
+          <text class="sm" x="252" y="110">objects/&lt;adapter&gt;/</text>
+          <text class="sm" x="252" y="125" style="fill:var(--status-critical)">commit.json  ← one slot</text>
+
+          <text class="sm" x="14" y="196" style="fill:var(--status-critical)">B silently overwrites A.</text>
+          <text class="sm" x="14" y="213">checkout A returns B's message, author, parent.</text>
+          <text class="sm" x="14" y="230">exit code 0. SQLite still shows two commits.</text>
+          <text class="sm" x="14" y="262" style="fill:var(--status-critical)">A version control system that returns a different</text>
+          <text class="sm" x="14" y="278" style="fill:var(--status-critical)">version than the one requested is not one.</text>
+
+          <!-- divider -->
+          <line x1="452" y1="8" x2="452" y2="288" stroke="var(--gridline)" stroke-width="1"/>
+
+          <!-- ==== right: v2 ==== -->
+          <text class="hd" x="486" y="20" style="fill:var(--success-text)">v2 — KEYED BY COMMIT HASH</text>
+          <line x1="486" y1="30" x2="890" y2="30" stroke="var(--success-text)" stroke-width="1"/>
+
+          <rect class="box-plain" x="486" y="52" width="128" height="44" rx="6"/>
+          <text class="sm" x="500" y="72">commit A</text>
+          <text class="sm" x="500" y="87">"first try"</text>
+
+          <rect class="box-plain" x="486" y="122" width="128" height="44" rx="6"/>
+          <text class="sm" x="500" y="142">commit B</text>
+          <text class="sm" x="500" y="157">"fix typo"</text>
+
+          <path class="arrow" d="M 618 74 L 700 60" marker-end="url(#a3)"/>
+          <path class="arrow" d="M 618 144 L 700 130" marker-end="url(#a3)"/>
+
+          <rect class="box" x="704" y="42" width="182" height="34" rx="6"/>
+          <text class="sm" x="716" y="63">commits/34/78ef8f…</text>
+          <rect class="box" x="704" y="112" width="182" height="34" rx="6"/>
+          <text class="sm" x="716" y="133">commits/a9/1c4b20…</text>
+
+          <path class="arrow dash" d="M 618 84 C 660 190 660 200 700 204" marker-end="url(#a3)"/>
+          <path class="arrow dash" d="M 618 154 C 660 190 660 198 700 202" marker-end="url(#a3)"/>
+          <rect x="704" y="184" width="182" height="38" rx="6" style="fill:var(--well)" stroke="var(--success-text)" stroke-width="1.5"/>
+          <text class="sm" x="716" y="200">blobs/1b/b2d78c…</text>
+          <text class="sm" x="716" y="215" style="fill:var(--success-text)">one shared copy — deduped</text>
+
+          <text class="sm" x="486" y="252" style="fill:var(--success-text)">Distinct metadata paths. Shared weights.</text>
+          <text class="sm" x="486" y="270">The defect has no representable form in this layout —</text>
+          <text class="sm" x="486" y="286">it is not merely guarded against.</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 3.</b> The fix is structural, not defensive. There is no <code>if</code> statement
+          protecting against S1.1, because there is no way to express it: a commit's address is derived from a
+          commit's own content, and two commits that differ in message differ in hash.
+          <code>tests/test_s1_corruption.py</code> holds 8 regression tests, one of which asserts we did
+          <em>not</em> "fix" it the lazy way by storing a full weights copy per commit.</figcaption>
+      </figure>
+
+      <div class="callout good">
+        <h5>The transferable lesson</h5>
+        <p>When a bug is possible, guard it. When a bug is <em>representable</em>, change the representation.
+          Every guard is a line of code someone can delete; a layout that cannot express the bug survives
+          careless maintenance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================== 06 ===================== -->
+<section id="crash">
+  <div class="grid">
+    <div class="rail"><div class="idx">06</div><div class="eyebrow">Layer 0</div></div>
+    <div class="col">
+      <h2>Crash safety: no half-written state, ever</h2>
+
+      <p>The audit found that the old <code>commit()</code> performed five mutating steps with no
+        transaction, no <code>fsync</code> and no rollback. Kill it at the wrong microsecond and you get a
+        repository that is neither the old state nor the new one.</p>
+
+      <p>Every write in Aethel now goes through <code>aethel/core/atomic.py</code>. Six steps, in this order,
+        no exceptions:</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 186" role="img" aria-label="Atomic write pipeline: open a temporary file in the same directory, write bytes, flush, fsync the file descriptor, os.replace onto the final path, then fsync the parent directory.">
+          <defs>
+            <marker id="a4" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <rect class="box" x="16" y="42" width="126" height="52" rx="6"/>
+          <text class="sm" x="28" y="64">1 · open tmp</text>
+          <text class="sm" x="28" y="80" style="fill:var(--text-secondary)">same directory</text>
+
+          <rect class="box" x="152" y="42" width="112" height="52" rx="6"/>
+          <text class="sm" x="164" y="64">2 · write</text>
+          <text class="sm" x="164" y="80" style="fill:var(--text-secondary)">bytes</text>
+
+          <rect class="box" x="274" y="42" width="112" height="52" rx="6"/>
+          <text class="sm" x="286" y="64">3 · flush()</text>
+          <text class="sm" x="286" y="80" style="fill:var(--text-secondary)">userspace</text>
+
+          <rect class="box accent" x="396" y="42" width="132" height="52" rx="6" stroke-width="1.5"/>
+          <text class="sm" x="408" y="64" style="fill:var(--series-2)">4 · fsync(fd)</text>
+          <text class="sm" x="408" y="80" style="fill:var(--text-secondary)">bytes on disk</text>
+
+          <rect class="box accent" x="538" y="42" width="166" height="52" rx="6" stroke-width="1.5"/>
+          <text class="sm" x="550" y="64" style="fill:var(--series-2)">5 · os.replace()</text>
+          <text class="sm" x="550" y="80" style="fill:var(--text-secondary)">atomic rename</text>
+
+          <rect class="box" x="714" y="42" width="170" height="52" rx="6"/>
+          <text class="sm" x="726" y="64">6 · fsync(parent)</text>
+          <text class="sm" x="726" y="80" style="fill:var(--text-secondary)">name on disk too</text>
+
+          <path class="arrow" d="M 142 68 L 150 68" marker-end="url(#a4)"/>
+          <path class="arrow" d="M 264 68 L 272 68" marker-end="url(#a4)"/>
+          <path class="arrow" d="M 386 68 L 394 68" marker-end="url(#a4)"/>
+          <path class="arrow" d="M 528 68 L 536 68" marker-end="url(#a4)"/>
+          <path class="arrow" d="M 704 68 L 712 68" marker-end="url(#a4)"/>
+
+          <text class="sm" x="16" y="20">a reader at any instant sees the complete old file or the complete new file — never a prefix</text>
+
+          <text class="sm" x="16" y="126" style="fill:var(--series-2)">why step 6:</text>
+          <text class="sm" x="96" y="126">fsyncing the file persists its contents; the directory entry pointing at it is a separate write.</text>
+          <text class="sm" x="16" y="146" style="fill:var(--series-2)">the escape hatch:</text>
+          <text class="sm" x="126" y="146">durable=False skips 3, 4 and 6 — used only for regenerable caches, never for objects or refs.</text>
+          <text class="sm" x="16" y="166" style="fill:var(--series-2)">on interrupt:</text>
+          <text class="sm" x="106" y="166">cleanup is under `except BaseException`, so Ctrl-C unlinks the temp file instead of leaving debris.</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 4.</b> <code>os.replace()</code> is atomic only within one filesystem, which is why the
+          temp file is created in the destination directory rather than <code>/tmp</code>. Catching
+          <code>BaseException</code> rather than <code>Exception</code> is deliberate: <code>KeyboardInterrupt</code>
+          and <code>SystemExit</code> do not inherit from <code>Exception</code>, and a Ctrl-C during a commit is
+          the single most likely interruption in a demo.</figcaption>
+      </figure>
+
+      <h3>Objects first, ref last</h3>
+      <p>Atomicity per file is not enough &mdash; a commit writes several files. So the <em>order</em> is fixed
+        such that every possible crash point leaves a valid repository:</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 232" role="img" aria-label="Commit write order timeline. Blobs, tree, base and commit objects are written first; only then is the branch ref moved under a lock. A crash before the ref move leaves unreferenced objects and an unchanged ref, which is a valid repository.">
+          <defs>
+            <marker id="a5" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <line x1="24" y1="86" x2="876" y2="86" class="arrow" marker-end="url(#a5)"/>
+
+          <g>
+            <circle cx="70" cy="86" r="5" style="fill:var(--series-1)"/>
+            <text class="sm" x="70" y="70" text-anchor="middle">blobs</text>
+            <circle cx="200" cy="86" r="5" style="fill:var(--series-1)"/>
+            <text class="sm" x="200" y="70" text-anchor="middle">tree</text>
+            <circle cx="330" cy="86" r="5" style="fill:var(--series-1)"/>
+            <text class="sm" x="330" y="70" text-anchor="middle">base</text>
+            <circle cx="460" cy="86" r="5" style="fill:var(--series-1)"/>
+            <text class="sm" x="460" y="70" text-anchor="middle">commit</text>
+            <circle cx="620" cy="86" r="5" style="fill:var(--series-2)"/>
+            <text class="sm" x="620" y="70" text-anchor="middle" style="fill:var(--series-2)">lock refs</text>
+            <circle cx="770" cy="86" r="6" style="fill:var(--series-3)"/>
+            <text class="sm" x="770" y="70" text-anchor="middle" style="fill:var(--series-3)">move ref</text>
+          </g>
+
+          <rect x="46" y="104" width="528" height="30" rx="4" fill="none" stroke="var(--baseline)" stroke-dasharray="4 3"/>
+          <text class="sm" x="310" y="124" text-anchor="middle">crash anywhere in here …</text>
+
+          <text class="sm" x="46" y="160">… and you get unreferenced objects plus an <tspan style="fill:var(--text-secondary)">unchanged</tspan> ref.</text>
+          <text class="sm" x="46" y="178">That is a <tspan style="fill:var(--success-text)">valid repository</tspan> — the commit simply did not happen.</text>
+          <text class="sm" x="46" y="196">Wasted disk, recoverable by a future `gc`. Zero corruption.</text>
+
+          <rect x="668" y="104" width="176" height="30" rx="4" fill="none" stroke="var(--series-3)"/>
+          <text class="sm" x="756" y="124" text-anchor="middle" style="fill:var(--series-3)">single atomic instant</text>
+          <text class="sm" x="668" y="160">The ref move is one os.replace.</text>
+          <text class="sm" x="668" y="178">The commit is visible or it is not.</text>
+
+          <text class="sm" x="24" y="222" style="fill:var(--series-2)">The inverse order is the one that corrupts: a ref pointing at an object that was never written is a dangling ref, and unrecoverable.</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 5.</b> The asymmetry is the whole design. An orphaned object is garbage; a dangling ref
+          is data loss. So we always accept the former to make the latter impossible.</figcaption>
+      </figure>
+
+      <h3>Advisory locks</h3>
+      <p>Two named locks per store &mdash; <code>refs.lock</code>/<code>repos.lock</code> for pointer moves,
+        <code>log.lock</code> for transparency-log appends. Acquisition is
+        <code>os.open(path, O_CREAT | O_EXCL)</code>, which is atomic at the kernel level, with a timeout that
+        raises <code>LockTimeout</code> rather than blocking forever.</p>
+
+      <div class="callout warn">
+        <h5>A deliberate rough edge</h5>
+        <p>Stale locks are <strong>not</strong> auto-cleared. If a process dies holding one, the next writer
+          fails and a human deletes the file. That is Git's <code>index.lock</code> trade-off, chosen for the same
+          reason: an automatic staleness heuristic ("older than 30 s must be dead") is wrong exactly when a
+          machine is slow or swapping, and its failure mode is two concurrent writers &mdash; far worse than a
+          confusing error message.</p>
+      </div>
+
+      <h3>Canonical JSON</h3>
+      <pre><code>json.dumps(obj, sort_keys=<span class="k">True</span>, separators=(<span class="s">","</span>, <span class="s">":"</span>),
+           ensure_ascii=<span class="k">False</span>, allow_nan=<span class="k">False</span>)</code></pre>
+      <p>Hashing JSON only means anything if the same object always serialises to the same bytes. Sorted keys
+        remove dict-order dependence; tight separators remove whitespace; <code>allow_nan=False</code> rejects
+        <code>NaN</code> and <code>Infinity</code>, which are not JSON at all and which different parsers handle
+        differently.</p>
+      <p><code>ensure_ascii=False</code> is the load-bearing one. It makes the output match JavaScript's
+        <code>JSON.stringify</code> byte for byte, which is what lets the browser verifier
+        re-derive a digest we computed in Python. Emit <code>é</code> where JS emits <code>é</code> and every
+        client-side check fails on any commit with a non-ASCII author name.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 07 ===================== -->
+<section id="life">
+  <div class="grid">
+    <div class="rail"><div class="idx">07</div><div class="eyebrow">Walkthrough</div></div>
+    <div class="col">
+      <h2>The lifecycle, end to end</h2>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 300" role="img" aria-label="Lifecycle from init through train, commit, log, and push to the hub, then to browser verification.">
+          <defs>
+            <marker id="a6" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="16" y="18">LOCAL — no network, no server, no database</text>
+          <line x1="16" y1="26" x2="640" y2="26" stroke="var(--gridline)"/>
+
+          <rect class="box" x="16" y="44" width="128" height="56" rx="6"/>
+          <text class="sm" x="28" y="64" style="fill:var(--text-secondary)">aethel init</text>
+          <text class="sm" x="28" y="80">.aethel/ +</text>
+          <text class="sm" x="28" y="93">refs/heads/main</text>
+
+          <rect class="box" x="164" y="44" width="150" height="56" rx="6"/>
+          <text class="sm" x="176" y="64" style="fill:var(--text-secondary)">aethel train</text>
+          <text class="sm" x="176" y="80">LoRA fine-tune →</text>
+          <text class="sm" x="176" y="93">adapter in workspace</text>
+
+          <rect class="box cool" x="334" y="44" width="160" height="56" rx="6" stroke-width="1.5"/>
+          <text class="sm" x="346" y="64" style="fill:var(--text-secondary)">aethel commit</text>
+          <text class="sm" x="346" y="80">workspace → blobs,</text>
+          <text class="sm" x="346" y="93">tree, base, commit</text>
+
+          <rect class="box" x="514" y="44" width="126" height="56" rx="6"/>
+          <text class="sm" x="526" y="64" style="fill:var(--text-secondary)">aethel log</text>
+          <text class="sm" x="526" y="80">walk parents</text>
+          <text class="sm" x="526" y="93">from HEAD</text>
+
+          <path class="arrow" d="M 144 72 L 162 72" marker-end="url(#a6)"/>
+          <path class="arrow" d="M 314 72 L 332 72" marker-end="url(#a6)"/>
+          <path class="arrow" d="M 494 72 L 512 72" marker-end="url(#a6)"/>
+
+          <text class="hd" x="16" y="140">PUBLISH</text>
+          <line x1="16" y1="148" x2="884" y2="148" stroke="var(--gridline)"/>
+
+          <rect class="box accent" x="16" y="166" width="150" height="60" rx="6" stroke-width="1.5"/>
+          <text class="sm" x="28" y="186" style="fill:var(--series-2)">aethel push</text>
+          <text class="sm" x="28" y="202">negotiate, upload,</text>
+          <text class="sm" x="28" y="215">move remote ref</text>
+
+          <rect class="box" x="200" y="166" width="176" height="60" rx="6"/>
+          <text class="sm" x="212" y="186" style="fill:var(--text-secondary)">hub: verify + accept</text>
+          <text class="sm" x="212" y="202">re-hash every object,</text>
+          <text class="sm" x="212" y="215">re-walk the history</text>
+
+          <rect class="box" x="410" y="166" width="186" height="60" rx="6"/>
+          <text class="sm" x="422" y="186" style="fill:var(--text-secondary)">append to Merkle log</text>
+          <text class="sm" x="422" y="202">one leaf per commit,</text>
+          <text class="sm" x="422" y="215">one hub-wide tree</text>
+
+          <rect class="box" x="630" y="166" width="176" height="60" rx="6"/>
+          <text class="sm" x="642" y="186" style="fill:var(--text-secondary)">receipt returned</text>
+          <text class="sm" x="642" y="202">leaf index, log size,</text>
+          <text class="sm" x="642" y="215">root, inclusion proof</text>
+
+          <path class="arrow" d="M 166 196 L 198 196" marker-end="url(#a6)"/>
+          <path class="arrow" d="M 376 196 L 408 196" marker-end="url(#a6)"/>
+          <path class="arrow" d="M 596 196 L 628 196" marker-end="url(#a6)"/>
+
+          <rect class="box-plain dash ghost" x="16" y="252" width="360" height="38" rx="6"/>
+          <text class="sm ghost" x="28" y="276">L5 · anchor root on Sepolia + mirror to IPFS &nbsp;— planned</text>
+
+          <rect class="box" x="410" y="252" width="396" height="38" rx="6"/>
+          <text class="sm" x="422" y="276" style="fill:var(--series-3)">anyone opens /verify in a browser and recomputes the proof</text>
+          <path class="arrow" d="M 718 230 L 640 250" marker-end="url(#a6)"/>
+        </svg>
+        </div>
+        <figcaption><b>Fig 6.</b> Everything above the PUBLISH line runs offline on a laptop with no PyPI packages
+          except the training step. Everything below it is the trust story. The dashed box is the only part of this
+          diagram that does not exist yet.</figcaption>
+      </figure>
+
+      <h3>What <code>train</code> actually does &mdash; and its known warts</h3>
+      <p><code>aethel/commands/train.py</code> is the largest single command (477 lines): it loads a base model at a
+        pinned revision, attaches a LoRA config via <code>peft</code>, runs a Hugging Face <code>Trainer</code>, and
+        writes the adapter plus a <code>training_info.json</code> into the workspace.</p>
+
+      <div class="callout warn">
+        <h5>Say this out loud in the demo rather than hoping nobody asks</h5>
+        <ul style="margin:0;padding-left:1.15em">
+          <li>The old code silently trained on <code>f"sample training record {i}"</code> when a dataset path was
+            typo'd, and still produced a committable adapter with plausible metrics. That is fixed &mdash; it now
+            hard-errors unless you pass <code>--allow-stub</code> &mdash; but <em>the module docstring still
+            describes the old fallback</em>. Doc lag, not a live bug.</li>
+          <li><code>train.py</code> bypasses <code>aethel.core</code> entirely: it hardcodes the literal string
+            <code>".aethel"</code> instead of using the repo resolver, and its <code>TrainError</code> sits outside
+            the <code>AethelError</code> tree, so the shared <code>handle_errors</code> decorator does not catch it.
+            It is the one module that has not been brought into the rebuilt architecture.</li>
+          <li>The number that says whether a model is any <strong>good</strong> is written but not merged. The
+            evaluator &mdash; eval loss, accuracy, adapter size, current-versus-parent comparison
+            &mdash; lives on a separate branch, and <code>hub/views.py</code> already prefers
+            <code>training_info.evaluation.current</code> over the trainer's metrics when both are present. It
+            scores the dataset recorded at training time, so a train/validation split is still needed before the
+            figure is quotable. Until it lands and runs on a machine with torch, the only metrics in a real commit
+            are <code>Trainer</code> loss and runtime, and the accuracy on the dashboard comes from
+            <code>scripts/seed_demo.py</code> fixtures.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 08 ===================== -->
+<section id="push">
+  <div class="grid">
+    <div class="rail"><div class="idx">08</div><div class="eyebrow">Layer 3</div></div>
+    <div class="col">
+      <h2>The push protocol</h2>
+
+      <p>Four phases. The ordering rules are the same ones that make local commits crash-safe, applied across
+        a network where the failure modes are worse.</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 396" role="img" aria-label="Push protocol sequence between client and hub: version handshake, negotiate which objects are missing, upload objects in dependency order, then move the remote ref last.">
+          <defs>
+            <marker id="a7" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="120" y="20" text-anchor="middle">CLIENT</text>
+          <text class="hd" x="700" y="20" text-anchor="middle">HUB</text>
+          <line x1="120" y1="32" x2="120" y2="372" stroke="var(--gridline)" stroke-width="1"/>
+          <line x1="700" y1="32" x2="700" y2="372" stroke="var(--gridline)" stroke-width="1"/>
+
+          <!-- 1 version -->
+          <text class="sm" x="8" y="62" style="fill:var(--series-2)">1 · version</text>
+          <path class="arrow" d="M 124 74 L 696 74" marker-end="url(#a7)"/>
+          <text class="sm" x="410" y="66" text-anchor="middle">GET /version</text>
+          <path class="arrow dash" d="M 696 96 L 124 96" marker-end="url(#a7)"/>
+          <text class="sm" x="410" y="90" text-anchor="middle">protocol version — refuse early on mismatch, not mid-upload</text>
+
+          <!-- 2 negotiate -->
+          <text class="sm" x="8" y="134" style="fill:var(--series-2)">2 · negotiate</text>
+          <path class="arrow" d="M 124 146 L 696 146" marker-end="url(#a7)"/>
+          <text class="sm" x="410" y="138" text-anchor="middle">here are the hashes I intend to send</text>
+          <path class="arrow dash" d="M 696 168 L 124 168" marker-end="url(#a7)"/>
+          <text class="sm" x="410" y="162" text-anchor="middle">I already have these; send only the rest</text>
+
+          <!-- 3 upload -->
+          <text class="sm" x="8" y="212" style="fill:var(--series-2)">3 · upload</text>
+          <text class="sm" x="8" y="228">(ordered)</text>
+          <rect x="150" y="192" width="520" height="86" rx="6" style="fill:var(--well)" stroke="var(--border-strong)"/>
+          <text class="sm" x="166" y="212" style="fill:var(--text-secondary)">UPLOAD_ORDER = ("blobs", "trees", "bases", "commits")</text>
+          <text class="sm" x="166" y="232">referents before referrers — at no instant does the hub hold an object</text>
+          <text class="sm" x="166" y="248">whose children are missing, even if the connection drops mid-stream</text>
+          <text class="sm" x="166" y="268" style="fill:var(--series-2)">hash verified on write, then echoed back and re-checked by the client</text>
+          <path class="arrow" d="M 670 236 L 696 236" marker-end="url(#a7)"/>
+
+          <!-- 4 ref -->
+          <text class="sm" x="8" y="314" style="fill:var(--series-3)">4 · move ref</text>
+          <path d="M 124 326 L 696 326" stroke="var(--series-3)" stroke-width="1.5" fill="none" marker-end="url(#a7)"/>
+          <text class="sm" x="410" y="318" text-anchor="middle" style="fill:var(--series-3)">last — and only now is the push visible to anyone else</text>
+          <path class="arrow dash" d="M 696 350 L 124 350" marker-end="url(#a7)"/>
+          <text class="sm" x="410" y="344" text-anchor="middle">409 if the hub's own re-walk of the history disagrees</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 7.</b> The hub does not take the client's word for anything. It re-hashes each uploaded
+          object against the name it was uploaded under, and re-walks the submitted history to check that every
+          parent resolves. A client that lies gets a 409, not a corrupted server.</figcaption>
+      </figure>
+
+      <h3>Four trust properties</h3>
+      <div class="tw"><table>
+        <thead><tr><th>Property</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Integrity end to end</strong></td><td>Hash computed by the client before send, recomputed by the hub on write, echoed back, and re-compared by the client (<code>_verify_echo</code>). A byte flipped by a proxy is caught at three points.</td></tr>
+          <tr><td><strong>No partial history</strong></td><td>Dependency-ordered upload plus ref-last means an interrupted push leaves orphans, never a ref into nothing.</td></tr>
+          <tr><td><strong>Idempotence</strong></td><td>Re-pushing the same commits resolves to the existing log leaves. The response distinguishes <code>logged_indices</code> (where they are) from <code>appended_indices</code> (what was new this time), so a retry after a timeout is safe and does not double-log.</td></tr>
+          <tr><td><strong>The hub is untrusted</strong></td><td>Clients verify the hub's claims rather than believing them. The hub also holds <em>no outbound credential</em> &mdash; no wallet key, no Pinata token &mdash; so even a fully compromised hub cannot forge an on-chain anchor.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 09 ===================== -->
+<section id="log">
+  <div class="grid">
+    <div class="rail"><div class="idx">09</div><div class="eyebrow">Layer 4 · crypto</div></div>
+    <div class="col">
+      <h2>The transparency log</h2>
+
+      <p>Every accepted commit becomes one leaf in a Merkle tree. The tree's root is a single 64-character
+        digest that commits to the <em>entire</em> history of everything the hub has ever accepted. Change one
+        leaf and the root changes.</p>
+
+      <pre><code>{"index": 4, "commit_hash": "3478ef8f…", "repo": "demo/sentiment",
+ "accepted_at": "2026-08-27T09:14:03Z"}</code></pre>
+
+      <p>Leaves live in a JSONL file. <strong>The file is the truth and the tree is never cached</strong> &mdash;
+        it is rebuilt from the JSONL on every read. That is slower and it is correct: a cached root is a second
+        source of truth, and we already know how that story ends.</p>
+
+      <h3>Domain separation, and why it is not optional</h3>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 208" role="img" aria-label="Domain separation. A leaf hash is SHA-256 of byte 0x00 followed by the leaf data. A node hash is SHA-256 of byte 0x01 followed by the two child digests written as 64-character hex strings and concatenated.">
+          <defs>
+            <marker id="a8" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="16" y="20">LEAF</text>
+          <rect x="16" y="34" width="58" height="38" rx="5" style="fill:var(--well)" stroke="var(--series-2)" stroke-width="1.5"/>
+          <text class="sm" x="45" y="58" text-anchor="middle" style="fill:var(--series-2)">0x00</text>
+          <rect class="box" x="80" y="34" width="300" height="38" rx="5"/>
+          <text class="sm" x="94" y="58">canonical JSON of the log entry</text>
+          <path class="arrow" d="M 386 53 L 424 53" marker-end="url(#a8)"/>
+          <text class="sm" x="432" y="49">SHA-256</text>
+          <path class="arrow" d="M 500 53 L 534 53" marker-end="url(#a8)"/>
+          <rect class="box" x="540" y="34" width="344" height="38" rx="5"/>
+          <text class="sm" x="554" y="58">99dbc5f799823e9b…  ← leaf digest, 64 hex chars</text>
+
+          <text class="hd" x="16" y="112">NODE</text>
+          <rect x="16" y="126" width="58" height="38" rx="5" style="fill:var(--well)" stroke="var(--series-2)" stroke-width="1.5"/>
+          <text class="sm" x="45" y="150" text-anchor="middle" style="fill:var(--series-2)">0x01</text>
+          <rect class="box" x="80" y="126" width="300" height="38" rx="5"/>
+          <text class="sm" x="94" y="145">(left_hex + right_hex).encode()</text>
+          <text class="sm" x="94" y="159" style="fill:var(--series-2)">128 ASCII chars — not 64 raw bytes</text>
+          <path class="arrow" d="M 386 145 L 424 145" marker-end="url(#a8)"/>
+          <text class="sm" x="432" y="141">SHA-256</text>
+          <path class="arrow" d="M 500 145 L 534 145" marker-end="url(#a8)"/>
+          <rect class="box" x="540" y="126" width="344" height="38" rx="5"/>
+          <text class="sm" x="554" y="150">6eba45ad75414a76…  ← internal node digest</text>
+
+          <text class="sm" x="16" y="194">RFC 6962 prefixes. The hex-string detail is the one every reimplementation gets wrong — and the browser verifier must match it exactly.</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 8.</b> One byte of prefix separates "this is raw data" from "this is a pair of children".
+          The specific choice &mdash; hex strings concatenated <em>then</em> encoded, rather than raw digests
+          concatenated &mdash; is an interoperability contract between <code>aggregator.py</code> and the 359-line
+          hand-written SHA-256 in <code>verify.js</code>. Getting it wrong makes every browser check fail.</figcaption>
+      </figure>
+
+      <h3>Odd nodes are promoted, not duplicated</h3>
+      <p>When a level has an odd count, the last node <em>rides up unchanged</em> to the next level. The obvious
+        alternative &mdash; duplicate it and hash it with itself &mdash; is the CVE-2012-2459 shape: it lets two
+        different leaf counts produce the same root.</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 308" role="img" aria-label="A five-leaf Merkle tree. The fifth leaf, digest 99dbc5f7, is promoted unchanged through three levels instead of being duplicated and hashed with itself.">
+          <defs>
+            <marker id="a9" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <text class="sm" x="8" y="46">L3 root</text>
+          <text class="sm" x="8" y="126">L2</text>
+          <text class="sm" x="8" y="206">L1</text>
+          <text class="sm" x="8" y="286">L0 leaves</text>
+
+          <!-- L0 -->
+          <rect class="box" x="70" y="266" width="102" height="30" rx="5"/><text class="sm" x="121" y="286" text-anchor="middle">78653f03…</text>
+          <rect class="box" x="188" y="266" width="102" height="30" rx="5"/><text class="sm" x="239" y="286" text-anchor="middle">67bf7ad9…</text>
+          <rect class="box" x="306" y="266" width="102" height="30" rx="5"/><text class="sm" x="357" y="286" text-anchor="middle">79b093db…</text>
+          <rect class="box" x="424" y="266" width="102" height="30" rx="5"/><text class="sm" x="475" y="286" text-anchor="middle">28c59277…</text>
+          <rect x="660" y="266" width="102" height="30" rx="5" style="fill:var(--well)" stroke="var(--series-2)" stroke-width="1.5"/>
+          <text class="sm" x="711" y="286" text-anchor="middle" style="fill:var(--series-2)">99dbc5f7…</text>
+
+          <!-- L1 -->
+          <rect class="box" x="128" y="186" width="102" height="30" rx="5"/><text class="sm" x="179" y="206" text-anchor="middle">48165f7f…</text>
+          <rect class="box" x="366" y="186" width="102" height="30" rx="5"/><text class="sm" x="417" y="206" text-anchor="middle">094805ee…</text>
+          <rect x="660" y="186" width="102" height="30" rx="5" style="fill:var(--well)" stroke="var(--series-2)" stroke-width="1.5"/>
+          <text class="sm" x="711" y="206" text-anchor="middle" style="fill:var(--series-2)">99dbc5f7…</text>
+
+          <!-- L2 -->
+          <rect class="box" x="246" y="106" width="102" height="30" rx="5"/><text class="sm" x="297" y="126" text-anchor="middle">4127e11d…</text>
+          <rect x="660" y="106" width="102" height="30" rx="5" style="fill:var(--well)" stroke="var(--series-2)" stroke-width="1.5"/>
+          <text class="sm" x="711" y="126" text-anchor="middle" style="fill:var(--series-2)">99dbc5f7…</text>
+
+          <!-- L3 -->
+          <rect class="box cool" x="424" y="26" width="118" height="32" rx="5" stroke-width="1.5"/>
+          <text class="sm" x="483" y="47" text-anchor="middle" font-weight="600">3b59292c…</text>
+
+          <!-- edges L0 -> L1 -->
+          <path class="arrow" d="M 121 264 L 165 220" marker-end="url(#a9)"/>
+          <path class="arrow" d="M 239 264 L 195 220" marker-end="url(#a9)"/>
+          <path class="arrow" d="M 357 264 L 403 220" marker-end="url(#a9)"/>
+          <path class="arrow" d="M 475 264 L 433 220" marker-end="url(#a9)"/>
+          <!-- promotion -->
+          <path d="M 711 264 L 711 220" stroke="var(--series-2)" stroke-width="1.75" fill="none" marker-end="url(#a9)"/>
+          <path d="M 711 184 L 711 140" stroke="var(--series-2)" stroke-width="1.75" fill="none" marker-end="url(#a9)"/>
+
+          <!-- edges L1 -> L2 -->
+          <path class="arrow" d="M 179 184 L 275 140" marker-end="url(#a9)"/>
+          <path class="arrow" d="M 417 184 L 322 140" marker-end="url(#a9)"/>
+
+          <!-- L2 -> L3 -->
+          <path class="arrow" d="M 297 104 L 452 62" marker-end="url(#a9)"/>
+          <path d="M 711 104 L 522 62" stroke="var(--series-2)" stroke-width="1.75" fill="none" marker-end="url(#a9)"/>
+
+          <text class="sm" x="782" y="200" style="fill:var(--series-2)">promoted</text>
+          <text class="sm" x="782" y="216" style="fill:var(--series-2)">unchanged</text>
+          <text class="sm" x="782" y="120" style="fill:var(--series-2)">and again</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 9.</b> Real digests, produced by running the project's own
+          <code>aethel.core.aggregator</code> on a 5-leaf log. Watch <code>99dbc5f7…</code> climb three levels
+          without being rehashed. Had we
+          duplicated instead of promoted, an attacker could construct a different leaf sequence with the same root
+          &mdash; the classic Bitcoin merkle-tree malleability bug, in a system whose entire pitch is
+          "the root proves the history".</figcaption>
+      </figure>
+
+      <h3>Append-only by construction</h3>
+      <p><code>hub/log.py</code> exposes read methods &mdash; <code>entries</code>, <code>leaves</code>,
+        <code>size</code>, <code>contains</code>, <code>tree</code>, <code>root</code>,
+        <code>inclusion_proof</code>, static <code>verify</code> &mdash; and exactly two that mutate:
+        <code>append</code> and <code>append_many</code>. There is no update path and no delete path, so
+        "append-only" is not a policy someone enforces; it is the absence of code.</p>
+
+      <div class="callout">
+        <h5>One hub-wide tree, not one per repo</h5>
+        <p>A tempting design gives each repository its own log. It is also a hole: an operator could drop an
+          entire repository and no surviving root would notice, because that repo's root was the only thing
+          committing to it. One tree over everything means deleting any repo breaks the single root that every
+          receipt ever issued refers to.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section id="forge">
+  <div class="grid">
+    <div class="rail"><div class="idx">10</div><div class="eyebrow">The attack</div></div>
+    <div class="col">
+      <h2>The forgery domain separation prevents</h2>
+
+      <p>This is worth demonstrating live, because it is the clearest possible answer to "why not just hash the
+        children together and be done with it". The docstring of <code>aethel/core/aggregator.py</code> carries
+        the working attack:</p>
+
+      <pre><code><span class="c"># with no 0x00 / 0x01 prefixes:</span>
+real   = MerkleTree([l0, l1, l2, l3])
+forged = MerkleTree([H(l0+l1), H(l2+l3)])   <span class="c"># "leaves" are real's INTERNAL NODES</span>
+
+real.get_root() == forged.get_root()        <span class="c"># -> True</span></code></pre>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 274" role="img" aria-label="Two different trees producing one identical root. The real tree has four leaves. The forged tree uses the real tree's internal nodes as its leaves. Without domain separation both compute the same root.">
+          <defs>
+            <marker id="a10" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+
+          <text class="hd" x="16" y="20">REAL — four leaves</text>
+          <rect class="box-plain" x="16" y="196" width="72" height="28" rx="5"/><text class="sm" x="52" y="215" text-anchor="middle">l0</text>
+          <rect class="box-plain" x="96" y="196" width="72" height="28" rx="5"/><text class="sm" x="132" y="215" text-anchor="middle">l1</text>
+          <rect class="box-plain" x="176" y="196" width="72" height="28" rx="5"/><text class="sm" x="212" y="215" text-anchor="middle">l2</text>
+          <rect class="box-plain" x="256" y="196" width="72" height="28" rx="5"/><text class="sm" x="292" y="215" text-anchor="middle">l3</text>
+
+          <rect class="box" x="52" y="126" width="90" height="28" rx="5"/><text class="sm" x="97" y="145" text-anchor="middle">H(l0+l1)</text>
+          <rect class="box" x="212" y="126" width="90" height="28" rx="5"/><text class="sm" x="257" y="145" text-anchor="middle">H(l2+l3)</text>
+
+          <path class="arrow" d="M 52 194 L 84 158" marker-end="url(#a10)"/>
+          <path class="arrow" d="M 132 194 L 112 158" marker-end="url(#a10)"/>
+          <path class="arrow" d="M 212 194 L 244 158" marker-end="url(#a10)"/>
+          <path class="arrow" d="M 292 194 L 272 158" marker-end="url(#a10)"/>
+
+          <rect class="box" x="118" y="56" width="116" height="30" rx="5"/><text class="sm" x="176" y="76" text-anchor="middle">ROOT R</text>
+          <path class="arrow" d="M 97 124 L 152 90" marker-end="url(#a10)"/>
+          <path class="arrow" d="M 257 124 L 202 90" marker-end="url(#a10)"/>
+
+          <!-- equals -->
+          <text x="450" y="80" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="600" style="fill:var(--status-critical)">=</text>
+          <text class="sm" x="450" y="110" text-anchor="middle" style="fill:var(--status-critical)">same 64 hex chars</text>
+          <text class="sm" x="450" y="128" text-anchor="middle" style="fill:var(--status-critical)">different history</text>
+          <line x1="450" y1="150" x2="450" y2="236" stroke="var(--gridline)" stroke-dasharray="4 3"/>
+
+          <text class="hd" x="884" y="20" text-anchor="end">FORGED — two leaves</text>
+          <rect x="572" y="126" width="130" height="28" rx="5" style="fill:var(--well)" stroke="var(--status-critical)" stroke-width="1.5"/>
+          <text class="sm" x="637" y="145" text-anchor="middle" style="fill:var(--status-critical)">"leaf" = H(l0+l1)</text>
+          <rect x="726" y="126" width="130" height="28" rx="5" style="fill:var(--well)" stroke="var(--status-critical)" stroke-width="1.5"/>
+          <text class="sm" x="791" y="145" text-anchor="middle" style="fill:var(--status-critical)">"leaf" = H(l2+l3)</text>
+
+          <rect class="box" x="656" y="56" width="116" height="30" rx="5"/><text class="sm" x="714" y="76" text-anchor="middle">ROOT R</text>
+          <path class="arrow" d="M 637 124 L 690 90" marker-end="url(#a10)"/>
+          <path class="arrow" d="M 791 124 L 740 90" marker-end="url(#a10)"/>
+
+          <text class="sm" x="572" y="188">l0…l3 are gone. The log now "contains" two</text>
+          <text class="sm" x="572" y="204">entries that were never submitted, and the</text>
+          <text class="sm" x="572" y="220">root still checks out.</text>
+
+          <text class="sm" x="16" y="248" style="fill:var(--success-text)">With 0x00 on leaves and 0x01 on nodes, the forged tree hashes its inputs as leaves (0x00) while the</text>
+          <text class="sm" x="16" y="264" style="fill:var(--success-text)">real tree hashed them as nodes (0x01). The roots diverge. The attack has no input.</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 10.</b> A second-preimage attack on the tree structure itself &mdash; no SHA-256 weakness
+          required. It works purely because, undomained, "a leaf" and "a pair of children" are indistinguishable
+          byte strings. <code>tests/test_core_merkle.py</code> holds 18 tests; the ones that matter assert the
+          prefixed construction rejects exactly this substitution.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 11 ===================== -->
+<section id="proof">
+  <div class="grid">
+    <div class="rail"><div class="idx">11</div><div class="eyebrow">Verification</div></div>
+    <div class="col">
+      <h2>Inclusion proofs: self-contained by design</h2>
+
+      <p>A receipt has to be checkable by someone who does not trust us and does not want to talk to us. So a
+        proof carries everything the verifier needs and the verifier never calls back:</p>
+
+      <pre><code>{
+  <span class="k">"commit_hash"</span>: <span class="s">"3478ef8f5a49c54e1f89fb49fb21bb0c8f57f391b8f3a98e4108ce1722c2a207"</span>,
+  <span class="k">"leaf_index"</span>:  4,
+  <span class="k">"log_size"</span>:    8,
+  <span class="k">"root"</span>:        <span class="s">"9fe876acfe73dd8e1a25dda156c533a1e15a4c4fe9416443c7def8776f0e60a0"</span>,
+  <span class="k">"proof"</span>: [
+    {<span class="k">"sibling"</span>: <span class="s">"c8a1e973…"</span>, <span class="k">"side"</span>: <span class="s">"right"</span>},
+    {<span class="k">"sibling"</span>: <span class="s">"4dc2e7aa…"</span>, <span class="k">"side"</span>: <span class="s">"right"</span>},
+    {<span class="k">"sibling"</span>: <span class="s">"4127e11d…"</span>, <span class="k">"side"</span>: <span class="s">"left"</span>}
+  ]
+}</code></pre>
+
+      <p>Three siblings for eight leaves &mdash; <code>log&#8322;(8)</code>. A million-entry log needs twenty. That
+        logarithmic size is why this scales to a public registry and a database of "trust me" rows does not.</p>
+
+      <h3>The fold, with real values</h3>
+      <p>Below is an actual proof, generated by running <code>aethel.core.aggregator</code> on an 8-leaf log.
+        Every digest is real; nothing here is a placeholder. Each rung takes the accumulator, folds in the
+        sibling on the stated side, and hashes with the <code>0x01</code> node prefix.</p>
+
+      <div class="ladder">
+        <div class="rung">
+          <div class="step">start</div>
+          <div class="body">
+            <span class="op">leaf = SHA256(0x00 &#8214; entry 4)</span>
+            <span class="d"><b>99dbc5f799823e9b</b><span>3ea663c18c6956855dc4e64288d28dec79a2659f793738e4</span></span>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="step">fold 1</div>
+          <div class="body">
+            <span class="op">sibling on the <b style="color:var(--series-2)">right</b> &nbsp;<span class="d"><span>c8a1e973e2132e5b…</span></span></span>
+            <span class="op">acc = SHA256(0x01 &#8214; acc<sub>hex</sub> + sib<sub>hex</sub>)</span>
+            <span class="d"><b>6eba45ad75414a76</b><span>91fadbdc6f667ccb218dfecb942cd504413b9ed8c137bb75</span></span>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="step">fold 2</div>
+          <div class="body">
+            <span class="op">sibling on the <b style="color:var(--series-2)">right</b> &nbsp;<span class="d"><span>4dc2e7aa7d198201…</span></span></span>
+            <span class="op">acc = SHA256(0x01 &#8214; acc<sub>hex</sub> + sib<sub>hex</sub>)</span>
+            <span class="d"><b>dc045a24ad13df85</b><span>f98ff30454a926118f929c01ce7e066f92e2a6f82fae49d4</span></span>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="step">fold 3</div>
+          <div class="body">
+            <span class="op">sibling on the <b style="color:var(--series-2)">left</b> &nbsp;<span class="d"><span>4127e11d42c3b668…</span></span></span>
+            <span class="op">acc = SHA256(0x01 &#8214; sib<sub>hex</sub> + acc<sub>hex</sub>)</span>
+            <span class="d"><b>9fe876acfe73dd8e</b><span>1a25dda156c533a1e15a4c4fe9416443c7def8776f0e60a0</span></span>
+          </div>
+        </div>
+        <div class="rung final">
+          <div class="step">verdict</div>
+          <div class="body">
+            <span class="op">computed root == published root &nbsp;&rarr;&nbsp; <b style="color:var(--series-3)">INCLUDED</b></span>
+            <span style="color:var(--text-muted)">The commit is in the log at index 4 of 8. Nobody had to be trusted for
+              this &mdash; only SHA-256.</span>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-top:22px">Note the <code>side</code> field names <em>where the sibling sits</em>, so the
+        verifier knows the concatenation order. Get it backwards and the fold produces a valid-looking digest
+        that matches nothing &mdash; which is exactly the right failure: wrong order means wrong root, means
+        rejected.</p>
+
+      <div class="callout">
+        <h5>The one animation on this page</h5>
+        <p>The ladder above staggers in at 70&nbsp;ms per rung, in fold order. That is the project's own motion
+          rule applied here: animate only where the sequence <em>is</em> the data dependency. Under
+          <code>prefers-reduced-motion: reduce</code> the animation rule is not defined at all rather than being
+          set to zero duration &mdash; a zeroed animation with <code>backwards</code> fill would still hold
+          <code>opacity: 0</code> through its delay, hiding content from the people who asked for less motion.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================== 12 ===================== -->
+<section id="hub">
+  <div class="grid">
+    <div class="rail"><div class="idx">12</div><div class="eyebrow">Layer 4</div></div>
+    <div class="col">
+      <h2>The Hub</h2>
+
+      <p>7,068 lines across <code>hub/</code> &mdash; a FastAPI JSON API, a server-rendered Jinja dashboard,
+        the transparency log, and a browser-side verifier. It is the largest package in the project and the
+        one a panel will actually look at.</p>
+
+      <h3>The API surface</h3>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">route</th><th>purpose</th><th>auth</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">GET /api/v1/version</td><td>protocol version handshake</td><td>&mdash;</td></tr>
+          <tr><td class="mono">POST /api/v1/repos/{r}/negotiate</td><td>which of these hashes do you already have?</td><td>write</td></tr>
+          <tr><td class="mono">PUT /api/v1/blobs/{hash}</td><td>upload raw bytes, verified against the name</td><td>write</td></tr>
+          <tr><td class="mono">PUT /api/v1/{kind}/{hash}</td><td>upload a tree, base or commit object</td><td>write</td></tr>
+          <tr><td class="mono">POST /api/v1/repos/{r}/refs</td><td>move a branch &mdash; last step, 409 on disagreement</td><td>write</td></tr>
+          <tr><td class="mono">GET /api/v1/repos</td><td>list repositories</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/repos/{r}/commits</td><td>history for a repo</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/commits/{hash}</td><td>one commit's metadata</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/trees|bases|blobs/{hash}</td><td>fetch an object by hash</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/log</td><td>entries, size, current root</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/log/proof/{commit}</td><td>self-contained inclusion proof</td><td>&mdash;</td></tr>
+          <tr><td class="mono">POST /api/v1/log/verify</td><td>check a proof server-side (convenience only)</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/health</td><td>per-subsystem status</td><td>&mdash;</td></tr>
+        </tbody>
+      </table></div>
+
+      <p>Reads are open; writes require a token. Note that <code>POST /log/verify</code> is a
+        <em>convenience</em>, not the trust path &mdash; asking the log's operator whether the log is honest is
+        not verification. The trust path is the browser recomputing it locally.</p>
+
+      <h3>Five dashboard pages, no build step</h3>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">page</th><th>shows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">/</td><td>every repository, store totals, the current log root</td></tr>
+          <tr><td class="mono">/r/&lt;repo&gt;</td><td>accuracy per commit as one line per branch, plus a history table with a DAG rail showing where branches part</td></tr>
+          <tr><td class="mono">/c/&lt;hash&gt;</td><td>one commit's provenance, its base reference, its files, and its inclusion proof rung by rung &mdash; recomputed <em>in the browser</em></td></tr>
+          <tr><td class="mono">/api</td><td>the REST surface: every route, its parameters, its status codes &mdash; generated from the code, 511 lines in <code>apidocs.py</code></td></tr>
+          <tr><td class="mono">/ops</td><td>per-subsystem health, including a live recomputation of the log root</td></tr>
+        </tbody>
+      </table></div>
+
+      <p>No React, no Vite, no <code>node_modules</code>, no CDN. Jinja templates, one hand-written stylesheet
+        (1,843 lines), inline SVG charts computed server-side, and self-hosted subset fonts. The reason is not
+        minimalism for its own sake: a build step is a second artifact whose provenance nobody audits, on a
+        project whose entire subject is provenance.</p>
+
+      <h3>Content-Security-Policy</h3>
+      <pre><code>default-src 'none'; script-src 'nonce-&lt;per-response&gt;'; …</code></pre>
+      <p><code>default-src 'none'</code> means every asset class must be named explicitly &mdash; nothing loads by
+        accident. The dashboard needs exactly two inline scripts, and the lazy fix (<code>'unsafe-inline'</code>)
+        would permit every <em>other</em> inline script too, including one an attacker injects. A nonce is minted
+        per response and published on <code>request.state.csp_nonce</code>; it is never reused, because a fixed
+        nonce is just <code>unsafe-inline</code> spelled with more characters. Alongside it:
+        <code>nosniff</code>, and a <code>Permissions-Policy</code> that switches off geolocation, camera,
+        microphone and payment.</p>
+
+      <h3>The 359-line SHA-256 nobody wanted to write</h3>
+      <div class="callout warn">
+        <h5>Why not <code>crypto.subtle.digest</code>?</h5>
+        <p>Because <code>window.crypto.subtle</code> is <code>undefined</code> outside a secure context, and the
+          demo runs on <code>http://192.168.x.x:8000</code> over the room's wifi. The browser API that exists
+          precisely for this is unavailable exactly when we need it. So <code>hub/static/verify.js</code>
+          implements SHA-256 by hand.</p>
+      </div>
+
+      <p>Hand-rolled crypto is normally a red flag, so it is fenced in: the file self-tests against published
+        vectors on load &mdash; the empty string, <code>"abc"</code>, and 55, 56 and 64 <code>"a"</code>s, chosen
+        because 55/56 straddle the message-padding block boundary where naive implementations break &mdash; and
+        if any vector fails, it <strong>refuses to render a verdict at all</strong> rather than showing a green
+        tick it cannot justify. A separate CI script, <code>scripts/check_verify_js.py</code>, keeps the JS
+        constants in lockstep with the Python.</p>
+
+      <figure>
+        <div class="canvas">
+        <svg viewBox="0 0 900 224" role="img" aria-label="Six points where a hash is checked: client write, client read via fsck, on upload by the hub, echoed back to the client, on download, and in the viewer's browser.">
+          <defs>
+            <marker id="a11" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" style="fill:var(--baseline)"/>
+            </marker>
+          </defs>
+          <line x1="24" y1="96" x2="876" y2="96" class="arrow" marker-end="url(#a11)"/>
+
+          <g style="fill:var(--series-1)">
+            <circle cx="70" cy="96" r="5"/><circle cx="212" cy="96" r="5"/><circle cx="368" cy="96" r="5"/>
+            <circle cx="512" cy="96" r="5"/><circle cx="652" cy="96" r="5"/>
+          </g>
+          <circle cx="806" cy="96" r="7" style="fill:var(--series-3)"/>
+
+          <text class="sm" x="70"  y="72" text-anchor="middle">1 · write</text>
+          <text class="sm" x="212" y="72" text-anchor="middle">2 · fsck</text>
+          <text class="sm" x="368" y="72" text-anchor="middle">3 · upload</text>
+          <text class="sm" x="512" y="72" text-anchor="middle">4 · echo</text>
+          <text class="sm" x="652" y="72" text-anchor="middle">5 · download</text>
+          <text class="sm" x="806" y="72" text-anchor="middle" style="fill:var(--series-3)">6 · browser</text>
+
+          <text class="sm" x="70"  y="122" text-anchor="middle">client hashes</text>
+          <text class="sm" x="70"  y="137" text-anchor="middle">before storing</text>
+          <text class="sm" x="212" y="122" text-anchor="middle">re-hash every</text>
+          <text class="sm" x="212" y="137" text-anchor="middle">object on disk</text>
+          <text class="sm" x="368" y="122" text-anchor="middle">hub checks the</text>
+          <text class="sm" x="368" y="137" text-anchor="middle">name it was sent</text>
+          <text class="sm" x="512" y="122" text-anchor="middle">hub returns it,</text>
+          <text class="sm" x="512" y="137" text-anchor="middle">client re-compares</text>
+          <text class="sm" x="652" y="122" text-anchor="middle">client verifies</text>
+          <text class="sm" x="652" y="137" text-anchor="middle">what it fetched</text>
+          <text class="sm" x="806" y="122" text-anchor="middle" style="fill:var(--series-3)">a stranger folds</text>
+          <text class="sm" x="806" y="137" text-anchor="middle" style="fill:var(--series-3)">the proof, offline</text>
+
+          <text class="hd" x="24" y="24">SIX PLACES THE SAME DIGEST IS CHECKED</text>
+          <text class="sm" x="24" y="42">no single component has to be trusted, because no single component is the only one checking</text>
+
+          <text class="sm" x="24" y="186" style="fill:var(--series-3)">Point 6 is the one that matters for the pitch: it needs no account, no API key, and no trust in us. Just SHA-256 and a browser tab.</text>
+          <text class="sm" x="24" y="208">Points 1–5 protect against accident — bad disks, flaky proxies, truncated uploads. Point 6 protects against us.</text>
+        </svg>
+        </div>
+        <figcaption><b>Fig 11.</b> Defence in depth for integrity. The first five checkpoints catch mistakes; only
+          the sixth catches malice, and it is the only one that runs on hardware we do not control.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 13 ===================== -->
+<section id="modules">
+  <div class="grid">
+    <div class="rail"><div class="idx">13</div><div class="eyebrow">Reference</div></div>
+    <div class="col">
+      <h2>Every module, what it does, how big it is</h2>
+
+      <h4>aethel/core &mdash; 1,411 lines, stdlib only</h4>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">objects.py</td><td class="num">232</td><td>the four object kinds, sharded content-addressed read/write, corruption detection</td></tr>
+          <tr><td class="mono">refs.py</td><td class="num">244</td><td>branch pointers, HEAD, name validation with a <em>structural</em> containment check (<code>candidate.parent != heads_dir</code>) rather than a string prefix test</td></tr>
+          <tr><td class="mono">commits.py</td><td class="num">228</td><td>commit creation, schema 2, parent-chain traversal</td></tr>
+          <tr><td class="mono">atomic.py</td><td class="num">162</td><td>durable write/copy, <code>durable=False</code> opt-out, advisory locks, <code>LockTimeout</code></td></tr>
+          <tr><td class="mono">repo.py</td><td class="num">142</td><td>find <code>.aethel/</code> by walking up; layout version</td></tr>
+          <tr><td class="mono">aggregator.py</td><td class="num">142</td><td>Merkle tree, RFC 6962 prefixes, proof generation and verification</td></tr>
+          <tr><td class="mono">env.py</td><td class="num">118</td><td>config resolution and environment overrides</td></tr>
+          <tr><td class="mono">hashing.py</td><td class="num">99</td><td>SHA-256 helpers, canonical JSON, hash validation/normalisation</td></tr>
+          <tr><td class="mono">errors.py</td><td class="num">65</td><td>the <code>AethelError</code> tree that the CLI's <code>handle_errors</code> maps to exit codes</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>aethel/commands &mdash; 1,647 lines</h4>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">train.py</td><td class="num">477</td><td>LoRA fine-tune via peft + transformers. <span class="pill part">not integrated</span> bypasses <code>aethel.core</code>, own error type</td></tr>
+          <tr><td class="mono">push.py</td><td class="num">302</td><td>the four-phase protocol client-side</td></tr>
+          <tr><td class="mono">log.py</td><td class="num">140</td><td>history walk and rendering</td></tr>
+          <tr><td class="mono">init.py</td><td class="num">133</td><td>create the store; refuse to clobber an existing one</td></tr>
+          <tr><td class="mono">fsck.py</td><td class="num">131</td><td>re-hash everything, report corrupt and missing objects, exit non-zero</td></tr>
+          <tr><td class="mono">branch.py</td><td class="num">115</td><td>create/list/delete branches. Uses a weaker <code>startswith</code> containment check than <code>refs.py</code> does &mdash; a real inconsistency worth fixing</td></tr>
+          <tr><td class="mono">checkout.py</td><td class="num">104</td><td>restore a commit's tree into the workspace</td></tr>
+          <tr><td class="mono">commit.py</td><td class="num">77</td><td>the thin CLI shell over <code>core/commits.py</code></td></tr>
+          <tr><td class="mono">_common.py</td><td class="num">68</td><td><code>handle_errors</code>, shared output helpers</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>aethel/remote &mdash; 440 lines, urllib only</h4>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">http.py</td><td class="num">302</td><td>the client: version handshake, negotiate, ordered upload, ref move, <code>_verify_echo</code></td></tr>
+          <tr><td class="mono">objects.py</td><td class="num">115</td><td>walk what needs sending, in dependency order</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>hub &mdash; 7,068 lines</h4>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">static/hub.css</td><td class="num">1843</td><td>the whole design system: measured palette, type scale, motion tokens, both themes</td></tr>
+          <tr><td class="mono">views.py</td><td class="num">1087</td><td>the five dashboard pages, server-side SVG chart geometry, DAG rail layout</td></tr>
+          <tr><td class="mono">api.py</td><td class="num">565</td><td>every JSON route, upload verification, 409 logic</td></tr>
+          <tr><td class="mono">apidocs.py</td><td class="num">511</td><td><code>/api</code> generated from the routes rather than hand-maintained</td></tr>
+          <tr><td class="mono">static/verify.js</td><td class="num">359</td><td>hand-written SHA-256 + proof folding + self-tests; refuses to render on vector failure</td></tr>
+          <tr><td class="mono">log.py</td><td class="num">280</td><td><code>TransparencyLog</code>: read methods plus exactly two appenders. Also <code>AnchorStore</code>, which has no callers yet</td></tr>
+          <tr><td class="mono">storage.py</td><td class="num">277</td><td>server-side object store and repo registry</td></tr>
+          <tr><td class="mono">errors.py</td><td class="num">203</td><td>typed HTTP errors with human-readable pages</td></tr>
+          <tr><td class="mono">static/copy.js</td><td class="num">193</td><td>copy-to-clipboard that copies <code>textContent</code> &mdash; so the <em>rendered</em> digest is the contract</td></tr>
+          <tr><td class="mono">app.py</td><td class="num">151</td><td>wiring, middleware order, static mount</td></tr>
+          <tr><td class="mono">security.py</td><td class="num">143</td><td>nonce minting, CSP, security headers</td></tr>
+          <tr><td class="mono">config.py</td><td class="num">136</td><td>paths, tokens, limits</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>scripts</h4>
+      <div class="tw"><table>
+        <tbody>
+          <tr><td class="mono">seed_demo.py</td><td class="num">456</td><td>build a realistic multi-repo, multi-branch hub state for the demo in one command</td></tr>
+          <tr><td class="mono">build_fonts.py</td><td class="num">326</td><td>subset and self-host the two faces, so no request ever leaves the machine</td></tr>
+          <tr><td class="mono">check_verify_js.py</td><td class="num">145</td><td>assert the JS crypto constants still match the Python</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 14 ===================== -->
+<section id="tests">
+  <div class="grid">
+    <div class="rail"><div class="idx">14</div><div class="eyebrow">Quality</div></div>
+    <div class="col">
+      <h2>715 tests, and a CI job whose purpose is to fail</h2>
+
+      <p>The audit's third severity-1 finding was <em>zero tests</em> &mdash; not few, none. Today there are 580
+        test functions which expand to <strong>715 collected cases</strong> under parametrisation, running in
+        about nine seconds. That number is measured, not quoted.</p>
+
+      <div class="tw"><table>
+        <thead><tr><th class="mono">test file</th><th class="num">fns</th><th>what it pins down</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">test_hub_views.py</td><td class="num">104</td><td>every dashboard page renders, every chart's geometry is right</td></tr>
+          <tr><td class="mono">test_hub_api.py</td><td class="num">78</td><td>every route, every status code, every rejection</td></tr>
+          <tr><td class="mono">test_hub_errors.py</td><td class="num">50</td><td>error pages and exit paths</td></tr>
+          <tr><td class="mono">test_push.py</td><td class="num">41</td><td>the protocol, including interrupted uploads and idempotent re-push</td></tr>
+          <tr><td class="mono">test_core_objects.py</td><td class="num">29</td><td>store round-trips, sharding, corruption detection</td></tr>
+          <tr><td class="mono">test_core_env.py</td><td class="num">29</td><td>config precedence</td></tr>
+          <tr><td class="mono">test_hub_log.py</td><td class="num">28</td><td>append-only behaviour, proofs, root stability</td></tr>
+          <tr><td class="mono">test_core_refs.py</td><td class="num">25</td><td>ref naming, traversal escapes, HEAD handling</td></tr>
+          <tr><td class="mono">test_core_commits.py</td><td class="num">23</td><td>schema, parent chains, timestamp handling</td></tr>
+          <tr><td class="mono">test_hub_security.py</td><td class="num">21</td><td>CSP nonce uniqueness, headers present on every response</td></tr>
+          <tr><td class="mono">test_hub_apidocs.py</td><td class="num">21</td><td>the API reference describes routes that exist, with the statuses they really return</td></tr>
+          <tr><td class="mono">test_core_hashing.py</td><td class="num">20</td><td>canonical JSON, streaming file hashes, the short-hash rules</td></tr>
+          <tr><td class="mono">test_core_merkle.py</td><td class="num">18</td><td>domain separation, promotion, the forgery is rejected</td></tr>
+          <tr><td class="mono">test_core_atomic.py</td><td class="num">18</td><td>fsync ordering, interrupt cleanup, lock timeouts</td></tr>
+          <tr><td class="mono">test_hub_verify.py</td><td class="num">18</td><td>the JS verifier's vectors and its refusal-to-render path</td></tr>
+          <tr><td class="mono">test_hub_motion.py</td><td class="num">15</td><td>reduced-motion rules exist and animations are <em>removed</em>, not zeroed</td></tr>
+          <tr><td class="mono">test_hub_fonts.py</td><td class="num">14</td><td>subset fonts are self-hosted and actually cover the glyphs used</td></tr>
+          <tr><td class="mono">test_core_resolve.py</td><td class="num">11</td><td>branch names, short hashes and HEAD resolving to one commit, or refusing</td></tr>
+          <tr><td class="mono">test_s1_corruption.py</td><td class="num">8</td><td>S1.1 cannot recur &mdash; and was not "fixed" by duplicating weights per commit</td></tr>
+          <tr><td class="mono">test_cli_parsing.py</td><td class="num">9</td><td>option order on the commands that take a positional argument, parsed but not run</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Two CI jobs</h3>
+      <div class="tw"><table>
+        <thead><tr><th>job</th><th>installs</th><th>runs</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">core</td><td><code>[dev]</code> only, Python 3.10 &rarr; 3.13</td><td><code>--cov=aethel.core --cov-fail-under=80</code>. <strong>This job exists to fail if the core ever grows a torch or fastapi import.</strong> The stdlib-only claim is not a comment in a README; it is an executable assertion on four interpreters.</td></tr>
+          <tr><td class="mono">hub</td><td><code>[dev,hub]</code></td><td><code>ruff check .</code> plus an explicit <code>import fastapi.testclient, httpx, jinja2, hub.app</code> so a missing extra fails loudly rather than silently skipping the hub suite</td></tr>
+        </tbody>
+      </table></div>
+
+      <p>A related detail worth stealing: the hub tests guard their imports so the stdlib-only job
+        <em>skips</em> them instead of erroring. A collection error in one job is indistinguishable from a real
+        failure; a skip says "not applicable here" and keeps the signal clean.</p>
+
+      <div class="callout">
+        <h5>Motion is tested because motion fails quietly</h5>
+        <p>A broken animation does not throw. It just looks slightly wrong, or hides content, and nobody
+          notices for a month. So five test files assert the CSS invariants directly &mdash; that
+          <code>transition: all</code> appears nowhere, that the reduced-motion block removes rather than zeroes,
+          that exactly one entrance animation exists.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ===================== 15 ===================== -->
+<section id="board">
+  <div class="grid">
+    <div class="rail"><div class="idx">15</div><div class="eyebrow">Status</div></div>
+    <div class="col">
+      <h2>Done, half-done, not started</h2>
+
+      <p>This is the section to be strict about. Every item in the first column can be demonstrated live on a
+        laptop right now; nothing in it is a claim.</p>
+
+      <div class="board">
+        <div class="card is-done">
+          <header><h4>Working today</h4><span class="pill done">built</span></header>
+          <ul>
+            <li>Content-addressed object store <i>four kinds, sharded, deduped</i></li>
+            <li>Commits keyed by their own hash <i>S1.1 structurally impossible</i></li>
+            <li>Base-model reference objects <i>pinned to an immutable revision SHA</i></li>
+            <li>Atomic durable writes + advisory locks <i>fsync ordering, interrupt-safe cleanup</i></li>
+            <li>Canonical JSON <i>byte-compatible with JSON.stringify</i></li>
+            <li><code>init</code>, <code>commit</code>, <code>log</code>, <code>status</code>, <code>branch</code>, <code>checkout</code></li>
+            <li><code>fsck</code> <i>re-hashes every object; exits non-zero on corruption</i></li>
+            <li><code>train</code> <i>LoRA via peft; hard-errors instead of faking data</i></li>
+            <li><code>push</code> <i>four-phase, dependency-ordered, idempotent</i></li>
+            <li>Hub REST API <i>15 JSON routes under /api/v1 plus five rendered pages, write-token auth, 409 on history disagreement</i></li>
+            <li>Merkle transparency log <i>RFC 6962 domain separation, append-only by construction</i></li>
+            <li>Self-contained inclusion proofs <i>log&#8322;(n) siblings, no callback</i></li>
+            <li>Five-page dashboard <i>server-rendered, no build step, nonce CSP</i></li>
+            <li>In-browser verifier <i>hand-written SHA-256, self-testing, refuses on vector failure</i></li>
+            <li>715 tests + two CI jobs, five check runs <i>the core job installs no fastapi and no torch, so it fails if the core ever grows either</i></li>
+          </ul>
+        </div>
+
+        <div class="card is-part">
+          <header><h4>Partly there</h4><span class="pill part">gaps</span></header>
+          <ul>
+            <li><code>train.py</code> is not integrated <i>bypasses aethel.core, hardcodes ".aethel", its TrainError escapes handle_errors</i></li>
+            <li>Docs lag the code <i>train.py's docstring still describes the removed synthetic-data fallback; repo.py still documents index.db and `aethel reindex`, neither of which exists</i></li>
+            <li><code>branch.py</code> containment check <i>uses startswith where refs.py uses a structural parent comparison</i></li>
+            <li><code>AnchorStore</code> exists with no callers <i>the seam for L5 is cut, nothing plugs into it</i></li>
+            <li>Coverage <i>80% gate enforced in CI; 95.98% measured on aethel.core, 572 statements, 23 missed</i></li>
+            <li>Evaluation <i>written on a separate branch &mdash; eval loss, accuracy, adapter size, current-vs-parent &mdash; and wired into `aethel commit`; not merged, never yet run on a machine with torch, and it scores the training file rather than a held-out split</i></li>
+            <li>Divergence detection <i>cosine similarity between consecutive patches plus a stay-or-fork prompt; written on a separate branch, no tests yet</i></li>
+          </ul>
+        </div>
+
+        <div class="card is-plan">
+          <header><h4>Not started</h4><span class="pill plan">planned</span></header>
+          <ul>
+            <li><code>aethel diff</code> <i>per-layer ΔW norms, cosine similarity, prediction flips</i></li>
+            <li><code>aethel merge</code> <i>task arithmetic, TIES, DARE</i></li>
+            <li><code>pull</code> / <code>clone</code> <i>push exists; the reverse direction does not</i></li>
+            <li><code>AethelAnchor</code> on Sepolia <i>contract is a sketch in the plan, not deployed</i></li>
+            <li>Pinata / IPFS mirror <i>address only; integrity always from blob_sha256</i></li>
+            <li>Ed25519 commit signing + <code>aethel verify</code></li>
+            <li>Dataset fingerprinting</li>
+            <li><code>aethel reproduce</code> <i>same seed + revision → identical patch SHA-256</i></li>
+            <li><code>aethel gc</code> <i>the orphaned objects crash-safety deliberately leaves behind</i></li>
+            <li>Multi-user auth, pagination, real deployment</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <h5>Where the documentation disagrees with the tree</h5>
+        <p><code>PROJECT_PLAN.md</code> §6 describes packages <code>aethel/vcs/</code>, <code>aethel/ml/</code> and
+          <code>chain/</code>. The repository has <code>aethel/core/</code>, <code>aethel/commands/</code> and
+          <code>aethel/remote/</code>; there is no <code>aethel/ml/</code> and no <code>chain/</code> directory at
+          all. Some of that is renaming, some of it is work that never started. Reconciling the plan with reality
+          is a small task worth doing before the review, because a panel that finds the gap will trust the rest
+          less.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 16 ===================== -->
+<section id="scope">
+  <div class="grid">
+    <div class="rail"><div class="idx">16</div><div class="eyebrow">Self-assessment</div></div>
+    <div class="col">
+      <h2>Roughly two and a half layers of five</h2>
+
+      <p>If you count the six architectural layers, four are built. If you count them by <em>weight</em> &mdash;
+        how much of the project's actual claim each one carries &mdash; the number is less flattering, and this is
+        the framing to use with the panel before they use it on us.</p>
+
+      <div class="tw"><table>
+        <thead><tr><th>What we say the project is</th><th>How much of it exists</th></tr></thead>
+        <tbody>
+          <tr><td>"Version control for fine-tuned models"</td><td><strong>Done.</strong> Store, commits, branches, checkout, fsck, push. This is genuinely finished and genuinely correct.</td></tr>
+          <tr><td>"Crash-safe and tamper-evident"</td><td><strong>Done, and tested.</strong> The strongest part of the project.</td></tr>
+          <tr><td>"Publicly auditable"</td><td><strong>Done up to the hub boundary.</strong> The log is real, the proofs are real, the browser verifier is real. What is missing is the anchor &mdash; so today a hub operator could still rewrite history, and only the anchor closes that.</td></tr>
+          <tr><td>"An ML tool"</td><td><strong>Weakest claim.</strong> We can train and version an adapter. We cannot evaluate it, diff it, or merge it. A version control system for models that cannot tell you whether a model got better is doing half the job.</td></tr>
+          <tr><td>"Blockchain-backed"</td><td><strong>Paper only.</strong> A contract sketch, a store class with no callers, and a well-argued design. Zero deployed code.</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="callout good">
+        <h5>How to present this without undercutting the work</h5>
+        <p>The infrastructure is excellent and unusually rigorous for a capstone &mdash; 715 tests, a
+          structurally-impossible-by-construction bug class, RFC-conformant crypto with a demonstrated attack in
+          the docstring, a from-scratch SHA-256 with published-vector self-tests. Lead with that. Then name the
+          two gaps yourself, in one sentence each: <em>"the evaluator is written but not yet merged or run on
+          real hardware, and the anchor is designed but not deployed."</em> Naming your own gaps is what makes the
+          rest of the claims credible.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 17 ===================== -->
+<section id="chain">
+  <div class="grid">
+    <div class="rail"><div class="idx">17</div><div class="eyebrow">Layer 5</div></div>
+    <div class="col">
+      <h2>What the chain will &mdash; and will not &mdash; prove</h2>
+
+      <p>Stating this precisely <em>before</em> building it, because the overclaim is the tempting one and a
+        panel will reach for it immediately.</p>
+
+      <div class="board">
+        <div class="card is-done">
+          <header><h4>The anchor proves</h4><span class="pill done">will hold</span></header>
+          <ul>
+            <li>A commit record <strong>existed at a given time</strong></li>
+            <li>It has <strong>not been altered or removed since</strong></li>
+            <li>&mdash; including by whoever runs the Hub</li>
+          </ul>
+        </div>
+        <div class="card is-plan">
+          <header><h4>The anchor does not prove</h4><span class="pill plan">gap</span></header>
+          <ul>
+            <li>That the weights were really trained from the claimed base</li>
+            <li>That the data was what the record says</li>
+            <li>That the metrics were honestly measured</li>
+          </ul>
+        </div>
+      </div>
+
+      <blockquote><p>A liar can publish an honest-looking record. The anchor only stops them changing it
+        afterwards.</p></blockquote>
+
+      <p>Closing that second gap is what dataset fingerprinting, the reproducibility record and Ed25519 commit
+        signing are for &mdash; and all three are unbuilt. Say so.</p>
+
+      <h3>The contract, as designed</h3>
+      <pre><code><span class="k">contract</span> AethelAnchor {
+    <span class="k">struct</span> Batch { bytes32 root; uint64 logSize; uint64 timestamp; address submitter; }
+    Batch[] <span class="k">private</span> _batches;                 <span class="c">// append-only, one hub-wide stream</span>
+    mapping(bytes32 =&gt; bool) <span class="k">public</span> rootSeen; <span class="c">// duplicate-root guard</span>
+    mapping(address =&gt; bool) <span class="k">public</span> canAnchor;<span class="c">// allowlist</span>
+
+    <span class="k">event</span> Anchored(
+        uint256 <span class="k">indexed</span> batchIndex,  <span class="c">// topic1 — ordering</span>
+        bytes32 <span class="k">indexed</span> root,        <span class="c">// topic2 — reverse lookup: root -> tx</span>
+        uint64  <span class="k">indexed</span> logSize,     <span class="c">// topic3 — which prefix of the log</span>
+        address submitter,
+        uint64  timestamp
+    );
+    <span class="k">function</span> anchor(bytes32 root, uint64 logSize) <span class="k">external</span>;
+}</code></pre>
+
+      <div class="tw"><table>
+        <thead><tr><th>Decision</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Exactly three <code>indexed</code> params</td><td>EVM allows four topics and the event signature takes one. <code>batchIndex</code>, <code>root</code> and <code>logSize</code> are the three you would ever filter on.</td></tr>
+          <tr><td>No <code>repoId</code> field</td><td>A leaf is not per-repo. The log is one hub-wide tree (&sect;09), so a per-repo id on the anchor would imply a guarantee the structure does not give.</td></tr>
+          <tr><td><code>logSize</code> must be monotonic</td><td>A non-increasing <code>logSize</code> is not a mistake, it is a signature: it means the operator truncated the log. Making it checkable on-chain turns deletion into a visible event.</td></tr>
+          <tr><td><code>canAnchor</code> allowlist</td><td>Not optional. Without it, anyone can spam rows that render on our dashboard.</td></tr>
+          <tr><td>Append-only, no update or delete</td><td>Same principle as <code>hub/log.py</code>: the guarantee is the absence of a code path.</td></tr>
+          <tr><td>Etherscan-verified source</td><td>Unverified, the events render as raw hex &mdash; unreadable on a projector, and unauditable by a panel member on their phone.</td></tr>
+          <tr><td><code>pending &rarr; confirmed</code> states</td><td>Sepolia reorgs are real. A UI that shows "anchored" the instant a transaction is broadcast is lying about finality.</td></tr>
+          <tr><td>The Hub holds no key</td><td>Anchoring runs as a separate job with the wallet credential. A fully compromised Hub still cannot forge an anchor &mdash; which is the entire point of anchoring a Hub you do not trust.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 18 ===================== -->
+<section id="road">
+  <div class="grid">
+    <div class="rail"><div class="idx">18</div><div class="eyebrow">Plan</div></div>
+    <div class="col">
+      <h2>Who owns what, and what happens next</h2>
+
+      <div class="tw"><table>
+        <thead><tr><th>Owner</th><th>Module</th><th>Why this seam</th><th class="mono">tests</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Sathwik</strong></td><td>Hub server contract and transparency machinery &mdash; <code>api.py</code>, <code>storage.py</code>, <code>log.py</code>, <code>security.py</code>, <code>app.py</code>, <code>verify.js</code> &mdash; plus <code>push</code>, the Merkle log, and L5 chain</td><td>The log is the bridge between the core and the chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves, and the leaf is a commit hash produced by the API he owns.</td><td class="mono">249</td></tr>
+          <tr><td><strong>Adyaa G B</strong></td><td>The rendered dashboard and design system &mdash; <code>views.py</code>, <code>hub.css</code>, the templates, <code>build_fonts.py</code> &mdash; plus <code>init</code> and the commit-record schema</td><td>She reduced the commit record from everything-we-could-capture to only what provenance and verification need, which is what makes a record small enough to anchor. The pages are where that record becomes legible.</td><td class="mono">187</td></tr>
+          <tr><td><strong>Karthik</strong></td><td>L0/L1 &mdash; <code>aethel/core/</code>, the CLI commands &mdash; plus divergence detection and, later, <code>merge</code></td><td>Knows the original code; the rebuild is the highest-value thing to own. Divergence detection is the one idea here that Git does not have: cosine similarity between consecutive patches, with a stay-or-fork prompt rather than an automatic branch.</td><td class="mono">186</td></tr>
+          <tr><td><strong>Shravan</strong></td><td>The error contract and generated API reference &mdash; <code>errors.py</code>, <code>apidocs.py</code>, <code>prose.py</code> &mdash; plus <code>commit</code>, <code>train</code> and the evaluation package</td><td>Evaluation is fully isolated behind one field in the commit record, and the Hub already prefers it. Written and working on a branch; not yet merged, and never yet run on a machine with torch.</td><td class="mono">93</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Milestones</h3>
+      <div class="tw"><table>
+        <thead><tr><th class="mono">M</th><th>window</th><th>content</th><th>state</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">M0</td><td>2 weeks, to the review</td><td>Object-layer rebuild, atomic writes, ref locking, corruption regression test, <code>fsck</code>, CI, FastAPI Hub + dashboard, <code>push</code>, append-only Merkle log, <code>/ops</code>, docs rewrite</td><td><span class="pill done">mostly done</span></td></tr>
+          <tr><td class="mono">M0</td><td>&#8203;</td><td>Merge the evaluator and record one real run (accuracy, eval loss, adapter size, current-vs-parent) &middot; merge divergence detection with its tests &middot; <code>aethel diff</code> &middot; base-model reference + <code>aethel base verify</code> &middot; <code>AethelAnchor</code> on Sepolia + <code>aethel anchor</code> + PASS&rarr;tamper&rarr;FAIL page &middot; Pinata mirror</td><td><span class="pill plan">outstanding</span></td></tr>
+          <tr><td class="mono">M1</td><td>weeks 3&ndash;6</td><td><code>merge</code> (task arithmetic, TIES, DARE) with a merged-vs-parent accuracy table &middot; dataset fingerprinting &middot; Ed25519 signing + <code>aethel verify</code> &middot; <code>aethel reproduce</code> &middot; reproducibility study: same seed + revision &rarr; identical patch SHA-256 across both machines &middot; <code>gc</code></td><td><span class="pill plan">planned</span></td></tr>
+          <tr><td class="mono">M2</td><td>weeks 7&ndash;11</td><td>Auth, multi-user, multiple base models, proofs served per commit, pagination, real deployment</td><td><span class="pill plan">planned</span></td></tr>
+          <tr><td class="mono">M3</td><td>weeks 12&ndash;15</td><td>Batched anchoring on a schedule, per-repo filtering over the hub-wide log, reorg-aware confirmation states, gas and latency measurements</td><td><span class="pill plan">planned</span></td></tr>
+          <tr><td class="mono">M4</td><td>weeks 16&ndash;18</td><td>Results tables, ablations, threat model, limitations, polished demo</td><td><span class="pill plan">planned</span></td></tr>
+        </tbody>
+      </table></div>
+
+      <p>18 weeks against roughly 6 months available. The slack is intentional, and after M0's overrun it is
+        being spent.</p>
+
+      <h3>If you fix three things this week</h3>
+      <ol>
+        <li><strong>Merge the evaluator and record one real run.</strong> The code exists on a branch and the
+          Hub already reads the field it writes, so this is an afternoon of integration, not a feature. Until it
+          lands, "we version models but cannot say if they improved" is the one criticism with no good answer,
+          and the accuracy on the dashboard is honestly labelled as seeded.</li>
+        <li><strong>Deploy <code>AethelAnchor</code> to Sepolia.</strong> Even a single anchored root turns the
+          whole L5 story from a slide into a link. <code>AnchorStore</code> is already waiting for a caller.</li>
+        <li><strong>Reconcile the docs with the tree.</strong> Delete the <code>index.db</code> and
+          <code>reindex</code> references, fix <code>train.py</code>'s docstring, rename the packages in the
+          plan. An hour of work that removes every "your own docs contradict this" question.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 19 ===================== -->
+<section id="qa">
+  <div class="grid">
+    <div class="rail"><div class="idx">19</div><div class="eyebrow">Prep</div></div>
+    <div class="col">
+      <h2>Questions you will get, and the honest answers</h2>
+
+      <h4>"Isn't this just Git with extra steps?"</h4>
+      <p>Git stores whole files and has no notion of a base model, a training run, or a public log. The
+        interesting parts here are the ones Git does not have: a base referenced by immutable revision SHA so
+        reproducibility is checkable, and a Merkle transparency log so a stranger can verify history without
+        trusting the server. The Git-shaped parts &mdash; content addressing, sharding, ref-last ordering &mdash;
+        we copied deliberately, because they are correct and battle-tested.</p>
+
+      <h4>"Why not DVC, MLflow, or Hugging Face Hub?"</h4>
+      <p>They version artifacts by pointer and trust the server's metadata. None gives you a
+        cryptographic receipt you can check offline, and none makes tampering by the registry operator
+        detectable. That is the specific gap this fills. It is a narrow gap &mdash; say so.</p>
+
+      <h4>"Why blockchain? Isn't that bolted on?"</h4>
+      <p>It would be, if it were storing the models. It isn't &mdash; it stores <em>one 32-byte root per batch</em>.
+        The honest framing: the Merkle log already prevents <em>undetected</em> tampering by the operator, because
+        every issued receipt commits to a root. What it cannot do is stop the operator from serving a
+        <em>consistent alternate history</em> to someone who has no old receipt. An external append-only
+        timestamp closes that, and a public testnet is the cheapest one that a panel can independently check.</p>
+
+      <h4>"You wrote your own SHA-256. Why should we trust it?"</h4>
+      <p>You shouldn't, and it doesn't ask you to. It self-tests against published NIST vectors on every load
+        &mdash; including 55, 56 and 64 byte inputs that straddle the padding boundary where naive
+        implementations fail &mdash; and if any vector mismatches it refuses to display a verdict rather than
+        showing a tick. It exists only because <code>crypto.subtle</code> is undefined on plain HTTP, which is
+        what the demo runs on. On a deployed HTTPS hub the native API would be preferable.</p>
+
+      <h4>"How do you know the S1.1 bug is really gone?"</h4>
+      <p>There is no check to bypass. A commit's address is the hash of the commit's own bytes, so two commits
+        that differ in any field &mdash; message included &mdash; land at different paths. Eight regression tests
+        pin it, one of which asserts we didn't take the lazy fix of storing a full weights copy per commit.</p>
+
+      <h4>"What happens if I Ctrl-C during a commit?"</h4>
+      <p>You get unreferenced objects and an unchanged branch pointer &mdash; a valid repository in which the
+        commit simply did not happen. Objects are written before the ref, and the ref move is a single
+        <code>os.replace</code>. Cleanup is under <code>except BaseException</code> specifically so
+        <code>KeyboardInterrupt</code> unlinks the temp file. Demonstrate it live; it is a good moment.</p>
+
+      <h4>"Can it evaluate models?"</h4>
+      <p>The code to do it is written, on a branch, not yet merged &mdash; eval loss, accuracy,
+        adapter size, and a current-versus-parent comparison that says whether the new adapter improved, called
+        from <code>aethel commit</code> so it runs without being asked. What is on <code>foundation</code> today
+        records only the <code>Trainer</code>'s loss and runtime. The Hub already prefers the evaluation field
+        over the training metrics when both are present, so the dashboard needs no change to show real numbers;
+        it has simply never been run on a machine with torch installed. If asked how good the number is, say the
+        honest thing: the evaluator scores the dataset file recorded at training time, which is the file the
+        adapter trained on, so a train/validation split is the next fix on that branch. Until then the accuracy on
+        screen comes from <code>scripts/seed_demo.py</code> and is labelled as seeded. Owned by Shravan. Don't
+        dress it up beyond that.</p>
+
+      <h4>"What's the biggest weakness?"</h4>
+      <p>Two, and they are worth volunteering: the ML layer is thin &mdash; evaluation and divergence detection
+        are written but unmerged and untested, <code>diff</code> and <code>merge</code> are unwritten &mdash; and
+        the chain layer does not exist outside a design document. The infrastructure underneath both is finished
+        and heavily tested, which is why those two are tractable rather than existential.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Sources: <code>README.md</code> &middot; <code>docs/SYSTEM_REFERENCE.md</code> &middot;
+    <code>docs/PROJECT_PLAN.md</code> &middot; <code>docs/TEAM_WALKTHROUGH.md</code> &middot;
+    <code>docs/design/dashboard.md</code>, read against the actual tree. Line counts and the 715-test figure
+    were measured on the <code>foundation</code> branch, not quoted from documentation. Every digest on this page
+    was produced by running <code>aethel.core.aggregator</code>; none is a placeholder. Palette, type scale and
+    motion tokens are the project's own, from <code>hub/static/hub.css</code>.</p>
+</footer>
+</main>

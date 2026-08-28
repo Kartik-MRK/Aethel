@@ -1,0 +1,32 @@
+# Line endings are normalised, in both directions.
+#
+# Every text file is stored in the repository with LF and checked out with LF,
+# on Windows as well as Linux. `text=auto eol=lf` does both halves: `text=auto`
+# converts on the way in, `eol=lf` pins the working copy on the way out, which
+# means it does not matter what any one contributor has `core.autocrlf` set to.
+#
+# Two reasons this is not cosmetic. A file committed with CRLF shows up as every
+# line changed, which buries a two-line fix in a 400-line diff and makes review
+# useless. And this project addresses content by SHA-256 — the same text file
+# checked out with CRLF hashes differently from the LF original, so a mixed-ending
+# checkout could produce a different object hash for identical content.
+
+* text=auto eol=lf
+
+# Binaries: never touched, never diffed as text.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.pptx   binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.safetensors binary
+*.bin    binary
+*.pt     binary
+*.pyc    binary
+*.zip    binary
