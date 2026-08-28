@@ -33,6 +33,7 @@ makes "reproduce this result" mean something.
 aethel/
   core/       Pure logic. No torch, no network. Never prints, never exits.
     errors.py       exception hierarchy
+    env.py          reads `.env` into the environment, without a dependency
     hashing.py      SHA-256 + canonical JSON
     atomic.py       crash-safe writes + locking
     objects.py      content-addressed object store
@@ -51,11 +52,17 @@ aethel/
     train.py        the only module that needs torch
 
 hub/          The server. Needs the [hub] extra; nothing else imports it.
+  app.py          application factory: build config, open storage, mount routes
+  __main__.py     `python -m hub`, so a bare checkout can serve without install
   config.py       environment-driven configuration, no hard-coded hosts
   storage.py      the Hub's own content-addressed store + repo index
   log.py          the append-only transparency log and anchor records
   api.py          REST API
   views.py        server-rendered dashboard and ops board
+  errors.py       one failure, rendered as JSON for a client or a page for a browser
+  security.py     response headers and the nonce-based Content-Security-Policy
+  apidocs.py      the route reference as data, checked against the routes served
+  prose.py        the small Markdown subset that reference is written in
 ```
 
 **The layering rule:** core raises `AethelError` and never prints;
@@ -762,8 +769,10 @@ curl -s localhost:8000/api/v1/log/proof/<commit-hash> | python3 -m json.tool
 ```
 
 The proof is self-contained: leaf, sibling path, root, log size. Recompute the
-root from those alone and compare — nothing calls back to the Hub, which is why
-a dishonest Hub cannot fake it.
+root from those alone and compare — nothing calls back to the Hub mid-check,
+which is what catches a Hub serving a proof that does not fold to the root it
+publishes. It does **not** catch a Hub that rewrote its whole log and reissued
+consistent proofs; that is precisely the gap anchoring closes.
 
 ```bash
 # tamper: change one leaf in the Hub's log
@@ -802,17 +811,26 @@ ruff check .
 
 | Test file | Tests | Covers |
 |---|---|---|
-| `test_hub_api.py` | 82 | Upload, negotiate, refs, reads, log endpoints, auth, health |
+| `test_hub_views.py` | 126 | Every dashboard page: rendering, prose, the DAG rail, the accuracy chart |
+| `test_hub_api.py` | 94 | Upload, negotiate, refs, reads, log endpoints, auth, health |
+| `test_hub_errors.py` | 57 | Status codes, header survival, leak-free pages, the copy affordance |
 | `test_core_refs.py` | 52 | HEAD, branches, validation, traversal |
 | `test_push.py` | 41 | Push planning, round trips, refusals, client-side verification |
+| `test_hub_security.py` | 39 | Headers, CSP nonces, body limits, token auth |
+| `test_hub_apidocs.py` | 36 | The API reference against the routes actually served |
+| `test_core_env.py` | 29 | `.env` loading, precedence, type coercion |
 | `test_core_merkle.py` | 29 | Domain separation, proofs, tamper detection |
 | `test_core_objects.py` | 29 | Store, dedup, integrity, trees |
 | `test_hub_log.py` | 28 | Append-only behaviour, idempotence, proofs, anchors |
 | `test_core_hashing.py` | 24 | Canonical JSON, SHA-256 |
+| `test_hub_motion.py` | 24 | Motion tokens, the reduced-motion split, what may move |
 | `test_core_commits.py` | 23 | Creation, lineage, determinism |
 | `test_core_atomic.py` | 18 | Crash safety, locking, concurrency |
+| `test_hub_verify.py` | 18 | The in-browser verifier's structure and its self-check |
 | `test_core_resolve.py` | 15 | Branch/hash/abbreviation resolution |
+| `test_hub_fonts.py` | 14 | The served fonts resolve at the URLs the CSS names |
 | `test_s1_corruption.py` | 10 | Metadata-collision regression, via the CLI |
+| `test_cli_parsing.py` | 9 | Option order on the commands that take a positional |
 
 **No test touches the network.** The Hub's tests run the ASGI application
 in-process, so a full push — negotiate, upload, move the ref, append to the log
@@ -820,15 +838,18 @@ in-process, so a full push — negotiate, upload, move the ref, append to the lo
 the whole suite is fast enough to run on every save.
 
 The Hub's tests skip themselves when FastAPI is absent, so they do not break a
-client-only install. CI therefore runs two jobs:
+client-only install. CI therefore runs two jobs, which appear as five check
+runs:
 
-- **`core`** installs only `[dev]`, on Python 3.10–3.13. It fails if the core
-  ever grows a dependency on torch or FastAPI, and the Hub's tests skip by
-  design.
+- **`core`** installs only `[dev]`, on Python 3.10–3.13 — four of the five runs.
+  It fails if the core ever grows a dependency on torch or FastAPI, and the
+  Hub's tests skip by design: 312 pass, four modules skip at import, and 145
+  more skip inside their fixtures.
 - **`hub`** installs `[dev,hub]`, asserts the Hub actually imports, lints the
-  whole tree, and runs the same suite. Without this job those 151 Hub and push
-  tests would skip on every run and CI could stay green through a Hub that does
-  not even import — a passing suite that proved nothing.
+  whole tree, and runs the same suite — 708 pass, 7 skip for want of the
+  `[fonts]` extra. Without this job the 403 Hub and push tests would skip on
+  every run and CI could stay green through a Hub that does not even import — a
+  passing suite that proved nothing.
 
 One-command setup: `scripts/dev.sh` (Linux/macOS), `scripts/dev.ps1`
 (Windows). Both are idempotent and do the same thing.

@@ -310,12 +310,16 @@ the same trade-off Git makes with `index.lock`.
 
 ---
 
-## 5. Every defect fixed
+## 5. The defect list, and where each one stands
+
+Fourteen of the sixteen are closed. The two that are not say so in their own
+row, because a table titled "every defect fixed" with an open row in it is worse
+than no table.
 
 | ID | Defect | Fix |
 |---|---|---|
 | **S1.1** | Commit metadata overwritten between identical-weight commits | Commits keyed by own hash |
-| **S1.2** | No evaluation anywhere | Accuracy surfaced in `log`; metrics module next (Shravan) |
+| **S1.2** | No evaluation anywhere | *(partly — `log` and the dashboard display accuracy and prefer it over training metrics; the module that computes it is written on a branch, not merged, never run with torch)* |
 | **S1.3** | Zero tests | 715 tests, 96% core coverage |
 | **S2.1** | Documented IMDB quickstart crashed (Arrow vs CSV) | Detects Arrow dirs, explains the conversion |
 | **S2.2** | Typo'd dataset path → silently trained on fake text, still committable | Refuses; requires explicit `--allow-stub` |
@@ -473,7 +477,7 @@ reverse lookup (`root`) — see §9.
 
 ### 7.5 What the tests actually cover
 
-151 tests across the three files, and the ones worth knowing about are the
+163 tests across the three files, and the ones worth knowing about are the
 negative ones: a Hub with no token accepting a push, a wrong token being
 refused, a detached HEAD refused with the Hub left completely empty, `--dry-run`
 uploading nothing *and* not writing the repo name to config, a proof that
@@ -519,8 +523,8 @@ Test breakdown:
 
 | File | Tests | Covers |
 |---|---|---|
-| `test_hub_views.py` | 114 | Every dashboard page: rendering, prose, the DAG rail, the accuracy chart |
-| `test_hub_api.py` | 93 | Upload, negotiate, refs, reads, log endpoints, auth, health |
+| `test_hub_views.py` | 126 | Every dashboard page: rendering, prose, the DAG rail, the accuracy chart |
+| `test_hub_api.py` | 94 | Upload, negotiate, refs, reads, log endpoints, auth, health |
 | `test_hub_errors.py` | 57 | Status codes, header survival, leak-free pages, the copy affordance |
 | `test_core_refs.py` | 52 | HEAD, branches, name validation, traversal |
 | `test_push.py` | 41 | Plan, round trips, refusals, client-side hash verification |
@@ -538,6 +542,7 @@ Test breakdown:
 | `test_core_resolve.py` | 15 | Branch/hash/abbreviation resolution |
 | `test_hub_fonts.py` | 14 | The served fonts resolve at the URLs the CSS names |
 | `test_s1_corruption.py` | 10 | The corruption regression, via the real CLI |
+| `test_cli_parsing.py` | 9 | Option order on the commands that take a positional |
 
 **To reproduce the original bug for the demo:** check out a commit from before
 the rebuild and run `test_s1_corruption.py` against it.
@@ -617,23 +622,52 @@ makes anchoring load-bearing instead of decorative.
 
 ### Demo script
 
+Split honestly, because half of this is runnable on a laptop today and half is
+not, and finding that out during the demo is the worst possible time.
+
+**Runnable today, in order — this is the demo we give on 3 September:**
+
 1. Show the corruption bug on the old code (checked-out old commit)
 2. Show the test that catches it
 3. Show the rebuilt object store — `objects/commits/` vs `objects/<adapter>/`
 4. Corrupt one byte → `fsck` names that exact object, exits 1
-5. `train` → **real accuracy numbers**
-6. `aethel diff` between two adapters
-7. Branch / checkout time travel — three adapters, instant switching
+5. `train` → `commit` → the recorded loss and runtime, and the base pinned by
+   revision SHA
+6. Branch / checkout time travel — three adapters, instant switching
+7. Detached-HEAD commit refused, with the Hub left completely empty
 8. Copy `.aethel` elsewhere → full history, no database
 9. `push` → Hub dashboard, commit DAG, accuracy per commit
 10. `push` again → nothing to upload, root unchanged (a sync, not an event)
 11. Delete an object from the Hub → push → it comes back
-12. Fetch an inclusion proof; recompute the root by hand
-13. Anchor → Sepolia → Etherscan link
-14. Verify page → **PASS**
-15. Tamper the Hub's log → `/ops` goes critical → verify page → **FAIL**
+12. Fetch an inclusion proof; **Recompute in this browser** folds it with its own
+    SHA-256 and marks each rung
+13. Copy the current root down. Tamper a leaf in `log.jsonl`, reload: the root has
+    moved, and the proof issued before the edit no longer verifies against it
 
-Steps 14-15 are the thesis. Everything else is supporting evidence.
+Step 13 is the closest thing we have to the thesis today, and its honest caveat is
+the argument for the next layer: it only works because *you* wrote the old root
+down. Anyone who did not cannot tell the tampered log from the real one, since the
+Hub regenerates proofs that are perfectly consistent with whatever it now holds.
+Publishing that root where the operator cannot reach it is what anchoring is for.
+Say this out loud — it is the clearest way to show the chain is load-bearing
+rather than decorative.
+
+**Needs work that is not on `foundation` yet — do not put these in the script
+until they land:**
+
+- Real accuracy on screen instead of seeded numbers → the evaluation branch, and
+  then a train/validation split on top of it. The evaluator scores the dataset
+  file recorded at training time, so its first number would be accuracy on data
+  the adapter trained on. Merge it, run it, split the data, quote it — in that
+  order
+- `aethel diff` between two adapters → unwritten
+- Anchor → Sepolia → Etherscan link → the chain layer
+- Verify page **PASS** against an on-chain root, then tamper → **FAIL** → the
+  chain layer. `/ops`' log-versus-anchored-root row cannot go critical while it
+  reads `never anchored`; it has nothing to compare against.
+
+Those last two are the thesis in full, and they are the reason the chain layer is
+the next piece of work rather than a later one.
 
 ### Framing
 

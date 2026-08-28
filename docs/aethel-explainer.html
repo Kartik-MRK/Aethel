@@ -654,8 +654,9 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
         </svg>
         </div>
         <figcaption><b>Fig 1.</b> The stack as it actually stands. L0/L1 are pure stdlib &mdash; <code>aethel commit</code>
-          needs no wheel from PyPI. L2 is where the gap is: training works, but evaluation, diff and merge are
-          unwritten, which is why the ML story is the weakest part of the demo. L5 exists only on paper.</figcaption>
+          needs no wheel from PyPI. L2 is where the gap is: training works, evaluation is written but still on a
+          separate branch, and diff and merge are unwritten &mdash; which is why the ML story is the weakest part
+          of the demo. L5 exists only on paper.</figcaption>
       </figure>
 
       <div class="tw"><table>
@@ -1138,8 +1139,14 @@ $ aethel fsck
             <code>".aethel"</code> instead of using the repo resolver, and its <code>TrainError</code> sits outside
             the <code>AethelError</code> tree, so the shared <code>handle_errors</code> decorator does not catch it.
             It is the one module that has not been brought into the rebuilt architecture.</li>
-          <li>There is still <strong>no evaluation</strong>. The only recorded metrics are <code>Trainer</code>
-            training loss and runtime. We cannot yet state whether any model we version is any <em>good</em>.</li>
+          <li>The number that says whether a model is any <strong>good</strong> is written but not merged. The
+            evaluator &mdash; eval loss, accuracy, adapter size, current-versus-parent comparison
+            &mdash; lives on a separate branch, and <code>hub/views.py</code> already prefers
+            <code>training_info.evaluation.current</code> over the trainer's metrics when both are present. It
+            scores the dataset recorded at training time, so a train/validation split is still needed before the
+            figure is quotable. Until it lands and runs on a machine with torch, the only metrics in a real commit
+            are <code>Trainer</code> loss and runtime, and the accuracy on the dashboard comes from
+            <code>scripts/seed_demo.py</code> fixtures.</li>
         </ul>
       </div>
     </div>
@@ -1827,12 +1834,12 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
             <li><code>fsck</code> <i>re-hashes every object; exits non-zero on corruption</i></li>
             <li><code>train</code> <i>LoRA via peft; hard-errors instead of faking data</i></li>
             <li><code>push</code> <i>four-phase, dependency-ordered, idempotent</i></li>
-            <li>Hub REST API <i>13 routes, write-token auth, 409 on history disagreement</i></li>
+            <li>Hub REST API <i>15 JSON routes under /api/v1 plus five rendered pages, write-token auth, 409 on history disagreement</i></li>
             <li>Merkle transparency log <i>RFC 6962 domain separation, append-only by construction</i></li>
             <li>Self-contained inclusion proofs <i>log&#8322;(n) siblings, no callback</i></li>
             <li>Five-page dashboard <i>server-rendered, no build step, nonce CSP</i></li>
             <li>In-browser verifier <i>hand-written SHA-256, self-testing, refuses on vector failure</i></li>
-            <li>715 tests + two CI jobs <i>one exists purely to fail on a core dep</i></li>
+            <li>715 tests + two CI jobs, five check runs <i>the core job installs no fastapi and no torch, so it fails if the core ever grows either</i></li>
           </ul>
         </div>
 
@@ -1843,14 +1850,15 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
             <li>Docs lag the code <i>train.py's docstring still describes the removed synthetic-data fallback; repo.py still documents index.db and `aethel reindex`, neither of which exists</i></li>
             <li><code>branch.py</code> containment check <i>uses startswith where refs.py uses a structural parent comparison</i></li>
             <li><code>AnchorStore</code> exists with no callers <i>the seam for L5 is cut, nothing plugs into it</i></li>
-            <li>Coverage <i>80% gate enforced in CI; the 96% figure is a doc claim, not something we measured today</i></li>
+            <li>Coverage <i>80% gate enforced in CI; 95.98% measured on aethel.core, 572 statements, 23 missed</i></li>
+            <li>Evaluation <i>written on a separate branch &mdash; eval loss, accuracy, adapter size, current-vs-parent &mdash; and wired into `aethel commit`; not merged, never yet run on a machine with torch, and it scores the training file rather than a held-out split</i></li>
+            <li>Divergence detection <i>cosine similarity between consecutive patches plus a stay-or-fork prompt; written on a separate branch, no tests yet</i></li>
           </ul>
         </div>
 
         <div class="card is-plan">
           <header><h4>Not started</h4><span class="pill plan">planned</span></header>
           <ul>
-            <li><strong>Evaluation</strong> <i>no eval split, no compute_metrics, no accuracy or macro-F1. We cannot state whether any versioned model is good. This is defect S1.2 and it is still open</i></li>
             <li><code>aethel diff</code> <i>per-layer ΔW norms, cosine similarity, prediction flips</i></li>
             <li><code>aethel merge</code> <i>task arithmetic, TIES, DARE</i></li>
             <li><code>pull</code> / <code>clone</code> <i>push exists; the reverse direction does not</i></li>
@@ -1905,8 +1913,9 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <p>The infrastructure is excellent and unusually rigorous for a capstone &mdash; 715 tests, a
           structurally-impossible-by-construction bug class, RFC-conformant crypto with a demonstrated attack in
           the docstring, a from-scratch SHA-256 with published-vector self-tests. Lead with that. Then name the
-          two gaps yourself, in one sentence each: <em>"evaluation is unwritten, and the anchor is designed but
-          not deployed."</em> Naming your own gaps is what makes the rest of the claims credible.</p>
+          two gaps yourself, in one sentence each: <em>"the evaluator is written but not yet merged or run on
+          real hardware, and the anchor is designed but not deployed."</em> Naming your own gaps is what makes the
+          rest of the claims credible.</p>
       </div>
     </div>
   </div>
@@ -1989,12 +1998,12 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
       <h2>Who owns what, and what happens next</h2>
 
       <div class="tw"><table>
-        <thead><tr><th>Owner</th><th>Module</th><th>Why this seam</th></tr></thead>
+        <thead><tr><th>Owner</th><th>Module</th><th>Why this seam</th><th class="mono">tests</th></tr></thead>
         <tbody>
-          <tr><td><strong>Sathwik</strong></td><td>L5 chain + L4 Merkle log; co-owns the L0 object model</td><td>The log is the bridge between core and chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves.</td></tr>
-          <tr><td><strong>Karthik</strong></td><td>L0/L1 core rebuild + L2 <code>train</code> / <code>diff</code> / <code>merge</code></td><td>Knows the existing code; the rebuild is the highest-value thing to own.</td></tr>
-          <tr><td><strong>Shravan</strong></td><td>Evaluation &mdash; eval split, metrics, <code>compute_metrics</code></td><td>Fully isolated, genuinely needed, and currently <em>absent entirely</em> (defect S1.2). This is the single highest-leverage open item in the project.</td></tr>
-          <tr><td><strong>Aadya</strong></td><td>Base-model registry + encoder-model support, config-driven</td><td>Clean seam; directly serves "more base models later".</td></tr>
+          <tr><td><strong>Sathwik</strong></td><td>Hub server contract and transparency machinery &mdash; <code>api.py</code>, <code>storage.py</code>, <code>log.py</code>, <code>security.py</code>, <code>app.py</code>, <code>verify.js</code> &mdash; plus <code>push</code>, the Merkle log, and L5 chain</td><td>The log is the bridge between the core and the chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves, and the leaf is a commit hash produced by the API he owns.</td><td class="mono">249</td></tr>
+          <tr><td><strong>Adyaa G B</strong></td><td>The rendered dashboard and design system &mdash; <code>views.py</code>, <code>hub.css</code>, the templates, <code>build_fonts.py</code> &mdash; plus <code>init</code> and the commit-record schema</td><td>She reduced the commit record from everything-we-could-capture to only what provenance and verification need, which is what makes a record small enough to anchor. The pages are where that record becomes legible.</td><td class="mono">187</td></tr>
+          <tr><td><strong>Karthik</strong></td><td>L0/L1 &mdash; <code>aethel/core/</code>, the CLI commands &mdash; plus divergence detection and, later, <code>merge</code></td><td>Knows the original code; the rebuild is the highest-value thing to own. Divergence detection is the one idea here that Git does not have: cosine similarity between consecutive patches, with a stay-or-fork prompt rather than an automatic branch.</td><td class="mono">186</td></tr>
+          <tr><td><strong>Shravan</strong></td><td>The error contract and generated API reference &mdash; <code>errors.py</code>, <code>apidocs.py</code>, <code>prose.py</code> &mdash; plus <code>commit</code>, <code>train</code> and the evaluation package</td><td>Evaluation is fully isolated behind one field in the commit record, and the Hub already prefers it. Written and working on a branch; not yet merged, and never yet run on a machine with torch.</td><td class="mono">93</td></tr>
         </tbody>
       </table></div>
 
@@ -2003,7 +2012,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <thead><tr><th class="mono">M</th><th>window</th><th>content</th><th>state</th></tr></thead>
         <tbody>
           <tr><td class="mono">M0</td><td>2 weeks, to the review</td><td>Object-layer rebuild, atomic writes, ref locking, corruption regression test, <code>fsck</code>, CI, FastAPI Hub + dashboard, <code>push</code>, append-only Merkle log, <code>/ops</code>, docs rewrite</td><td><span class="pill done">mostly done</span></td></tr>
-          <tr><td class="mono">M0</td><td>&#8203;</td><td>Real evaluation (eval split, accuracy + macro-F1 into commit metadata) &middot; <code>aethel diff</code> &middot; base-model reference + <code>aethel base verify</code> &middot; <code>AethelAnchor</code> on Sepolia + <code>aethel anchor</code> + PASS&rarr;tamper&rarr;FAIL page &middot; Pinata mirror</td><td><span class="pill plan">outstanding</span></td></tr>
+          <tr><td class="mono">M0</td><td>&#8203;</td><td>Merge the evaluator and record one real run (accuracy, eval loss, adapter size, current-vs-parent) &middot; merge divergence detection with its tests &middot; <code>aethel diff</code> &middot; base-model reference + <code>aethel base verify</code> &middot; <code>AethelAnchor</code> on Sepolia + <code>aethel anchor</code> + PASS&rarr;tamper&rarr;FAIL page &middot; Pinata mirror</td><td><span class="pill plan">outstanding</span></td></tr>
           <tr><td class="mono">M1</td><td>weeks 3&ndash;6</td><td><code>merge</code> (task arithmetic, TIES, DARE) with a merged-vs-parent accuracy table &middot; dataset fingerprinting &middot; Ed25519 signing + <code>aethel verify</code> &middot; <code>aethel reproduce</code> &middot; reproducibility study: same seed + revision &rarr; identical patch SHA-256 across both machines &middot; <code>gc</code></td><td><span class="pill plan">planned</span></td></tr>
           <tr><td class="mono">M2</td><td>weeks 7&ndash;11</td><td>Auth, multi-user, multiple base models, proofs served per commit, pagination, real deployment</td><td><span class="pill plan">planned</span></td></tr>
           <tr><td class="mono">M3</td><td>weeks 12&ndash;15</td><td>Batched anchoring on a schedule, per-repo filtering over the hub-wide log, reorg-aware confirmation states, gas and latency measurements</td><td><span class="pill plan">planned</span></td></tr>
@@ -2016,8 +2025,10 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
 
       <h3>If you fix three things this week</h3>
       <ol>
-        <li><strong>Evaluation.</strong> Not because it is hard, but because "we version models but cannot say
-          if they improved" is the one criticism with no good answer.</li>
+        <li><strong>Merge the evaluator and record one real run.</strong> The code exists on a branch and the
+          Hub already reads the field it writes, so this is an afternoon of integration, not a feature. Until it
+          lands, "we version models but cannot say if they improved" is the one criticism with no good answer,
+          and the accuracy on the dashboard is honestly labelled as seeded.</li>
         <li><strong>Deploy <code>AethelAnchor</code> to Sepolia.</strong> Even a single anchored root turns the
           whole L5 story from a slide into a link. <code>AnchorStore</code> is already waiting for a caller.</li>
         <li><strong>Reconcile the docs with the tree.</strong> Delete the <code>index.db</code> and
@@ -2073,13 +2084,22 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <code>KeyboardInterrupt</code> unlinks the temp file. Demonstrate it live; it is a good moment.</p>
 
       <h4>"Can it evaluate models?"</h4>
-      <p>No. Not yet. It records training loss and runtime from the Hugging Face <code>Trainer</code> and nothing
-        else. Eval split, accuracy and macro-F1 are the top open item, owned by Shravan. Don't dress this up.</p>
+      <p>The code to do it is written, on a branch, not yet merged &mdash; eval loss, accuracy,
+        adapter size, and a current-versus-parent comparison that says whether the new adapter improved, called
+        from <code>aethel commit</code> so it runs without being asked. What is on <code>foundation</code> today
+        records only the <code>Trainer</code>'s loss and runtime. The Hub already prefers the evaluation field
+        over the training metrics when both are present, so the dashboard needs no change to show real numbers;
+        it has simply never been run on a machine with torch installed. If asked how good the number is, say the
+        honest thing: the evaluator scores the dataset file recorded at training time, which is the file the
+        adapter trained on, so a train/validation split is the next fix on that branch. Until then the accuracy on
+        screen comes from <code>scripts/seed_demo.py</code> and is labelled as seeded. Owned by Shravan. Don't
+        dress it up beyond that.</p>
 
       <h4>"What's the biggest weakness?"</h4>
-      <p>Two, and they are worth volunteering: the ML layer is thin &mdash; no eval, no diff, no merge &mdash;
-        and the chain layer does not exist outside a design document. The infrastructure underneath both is
-        finished and heavily tested, which is why those two are tractable rather than existential.</p>
+      <p>Two, and they are worth volunteering: the ML layer is thin &mdash; evaluation and divergence detection
+        are written but unmerged and untested, <code>diff</code> and <code>merge</code> are unwritten &mdash; and
+        the chain layer does not exist outside a design document. The infrastructure underneath both is finished
+        and heavily tested, which is why those two are tractable rather than existential.</p>
     </div>
   </div>
 </section>

@@ -210,10 +210,12 @@ an audience there is a way to keep going.
 The transcripts below are captured output, not illustrations. Two caveats so
 they are read correctly. They were recorded with stand-in adapter weights so
 that the whole cycle runs with no GPU, so the **accuracy column is fixture
-data** until you run the `[ml]` path — object counts, deduplication and log
-behaviour are real either way. And every hash is a hash of the actual bytes, so
-**your hashes will differ from these**; that is the point of a
-content-addressed store, not a discrepancy.
+data** — and it stays fixture data on the `[ml]` path too, because the code that
+computes a real accuracy is written but not yet merged (see *What is
+deliberately not there yet*). Object counts, deduplication and log behaviour are
+real either way. And every hash is a hash of the actual bytes, so **your hashes
+will differ from these**; that is the point of a content-addressed store, not a
+discrepancy.
 
 ### Where the Hub keeps its data — and the one trap in it
 
@@ -514,16 +516,42 @@ belongs to a history grows with the logarithm of the history, not its size.
 
 ### What is deliberately not there yet
 
-Say this plainly rather than letting a panel find it. `aethel merge` is not
-implemented — branch and checkout work, merging adapters (task arithmetic,
-TIES, DARE) is in progress and lands after this review. There is no `pull` or
-`clone`: a Hub serves patches over its REST API and the dashboard, and the
-client half of that is later work. And nothing is anchored to a chain yet —
-the transparency log is built, serves inclusion proofs and is verified in the
-browser, but the on-chain root that would make the Hub operator accountable is
-the next layer. `/ops` says so on its own: the chain row reads `not configured`
-and the log-versus-anchored-root row reads `never anchored`, both amber, rather
-than quietly rendering green.
+Say this plainly rather than letting a panel find it.
+
+**Evaluation is written but not merged.** `aethel train` records what the Hugging
+Face `Trainer` reports — loss and runtime — and nothing that answers "is this
+version better than its parent". The code that does answer it exists on a
+separate branch: eval loss, accuracy, adapter size, and a current-versus-parent
+comparison that extracts the parent's tree into a temporary directory, scores it
+the same way, and records whether accuracy improved — called from `aethel commit`
+so it runs without being asked. The Hub is already wired for it and prefers
+`training_info.evaluation.current` over the training metrics when both are
+present, so the dashboard needs no change to start showing real numbers.
+
+Two things are missing before that number means anything. The merge, and one
+recorded run on a machine with torch. And a train/validation split: the evaluator
+scores the dataset file recorded at training time, which is the file the adapter
+trained on, so today it would report accuracy on data the model has already seen.
+The comparison is still informative — both sides are scored identically — but a
+held-out split is what makes the figure quotable, and it is the first task on
+that branch. Until then the accuracy on screen comes from `scripts/seed_demo.py`
+and is labelled as seeded. Divergence detection — cosine similarity between
+consecutive patches, with a prompt to stay on the branch or fork — is in the same
+state: written, on a branch, no tests yet.
+
+**`aethel merge` is not implemented.** Branch and checkout work; merging adapters
+(task arithmetic, TIES, DARE) lands after this review, and deliberately after the
+evaluator, because choosing between those three means measuring which one
+actually produces a better adapter. `aethel diff` is designed and unwritten.
+
+**There is no `pull` or `clone`.** A Hub serves patches over its REST API and the
+dashboard; the client half of that is later work.
+
+**Nothing is anchored to a chain yet.** The transparency log is built, serves
+inclusion proofs and is verified in the browser, but the on-chain root that would
+make the Hub operator accountable is the next layer. `/ops` says so on its own:
+the chain row reads `not configured` and the log-versus-anchored-root row reads
+`never anchored`, both amber, rather than quietly rendering green.
 
 ### When something goes wrong
 
@@ -594,10 +622,16 @@ described above.
 ## Status
 
 Working today: `init`, `train`, `commit`, `branch`, `checkout`, `log`,
-`status`, `fsck`, `push` · a Hub with a REST API, a five-page server-rendered
-dashboard, an ops health board, an append-only Merkle transparency log serving
-inclusion proofs, and an in-browser verifier that recomputes a root without
-trusting the page it is on.
+`status`, `fsck`, `push` · a Hub with a REST API of 15 JSON endpoints, a
+five-page server-rendered dashboard, an ops health board, an append-only Merkle
+transparency log serving inclusion proofs, and an in-browser verifier that
+recomputes a root without trusting the page it is on. 715 tests, 96% coverage on
+`aethel.core`.
+
+Written, on a branch, not yet merged: adapter evaluation and the
+current-versus-parent comparison · divergence detection between consecutive
+patches. Both are described under *What is deliberately not there yet*, and
+neither is counted above.
 
 Planned, in order: anchoring the log's root to a public testnet so a model's
 recorded history cannot be rewritten even by whoever runs the Hub · a Pinata

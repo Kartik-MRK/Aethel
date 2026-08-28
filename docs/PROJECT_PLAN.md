@@ -548,6 +548,17 @@ itself.
 
 Steps 11 and 12 are the entire thesis in two screens. Everything else is supporting evidence.
 
+**Where this actually stands, as of the review.** Steps 1-4, 7 and 8 run today. Step 5 trains and
+records loss and runtime; the accuracy and F1 half is written on a separate branch and not yet
+merged, so the number on screen is fixture data. Steps 6, 9, 10 and 11 are not built: `aethel diff`
+is designed and unwritten, there is no Pinata mirror, and nothing is anchored. Step 12 has a
+runnable form — tamper a leaf and the root moves, so a proof issued earlier stops verifying — but
+only for someone who wrote the old root down first, because the Hub reissues proofs consistent with
+whatever it now holds. Removing that "wrote it down first" caveat is precisely what step 10 buys.
+
+`docs/TEAM_WALKTHROUGH.md` §11 carries the script we actually give on 3 September, in the order we
+give it. This list is the plan; that one is the demo.
+
 **Framing for the review:** *"We audited the prototype, found a silent data-loss defect, rebuilt the
 core so it cannot recur, and built the Hub and anchoring layer on top."* That reads as engineering
 maturity rather than catching up — which is exactly what it needs to do.
@@ -632,7 +643,9 @@ tests now.
 
 ## 11. Verification checklist
 
-- `pytest -q` — 60+ green including the corruption regression test; `--cov` ≥ 80% on `core/` + `vcs/`
+- `pytest -q` — green including the corruption regression test; `--cov` ≥ 80% on `core/`. The floor
+  was 60 tests when this was written; the suite currently stands at 715 with 96% coverage on
+  `aethel.core`, and CI enforces the 80% floor rather than the count
 - **Corruption regression:** commit identical weights twice with different messages; assert both
   commit objects survive and each checkout returns *its own* metadata
 - **Atomicity:** fault-inject a kill at each commit step; repo stays valid and `fsck` passes
