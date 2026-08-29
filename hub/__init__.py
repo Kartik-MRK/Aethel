@@ -1,4 +1,4 @@
-"""Aethel Hub — a registry and transparency log for adapter provenance.
+"""Aethel Hub: a registry and transparency log for adapter provenance.
 
 The Hub is deliberately treated as UNTRUSTED by its own clients. It stores
 adapters and lineage, and it maintains an append-only Merkle log over the
@@ -9,7 +9,7 @@ for anything.
 That framing is what makes the later chain layer meaningful rather than
 decorative: on a purely local tool there is no untrusted party, so anchoring
 answers no question. A hosted Hub has an operator who *could* rewrite
-published history — and the anchored log is what makes that detectable.
+published history, and the anchored log is what makes that detectable.
 
 Two invariants hold everywhere in this package:
 

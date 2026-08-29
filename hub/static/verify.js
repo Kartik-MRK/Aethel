@@ -323,7 +323,7 @@
     if (!rootAgrees) {
       say(
         "The fold does not reach the root the Hub published. This proof does not " +
-        "prove what it claims — recomputed " + computed.root.slice(0, 12) + "…, " +
+        "prove what it claims: recomputed " + computed.root.slice(0, 12) + "…, " +
         "was given " + String(payload.root).slice(0, 12) + "….",
         "bad"
       );
@@ -345,7 +345,7 @@
       payload.log_size + " through " + path.length + " sibling hash" +
       (path.length === 1 ? "" : "es") + " reaches the published root, and every " +
       "value on this page matches what your browser computed. What is still " +
-      "unproven is the root itself — that is settled by comparing it against the " +
+      "unproven is the root itself; that is settled by comparing it against the " +
       "chain anchor, not here.",
       "ok"
     );

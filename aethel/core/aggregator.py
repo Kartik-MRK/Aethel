@@ -4,8 +4,8 @@ This is the structure the Hub will use to commit to its history: hash every
 commit into a tree, publish the root on-chain, and serve inclusion proofs. A
 client checks its commit against the anchored root without trusting the Hub.
 
-SECURITY FIX — second-preimage resistance
------------------------------------------
+SECURITY FIX: second-preimage resistance
+----------------------------------------
 The original implementation hashed leaves and internal nodes identically::
 
     def hash_pair(a, b): return sha256(a + b)      # internal nodes
@@ -20,7 +20,7 @@ against the old code:
     real.get_root() == forged.get_root()          # -> True
 
 An operator could therefore produce a valid-looking inclusion proof for a
-value that was never a committed leaf — precisely the forgery the anchored
+value that was never a committed leaf, precisely the forgery the anchored
 log exists to prevent.
 
 The fix is domain separation, as specified by RFC 6962 (Certificate

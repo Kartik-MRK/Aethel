@@ -85,7 +85,7 @@
       var root = document.documentElement;
       var current = root.getAttribute("data-theme");
       if (!current) {
-        // No explicit choice yet — flip away from whatever the OS is showing.
+        // No explicit choice yet, flip away from whatever the OS is showing.
         current = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
       var next = current === "dark" ? "light" : "dark";

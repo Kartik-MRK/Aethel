@@ -4,7 +4,7 @@
 
 One frozen base model, fine-tuned into small LoRA patches. Each patch is a
 version, managed with Git-like commands. The base model's weights are never
-stored — only a pinned, immutable reference — so a version costs ~0.6 MB
+stored (only a pinned, immutable reference), so a version costs ~0.6 MB
 instead of ~250 MB.
 
 ```bash
@@ -20,7 +20,7 @@ aethel push                                    # publish the branch to a Hub
 
 ## Install
 
-The version-control core is pure standard library — no PyTorch needed to
+The version-control core is pure standard library, no PyTorch needed to
 inspect, branch, verify, or publish a repository:
 
 ```bash
@@ -36,7 +36,7 @@ nothing beyond the base install.
 `bitsandbytes` is a separate `[gpu]` extra: it is CUDA-only and breaks CPU and
 macOS installs.
 
-Or in one command, on either platform — both scripts do the same steps, are
+Or in one command, on either platform, both scripts do the same steps, are
 idempotent, and are safe to re-run:
 
 ```bash
@@ -51,7 +51,7 @@ scripts\dev.ps1             # Windows
 `aethel init` resolves the model's immutable revision SHA from Hugging Face and
 records it. Reproducing a result means downloading that exact revision yourself
 and applying the patch. Pinning the SHA rather than a tag is what makes this
-exact — tags move, SHAs do not.
+exact: tags move, SHAs do not.
 
 ```json
 { "model_id": "distilbert-base-uncased", "revision_sha": "<40-hex>", "source": "huggingface" }
@@ -87,7 +87,7 @@ Three properties follow from this, each enforced by tests:
 
 ### Integrity
 
-Because an object's name *is* its content hash, verification is exact — and it
+Because an object's name *is* its content hash, verification is exact, and it
 happens on every read, not only during `fsck`:
 
 ```console
@@ -104,7 +104,7 @@ Repository integrity check FAILED.
 
 ### Publishing: the Hub and its transparency log
 
-`aethel push` publishes a branch to a Hub — a small FastAPI server with its own
+`aethel push` publishes a branch to a Hub, a small FastAPI server with its own
 content-addressed store, a dashboard, and an **append-only Merkle transparency
 log** of every commit it has accepted.
 
@@ -123,8 +123,9 @@ Four properties make a push safe to trust:
   the Hub answers with what it lacks, so a Hub that lost an object re-acquires
   it on the next push instead of staying quietly incomplete.
 - **Dependencies upload first, the branch ref moves last.** Blobs, trees, bases,
-  then commits oldest-first. An interrupted push leaves a Hub missing objects —
-  retryable — never a published branch pointing at objects nobody can fetch.
+  then commits oldest-first. An interrupted push leaves a Hub missing objects
+  (retryable) rather than a published branch pointing at objects nobody can
+  fetch.
 - **Accepted commits become log leaves, in acceptance order.** The Merkle root
   over those leaves is the Hub's commitment to its own history. Anyone can ask
   for an inclusion proof and recompute the root themselves; the Hub is not
@@ -152,7 +153,7 @@ Five pages, server-rendered, no build step and no client framework:
 | `/` | every repository, store totals, the current log root |
 | `/r/<repo>` | accuracy per commit as one line per branch, and a history table with a DAG rail showing where branches part |
 | `/c/<hash>` | one commit's provenance, its base reference, its files, and its inclusion proof rung by rung |
-| `/api` | the REST surface — every route, its parameters, and its status codes |
+| `/api` | the REST surface: every route, its parameters, and its status codes |
 | `/ops` | per-subsystem health, including a live recomputation of the log root |
 
 The inclusion proof on a commit page is served by the Hub, which means reading
@@ -164,7 +165,7 @@ the page is taken as input.
 That hash is written out by hand rather than delegated to `crypto.subtle`, which
 is unavailable outside a secure context. The demo runs on two laptops over a
 LAN at `http://192.168.x.x:8000`, and only `https`, `localhost` and `127.0.0.1`
-count as secure — so a verifier built on `crypto.subtle` would be `undefined`
+count as secure, so a verifier built on `crypto.subtle` would be `undefined`
 in exactly the place it is meant to be used. A hand-written hash has one
 dangerous failure mode, though: if it were subtly wrong it would report
 tampering that never happened. So it checks itself against published vectors
@@ -172,8 +173,8 @@ before rendering any verdict and refuses to answer if they disagree, and
 `scripts/check_verify_js.py` cross-checks it against Python's `hashlib` on the
 same inputs so the two implementations cannot quietly drift.
 
-The `/ops` board reports whatever is not wired up — an unanchored log, an
-unconfigured chain, a Hub accepting pushes with no token — as amber rows rather
+The `/ops` board reports whatever is not wired up (an unanchored log, an
+unconfigured chain, a Hub accepting pushes with no token) as amber rows rather
 than hiding them or failing the page. A dependency that is missing, slow, or
 misconfigured has to be visible, because the alternative is discovering it live.
 It is also where the log audits itself: one row recomputes the root from the
@@ -210,14 +211,14 @@ an audience there is a way to keep going.
 The transcripts below are captured output, not illustrations. Two caveats so
 they are read correctly. They were recorded with stand-in adapter weights so
 that the whole cycle runs with no GPU, so the **accuracy column is fixture
-data** — and it stays fixture data on the `[ml]` path too, because the code that
-computes a real accuracy is written but not yet merged (see *What is
-deliberately not there yet*). Object counts, deduplication and log behaviour are
+data**, and it stays fixture data until someone records a run on a machine with
+torch installed (see *What is deliberately not there yet*). Object counts,
+deduplication and log behaviour are
 real either way. And every hash is a hash of the actual bytes, so **your hashes
 will differ from these**; that is the point of a content-addressed store, not a
 discrepancy.
 
-### Where the Hub keeps its data — and the one trap in it
+### Where the Hub keeps its data, and the one trap in it
 
 There is no database, and none is needed. A Hub's whole state is three things
 on disk under one directory:
@@ -230,7 +231,7 @@ hub-data/
 ```
 
 So published history persists because it is *files*. Stop the Hub, reboot the
-machine, start it again on the same directory and everything is there —
+machine, start it again on the same directory and everything is there:
 demonstrated below. Nothing is held in memory that matters, and there is no
 migration to run.
 
@@ -255,10 +256,10 @@ python -m hub
 ```
 
 If a page ever looks emptier than it should, the Hub tells you which store it
-opened — `GET /api/v1/version` reports `data_dir`, and `/ops` shows the object
+opened, `GET /api/v1/version` reports `data_dir`, and `/ops` shows the object
 count beside it. Check that before believing anything is gone.
 
-### Path 1 — the dashboard alone, in two commands
+### Path 1: the dashboard alone, in two commands
 
 `scripts/seed_demo.py` builds a Hub store with eight commits across three
 branches, using synthetic adapter weights, so every page has content without a
@@ -269,22 +270,22 @@ python scripts/seed_demo.py --force
 AETHEL_HUB_DATA="$PWD/.demo/hub-data" python -m hub
 ```
 
-The store lands in `.demo/` and is git-ignored — the script is committed, the
+The store lands in `.demo/` and is git-ignored. The script is committed, the
 ~5 MB of synthetic bytes it produces are not, because one command regenerates
 them byte for byte. The weights are seeded from the step name, so a rebuild
 gives identical hashes and a rehearsed demo's URLs keep working.
 
-### Path 2 — training, committing, publishing
+### Path 2: training, committing, publishing
 
 Needs the `[ml]` extra and one dataset download. From the repository root:
 
 ```bash
 scripts/dev.sh                     # venv + install + checks
-pip install -e ".[ml]"             # torch/transformers/peft — large
+pip install -e ".[ml]"             # torch/transformers/peft, large
 python setup_demo_data.py          # demo datasets, ~800 samples each
 ```
 
-Serve a Hub in a second terminal — the three lines from the section above — and
+Serve a Hub in a second terminal (the three lines from the section above), and
 give this terminal the same token, since the Hub requires it on every write:
 
 ```bash
@@ -300,12 +301,12 @@ Revision:   12040accade4e8a0f71eabdb258fecc2e7e948be
 Base ref:   c0c3831886b3
 Author:     johndoe
 
-Base weights are not stored — only the pinned reference.
+Base weights are not stored, only the pinned reference.
 ```
 
 That revision SHA is the reproducibility contract: not the tag `main`, which
 moves, but the immutable commit the weights were fetched at. `init` is
-idempotent — running it twice prints the same thing and is not an error.
+idempotent, running it twice prints the same thing and is not an error.
 
 Training writes into `.aethel/workspace`, and `commit` reads whatever is there.
 The two are deliberately separate, so a commit never retrains and a failed
@@ -338,7 +339,7 @@ base model itself is not among them and never will be.
 
 ### Commit after commit, push after push
 
-The cycle repeats without ceremony. Train again, commit again, push again — and
+The cycle repeats without ceremony. Train again, commit again, push again, and
 the second push shows what content addressing buys:
 
 ```bash
@@ -361,9 +362,9 @@ Log root: 905c77ef85bcc5e5601cea0f0994248ec4ca1d64049c3bf45b814f2a48a06e36
 ```
 
 Ten objects are now reachable but only four crossed the wire. The first
-commit's six were already there, and one of the *new* commit's three files —
-`adapter_config.json`, byte-identical because the rank and targets did not
-change — was recognised as an object the Hub already holds and was not sent
+commit's six were already there, and one of the *new* commit's three files
+(`adapter_config.json`, byte-identical because the rank and targets did not
+change) was recognised as an object the Hub already holds and was not sent
 again. Nothing tracks that; it falls out of naming objects by their hash.
 
 The log grew by exactly one leaf and the root changed. That pairing is the
@@ -375,7 +376,7 @@ and the old root is now provably inside the new one.
 A re-push with nothing new is not an error and does not append a leaf:
 
 ```
-Hub already holds every object — nothing to upload.
+Hub already holds every object, nothing to upload.
 
 Pushed 0 object(s) · 6 already present
 sentiment-lora/main → 95c419882714
@@ -395,7 +396,7 @@ aethel push --remote http://localhost:8000 --repo sentiment-lora --dry-run
 ```
 
 ```
-Hub already holds every object — nothing to upload.
+Hub already holds every object, nothing to upload.
 --dry-run: nothing was uploaded.
 ```
 
@@ -420,7 +421,7 @@ Transparency log: 3 leaves (1 new)
 ```
 
 `push` publishes whichever branch HEAD is on; `--branch <name>` overrides that.
-All three of this commit's files were sent this time, config included — the rank
+All three of this commit's files were sent this time, config included, because the rank
 changed, so the config's bytes changed, so its hash changed. Deduplication is
 not a heuristic that sometimes helps; it is the identity of the object.
 
@@ -458,7 +459,7 @@ Repository integrity OK.
 
 A checkout restores from the commit's tree, not from whatever happens to be on
 disk, so what comes back is exactly what was committed. Both argument orders
-work — `aethel checkout main --force` and `aethel checkout --force main` — which
+work (`aethel checkout main --force` and `aethel checkout --force main`), which
 is a fix worth knowing about, because the first one used to fail.
 
 ### Does published history survive a restart?
@@ -481,10 +482,10 @@ repos  ['sentiment-lora']  branches ['main', 'wide-rank']
 ```
 
 Identical root, identical refs. It holds across a reboot too, for the same
-reason: the seeded store used for rehearsals has objects written on 25 August
-and was serving them unchanged on the 27th, with the machine powered down in
-between. So the demo can be paused, the laptop closed, and picked up at the same
-commit — and a `train → commit → push` cycle started weeks later appends to the
+reason: the seeded store used for rehearsals was written days before it was read
+back, with the machine powered down in between, and served the same objects
+unchanged. So the demo can be paused, the laptop closed, and picked up at the same
+commit, and a `train → commit → push` cycle started weeks later appends to the
 same tree rather than starting a new one.
 
 What the dashboard then shows, at `http://localhost:8000`: the repository and
@@ -495,7 +496,7 @@ recomputes the root from the proof **in the browser**, so a PASS does not depend
 on trusting the page it is printed on.
 
 The same check runs from a shell, which is the version worth showing when a
-projector is involved — fetch a proof, post it back, then flip one character of
+projector is involved: fetch a proof, post it back, then flip one character of
 one sibling and post it again:
 
 ```bash
@@ -510,7 +511,7 @@ curl -s -X POST http://localhost:8000/api/v1/log/verify \
 ```
 
 A proof is two sibling hashes here, 64 bytes, for a log of three leaves. At a
-million leaves it would be twenty siblings — 640 bytes. That is the property
+million leaves it would be twenty siblings, 640 bytes. That is the property
 that makes anchoring one root worth doing: the cost of proving one commit
 belongs to a history grows with the logarithm of the history, not its size.
 
@@ -518,31 +519,36 @@ belongs to a history grows with the logarithm of the history, not its size.
 
 Say this plainly rather than letting a panel find it.
 
-**Evaluation is written but not merged.** `aethel train` records what the Hugging
-Face `Trainer` reports — loss and runtime — and nothing that answers "is this
-version better than its parent". The code that does answer it exists on a
-separate branch: eval loss, accuracy, adapter size, and a current-versus-parent
-comparison that extracts the parent's tree into a temporary directory, scores it
-the same way, and records whether accuracy improved — called from `aethel commit`
-so it runs without being asked. The Hub is already wired for it and prefers
+**Evaluation is in the tree but has never been run against torch.** `aethel
+train` records what the Hugging Face `Trainer` reports (loss and runtime).
+Answering "is this version better than its parent" is `aethel/evaluation/`:
+eval loss, accuracy, adapter size, and a current-versus-parent comparison that
+extracts the parent's tree into a temporary directory, scores it the same way,
+and records whether accuracy improved. It is called from `aethel commit` so it
+runs without being asked, and the Hub prefers
 `training_info.evaluation.current` over the training metrics when both are
-present, so the dashboard needs no change to start showing real numbers.
+present, so the dashboard shows real numbers the moment real ones arrive.
 
-Two things are missing before that number means anything. The merge, and one
-recorded run on a machine with torch. And a train/validation split: the evaluator
-scores the dataset file recorded at training time, which is the file the adapter
-trained on, so today it would report accuracy on data the model has already seen.
-The comparison is still informative — both sides are scored identically — but a
-held-out split is what makes the figure quotable, and it is the first task on
-that branch. Until then the accuracy on screen comes from `scripts/seed_demo.py`
-and is labelled as seeded. Divergence detection — cosine similarity between
-consecutive patches, with a prompt to stay on the branch or fork — is in the same
-state: written, on a branch, no tests yet.
+Four tests cover it. Three need the `[ml]` extra and skip without it; the
+current-versus-parent comparison is pure arithmetic and runs everywhere, which
+is why it is the one part of the package with 100% coverage on a base install.
+The package as a whole sits at 13% there, and that number is the honest measure
+of what is untested: nothing has yet loaded a real base model and scored a real
+adapter. That run is the missing piece, and after it a train/validation split,
+because the evaluator scores the dataset file recorded at training time, which
+is the file the adapter trained on, so today it would report accuracy on data
+the model has already seen.
+The comparison is still informative (both sides are scored identically), but a
+held-out split is what makes the figure quotable. Until then the accuracy on
+screen comes from `scripts/seed_demo.py` and is labelled as seeded. Divergence
+detection (cosine similarity between consecutive patches, with a prompt to stay
+on the branch or fork) is designed and not yet written.
 
 **`aethel merge` is not implemented.** Branch and checkout work; merging adapters
 (task arithmetic, TIES, DARE) lands after this review, and deliberately after the
-evaluator, because choosing between those three means measuring which one
-actually produces a better adapter. `aethel diff` is designed and unwritten.
+evaluator, which is why the evaluator landed first: choosing between those three
+strategies means measuring which one actually produces a better adapter.
+`aethel diff` is designed and unwritten.
 
 **There is no `pull` or `clone`.** A Hub serves patches over its REST API and the
 dashboard; the client half of that is later work.
@@ -556,7 +562,7 @@ the chain row reads `not configured` and the log-versus-anchored-root row reads
 ### When something goes wrong
 
 Every failure path below is a real message from the tool, and each exists
-because the alternative was worse — a silent overwrite, an orphaned commit, or
+because the alternative was worse: a silent overwrite, an orphaned commit, or
 a publishable model that learned nothing.
 
 | What you did | What Aethel says |
@@ -567,41 +573,43 @@ a publishable model that learned nothing.
 | `aethel train` with a dataset path that does not exist | Fails. Training on synthetic text needs an explicit `--allow-stub`, so a typo cannot quietly produce a committable model that learned nothing |
 | `aethel checkout` with uncommitted work | `Workspace has uncommitted changes:` then the files, then `Commit them, or re-run with --force to discard.` Compared by hash against the current commit's tree, not by mtime |
 | `aethel checkout <hash>` | `HEAD is now detached at 95c419882714` · `Commits are blocked while detached.` |
-| `aethel commit` while detached | `Detached HEAD — commit blocked.` and then the three commands that recover it. Stricter than Git, which only warns — a commit made there is referenced by nothing and is lost at the next checkout |
+| `aethel commit` while detached | `Detached HEAD, commit blocked.` and then the three commands that recover it. Stricter than Git, which only warns; a commit made there is referenced by nothing and is lost at the next checkout |
 | `aethel push` while detached | `InvalidRef: HEAD is detached at 95c419882714. Check out a branch first, or name one with --branch.` |
 | `aethel checkout nope` | `InvalidRef: 'nope' did not match any branch or commit.` |
 | `aethel branch main` when it exists | `BranchExists: A branch named 'main' already exists.` |
-| Deleted the branch you are standing on | `Cannot delete 'main' — it is the current branch.` |
-| Deleted any other branch | Succeeds, and says `Its commits are still in the object store at <hash> — nothing was destroyed.` |
+| Deleted the branch you are standing on | `Cannot delete 'main'; it is the current branch.` |
+| Deleted any other branch | Succeeds, and says `Its commits are still in the object store at <hash> and nothing was destroyed.` |
 | `aethel push` with a wrong or missing token | `RemoteError: The Hub rejected the push token (negotiation).` · `Set it with: export AETHEL_HUB_TOKEN=<token>  (or --token)` |
-| `aethel push` at a Hub that is not running | `RemoteError: Cannot reach the Hub at http://localhost:9911 — is it running?` · `Start it with: python -m hub  (or scripts/dev.sh)` |
+| `aethel push` at a Hub that is not running | `RemoteError: Cannot reach the Hub at http://localhost:9911. Is it running?` · `Start it with: python -m hub  (or scripts/dev.sh)` |
 | `aethel push --branch <name>` with no commits on it | `InvalidRef: Branch '<name>' has no commits yet. Run 'aethel train' then 'aethel commit' first.` |
 | Opened `/c/<short-hash>` in the dashboard | 404. Commit pages take the full 64-character hash; the CLI's 12-character prefixes are for reading, not for URLs |
 | A byte of a stored object was corrupted | `aethel fsck` prints `1 CORRUPT object(s):`, the hash and the exact path, then `Repository integrity check FAILED.` and exits 1 |
-| Deleted a branch, then ran `fsck` | `5 unreachable object(s) — not referenced by any branch; harmless (interrupted commits)`. Reported, never deleted — unreachable is not the same as corrupt, and nothing here removes data behind your back |
+| Deleted a branch, then ran `fsck` | `5 unreachable object(s) not referenced by any branch; harmless (interrupted commits)`. Reported, never deleted, because unreachable is not the same as corrupt, and nothing here removes data behind your back |
 | Dashboard looks empty after a restart | Almost certainly the `AETHEL_HUB_DATA` trap above. Check `data_dir` at `/api/v1/version` |
 
 Two more worth rehearsing because they are environmental rather than
 behavioural. Campus wi-fi frequently isolates clients from each other, so a
-second machine may fail to reach the Hub even with the right IP — a phone
+second machine may fail to reach the Hub even with the right IP; a phone
 hotspot is the quickest way around it. And the port is configurable
 (`AETHEL_HUB_PORT`), which matters when something else already owns 8000.
 
 ## Development
 
 ```bash
-python -m pytest                    # 715 tests, no GPU or network required
+python -m pytest                    # 719 cases, no GPU or network required
 python -m pytest --cov=aethel.core  # 96% core coverage
 ruff check .
 ```
 
-No test touches the network: the Hub's tests run the ASGI application
+716 of those pass on a base install and 3 skip: they are the evaluation tests
+that need to load a real model, and they run once the `[ml]` extra is
+installed. No test touches the network: the Hub's tests run the ASGI application
 in-process, so a push is exercised end to end without a socket. The VCS core
 needs no `[ml]` extra and the whole suite finishes in seconds.
 
 The front end is tested rather than eyeballed, because its failures are quiet
 ones. The stylesheet's motion tokens are asserted to exist on bare `:root` and
-to be the only source of any duration in the file — a `var()` that stops
+to be the only source of any duration in the file, because a `var()` that stops
 resolving degrades to an instant state change, which no screenshot would catch.
 The served fonts are asserted to resolve at the URLs the CSS names, the error
 pages to keep their status codes and their security headers, and the verifier's
@@ -609,7 +617,7 @@ JavaScript to agree with `hashlib`.
 
 CI runs two jobs. `core` installs only `[dev]` on Python 3.10–3.13, which fails
 if the core ever grows a dependency on torch or fastapi. `hub` installs
-`[dev,hub]`, asserts the Hub imports, then runs the same suite — without that
+`[dev,hub]`, asserts the Hub imports, then runs the same suite. Without that
 job the Hub's tests would skip on every run and a broken Hub could stay green.
 
 Two scripts regenerate committed assets rather than leaving them unexplained.
@@ -625,17 +633,18 @@ Working today: `init`, `train`, `commit`, `branch`, `checkout`, `log`,
 `status`, `fsck`, `push` · a Hub with a REST API of 15 JSON endpoints, a
 five-page server-rendered dashboard, an ops health board, an append-only Merkle
 transparency log serving inclusion proofs, and an in-browser verifier that
-recomputes a root without trusting the page it is on. 715 tests, 96% coverage on
-`aethel.core`.
+recomputes a root without trusting the page it is on · adapter evaluation and
+the current-versus-parent comparison, called from `commit` and displayed by
+`log`. 719 test cases, 96% coverage on `aethel.core`.
 
-Written, on a branch, not yet merged: adapter evaluation and the
-current-versus-parent comparison · divergence detection between consecutive
-patches. Both are described under *What is deliberately not there yet*, and
-neither is counted above.
+Written but not yet exercised for real: the evaluator has never scored a real
+adapter, because that needs the `[ml]` extra and a machine with torch. Designed
+and unwritten: divergence detection between consecutive patches. Both are
+described under *What is deliberately not there yet*.
 
 Planned, in order: anchoring the log's root to a public testnet so a model's
 recorded history cannot be rewritten even by whoever runs the Hub · a Pinata
-mirror of patch blobs (address only — integrity always comes from
+mirror of patch blobs (address only, integrity always comes from
 `blob_sha256`) · adapter `diff` and `merge` (task arithmetic, TIES, DARE) ·
 Ed25519 commit signing · dataset fingerprinting.
 
@@ -647,7 +656,7 @@ second-preimage resistance via RFC 6962 domain separation.
 
 Worth stating precisely before it is built, because the overclaim is the
 tempting one. Anchoring proves that a commit record existed at a given time and
-has not been altered or removed since — including by whoever runs the Hub. It
+has not been altered or removed since, including by whoever runs the Hub. It
 does not prove the weights were really trained from the claimed base, or that
 the data was what the record says. A liar can publish an honest-looking record;
 the anchor only stops them changing it afterwards. Closing that gap is what
@@ -655,13 +664,13 @@ dataset fingerprinting, the reproducibility record, and commit signing are for.
 
 ## Documentation
 
-- [`docs/SYSTEM_REFERENCE.md`](docs/SYSTEM_REFERENCE.md) — architecture, every
+- [`docs/SYSTEM_REFERENCE.md`](docs/SYSTEM_REFERENCE.md): architecture, every
   command, the storage model, and a runnable demo walkthrough
-- [`docs/design/dashboard.md`](docs/design/dashboard.md) — why the dashboard
+- [`docs/design/dashboard.md`](docs/design/dashboard.md): why the dashboard
   looks and moves the way it does
-- [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) — roadmap, threat model, and
+- [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md): roadmap, threat model, and
   design rationale
-- [`docs/TEAM_WALKTHROUGH.md`](docs/TEAM_WALKTHROUGH.md) — engineering record
+- [`docs/TEAM_WALKTHROUGH.md`](docs/TEAM_WALKTHROUGH.md): engineering record
   of the rebuild
-- [`docs/CONTRIBUTING_BRANCHES.md`](docs/CONTRIBUTING_BRANCHES.md) — how to sync,
+- [`docs/CONTRIBUTING_BRANCHES.md`](docs/CONTRIBUTING_BRANCHES.md): how to sync,
   cut a branch, and land work on `foundation` without breaking it

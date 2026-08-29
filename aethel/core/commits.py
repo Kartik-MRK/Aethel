@@ -222,7 +222,7 @@ def resolve_commitish(repo: Repo, target: str) -> tuple[str, str]:
         if len(matches) > 1:
             preview = ", ".join(h[:12] for h in sorted(matches)[:5])
             raise InvalidRef(
-                f"'{stripped}' is ambiguous — matches {len(matches)} commits: {preview}"
+                f"'{stripped}' is ambiguous: it matches {len(matches)} commits: {preview}"
             )
 
     raise InvalidRef(f"'{stripped}' did not match any branch or commit.")

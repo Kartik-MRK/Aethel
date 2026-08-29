@@ -7,7 +7,6 @@ __pycache__/
 .aethel
 datasets/
 imdb_dataset/
-.claude
 node_modules
 
 # C extensions

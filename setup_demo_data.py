@@ -4,11 +4,11 @@ Downloads 5 small NLP classification datasets from Hugging Face Hub
 and saves them locally as CSV files for Aethel-Git training demos.
 
 Datasets chosen for distilbert-base-uncased (sequence classification):
-  1. SST-2       — Binary sentiment analysis  (positive / negative)
-  2. Rotten Tomatoes — Movie review sentiment (positive / negative)
-  3. Emotion     — 6-class emotion detection  (joy, sadness, anger, etc.)
-  4. AG News     — 4-class topic classification (World, Sports, Business, Sci/Tech)
-  5. Tweet Eval Hate — Binary hate-speech detection
+  1. SST-2            Binary sentiment analysis  (positive / negative)
+  2. Rotten Tomatoes  Movie review sentiment (positive / negative)
+  3. Emotion          6-class emotion detection  (joy, sadness, anger, etc.)
+  4. AG News          4-class topic classification (World, Sports, Business, Sci/Tech)
+  5. Tweet Eval Hate  Binary hate-speech detection
 
 Each dataset is saved as datasets/<name>/train.csv with columns: text, label
 """
@@ -29,7 +29,7 @@ def save_to_csv(rows: list[dict], output_path: str) -> int:
 
 
 def download_sst2(base_dir: str, max_samples: int = 800) -> None:
-    """Stanford Sentiment Treebank v2 — Binary sentiment."""
+    """Stanford Sentiment Treebank v2: binary sentiment."""
     from datasets import load_dataset
     print("⬇  Downloading SST-2...")
     ds = load_dataset("glue", "sst2", split="train")
@@ -43,7 +43,7 @@ def download_sst2(base_dir: str, max_samples: int = 800) -> None:
 
 
 def download_rotten_tomatoes(base_dir: str, max_samples: int = 800) -> None:
-    """Rotten Tomatoes — Movie review binary sentiment."""
+    """Rotten Tomatoes: movie review binary sentiment."""
     from datasets import load_dataset
     print("⬇  Downloading Rotten Tomatoes...")
     ds = load_dataset("rotten_tomatoes", split="train")
@@ -57,7 +57,7 @@ def download_rotten_tomatoes(base_dir: str, max_samples: int = 800) -> None:
 
 
 def download_emotion(base_dir: str, max_samples: int = 800) -> None:
-    """Emotion — 6-class emotion detection (sadness, joy, love, anger, fear, surprise)."""
+    """Emotion: 6-class emotion detection (sadness, joy, love, anger, fear, surprise)."""
     from datasets import load_dataset
     print("⬇  Downloading Emotion...")
     ds = load_dataset("dair-ai/emotion", split="train")
@@ -71,7 +71,7 @@ def download_emotion(base_dir: str, max_samples: int = 800) -> None:
 
 
 def download_ag_news(base_dir: str, max_samples: int = 800) -> None:
-    """AG News — 4-class topic classification (World, Sports, Business, Sci/Tech)."""
+    """AG News: 4-class topic classification (World, Sports, Business, Sci/Tech)."""
     from datasets import load_dataset
     print("⬇  Downloading AG News...")
     ds = load_dataset("fancyzhx/ag_news", split="train")
@@ -85,7 +85,7 @@ def download_ag_news(base_dir: str, max_samples: int = 800) -> None:
 
 
 def download_tweet_eval_hate(base_dir: str, max_samples: int = 800) -> None:
-    """Tweet Eval Hate — Binary hate speech detection."""
+    """Tweet Eval Hate: binary hate speech detection."""
     from datasets import load_dataset
     print("⬇  Downloading Tweet Eval (Hate Speech)...")
     ds = load_dataset("tweet_eval", "hate", split="train")

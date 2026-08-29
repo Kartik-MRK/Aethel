@@ -7,7 +7,7 @@
 #
 # Two reasons this is not cosmetic. A file committed with CRLF shows up as every
 # line changed, which buries a two-line fix in a 400-line diff and makes review
-# useless. And this project addresses content by SHA-256 — the same text file
+# useless. And this project addresses content by SHA-256: the same text file
 # checked out with CRLF hashes differently from the LF original, so a mixed-ending
 # checkout could produce a different object hash for identical content.
 

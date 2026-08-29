@@ -1,4 +1,4 @@
-/* Aethel Hub — design tokens and layout.
+/* Aethel Hub: design tokens and layout.
  *
  * Palette values come from the validated reference instance. The three
  * categorical slots (blue / orange / aqua) were checked with the data-viz
@@ -26,14 +26,14 @@
  *
  * Everything added on top of the palette is DERIVED with color-mix from the
  * values above rather than introduced as new hex, so the measurements stay
- * true. There is exactly one raw addition per theme — the recessed well — and
+ * true. There is exactly one raw addition per theme (the recessed well), and
  * it is a neutral, carrying no data.
  *
  * TYPOGRAPHY. This system's primary content is hexadecimal digests, so the
  * monospace face is treated as a display face rather than a fallback for code:
  * it sets identifiers, figures, section labels, and the Merkle ladder. The sans
  * is reserved for prose. The rule for a digest is that its leading characters
- * take full ink and the tail recedes (.digest) — that is how these values are
+ * take full ink and the tail recedes (.digest); that is how these values are
  * read in practice, and making the type say so is the cheapest legibility win
  * on the site.
  *
@@ -41,7 +41,7 @@
  * 36 KiB for the pair. Self-hosted rather than linked because the demo network
  * may not reach a CDN, because the Content-Security-Policy names no external
  * origin, and because a system-font stack renders as Cantarell here and Segoe
- * UI on the presentation machine — two different sets of metrics, so the layout
+ * UI on the presentation machine, two different sets of metrics, so the layout
  * tuned on one is not the layout shown on the other.
  */
 
@@ -51,8 +51,8 @@
  * readable, and every rule below sizes by rem rather than by glyph.
  *
  * The pair needs no optical size correction. Measured from the built files,
- * Public Sans sits at x-height 0.5170em and Aethel Mono at 0.5160em — a 0.2%
- * difference — so a digest set inline in a sentence aligns with the prose
+ * Public Sans sits at x-height 0.5170em and Aethel Mono at 0.5160em, a 0.2%
+ * difference, so a digest set inline in a sentence aligns with the prose
  * around it at the same font-size. That is a property of these two faces
  * together and a reason to keep them together. */
 
@@ -82,7 +82,7 @@
   --text-secondary: #52514e;
   /* The quiet tier still has to be readable. The obvious grey for "de-emphasised"
    * measures 3.4:1 on the page and 3.2:1 on the well, under the 4.5:1 that 12px
-   * text needs — and the text wearing it is a figure's label, a table header, and
+   * text needs, and the text wearing it is a figure's label, a table header, and
    * the tail of a hash, none of which is decorative enough to be exempt. So the
    * floor, not the taste, sets this value: 4.7:1 on the well, 5.1:1 on the page.
    *
@@ -96,7 +96,7 @@
   --border: rgba(11, 11, 11, 0.1);
   --success-text: #006300;
 
-  /* categorical slots (fixed order — never cycled, never rank-assigned)
+  /* categorical slots (fixed order, never cycled, never rank-assigned)
    *
    * Slot 1 doubles as the accent: links, the fold chip, marks, focus rings. That
    * makes it ink as well as a graphic, and ink answers to 4.5:1 rather than the
@@ -109,17 +109,17 @@
    * instead of holding one value across both.
    *
    * Slots 2 and 3 are the validated continuation of the ramp and no rule reads
-   * them yet — see the note at the top of this file. */
+   * them yet, see the note at the top of this file. */
   --series-1: #1a5aa8;
   --series-2: #eb6834;
   --series-3: #1baf7a;
 
-  /* status — reserved, never reused as a series colour */
+  /* status: reserved, never reused as a series colour */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
 
-  /* recessed surface for wells and ladders — neutral, carries no data */
+  /* recessed surface for wells and ladders: neutral, carries no data */
   --well: #f2f1ed;
 
   --radius: 10px;
@@ -127,17 +127,17 @@
   --font: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Aethel Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
-  /* type scale — five steps, so a size is a choice from a set, not a guess */
+  /* type scale: five steps, so a size is a choice from a set, not a guess */
   --step-s: 0.75rem;
   --step-b: 0.875rem;
   --step-m: 0.9375rem;
   --step-l: 1.375rem;
   --step-xl: 2.125rem;
 
-  /* the label track width — one value, so every page aligns to it */
+  /* the label track width: one value, so every page aligns to it */
   --track: 168px;
 
-  /* motion — three durations and one curve, for the same reason the type scale
+  /* motion: three durations and one curve, for the same reason the type scale
    * has five steps: a duration should be a choice from a set rather than a
    * number somebody typed. Before these existed the file held 380ms, 160ms and
    * 120ms in three places with no relationship between them.
@@ -250,7 +250,7 @@ body {
    * and takes effect exactly where the mono face is used.
    *
    * The property is not additive, so every rule that sets tabular-nums has to
-   * restate it — that is why they read `slashed-zero tabular-nums` rather than
+   * restate it; that is why they read `slashed-zero tabular-nums` rather than
    * `tabular-nums` alone. */
   font-variant-numeric: slashed-zero;
 }
@@ -438,7 +438,7 @@ a .digest b { color: var(--series-1); }
   flex-wrap: wrap;
 }
 
-/* The mark is a small square rotated to a diamond — the same shape the ladder
+/* The mark is a small square rotated to a diamond, the same shape the ladder
  * uses for a node. The wordmark and the proof therefore share one glyph, which
  * is the only branding on the site.
  *
@@ -510,7 +510,7 @@ a .digest b { color: var(--series-1); }
 
 /* The lede is the only full-bleed block. Everything after it sits in the
  * two-track grid below, so the page opens wide and then settles into a
- * structure — which is what gives the reading order its shape.
+ * structure, which is what gives the reading order its shape.
  *
  * The reading measure is set on the prose children rather than on the block, so
  * a full-width child (a 64-character digest) can opt out of it. */
@@ -562,7 +562,7 @@ a .digest b { color: var(--series-1); }
 
 /* The two-track grid. A section's label and its one-line rationale sit in the
  * narrow track; the data sits in the wide one. Rationale next to the data
- * rather than under a heading is the whole point — a reader can see what a
+ * rather than under a heading is the whole point, a reader can see what a
  * number is for without leaving it. */
 .strip {
   display: grid;
@@ -678,7 +678,7 @@ a .digest b { color: var(--series-1); }
   margin-bottom: 7px;
 }
 /* Proportional figures: tabular-nums makes a large standalone number look
- * loose. Columns of numbers get tabular treatment instead — see .num. */
+ * loose. Columns of numbers get tabular treatment instead, see .num. */
 .figure-value {
   font-size: var(--step-l);
   font-weight: 620;
@@ -695,7 +695,7 @@ a .digest b { color: var(--series-1); }
 .figure.lead .figure-value { font-size: 2rem; letter-spacing: -0.035em; }
 
 /* ---------- cards and panels ----------
- * A card bounds one artifact. A panel bounds a table — same border, no padding,
+ * A card bounds one artifact. A panel bounds a table, same border, no padding,
  * because a table brings its own. */
 
 .card {
@@ -776,7 +776,7 @@ a .digest b { color: var(--series-1); }
 /* ---------- the Merkle ladder ----------
  * The inclusion proof drawn as the fold it is: leaf at the bottom, one rung per
  * sibling, root at the top. Numbering is used here and nowhere else on the site
- * because here the order is the content — folds do not commute, and a reader
+ * because here the order is the content, folds do not commute, and a reader
  * who takes them out of sequence gets a different root.
  *
  * Every value shown is recomputed in Python with the same two hash functions
@@ -890,12 +890,12 @@ a .digest b { color: var(--series-1); }
   font-variant-numeric: slashed-zero tabular-nums;
   color: var(--text-muted);
 }
-/* The fold direction is the one thing a reader must not misread — it decides
- * the argument order into the hash — so it gets a chip rather than plain text.
+/* The fold direction is the one thing a reader must not misread; it decides
+ * the argument order into the hash, so it gets a chip rather than plain text.
  *
  * The ink is pulled slightly toward --text-primary for the same reason the
  * critical pill is: the chip's ground is a 10% tint of the ink's own colour, so
- * the two move together and the pure accent lands at 4.54:1 in dark — passing,
+ * the two move together and the pure accent lands at 4.54:1 in dark, passing,
  * but 0.04 from failing, on the element that carries the argument order. A 12%
  * pull buys margin in both themes at once (6.1:1 light, 5.3:1 dark) because
  * --text-primary inverts, and it is too small a shift to read as a second blue. */
@@ -1152,7 +1152,7 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
   height: auto;
 }
 
-/* SVG chart internals: hairline, solid, recessive grid — never dashed */
+/* SVG chart internals: hairline, solid, recessive grid, never dashed */
 .grid-line { stroke: var(--gridline); stroke-width: 1; }
 .axis-line { stroke: var(--baseline); stroke-width: 1; }
 .axis-text {
@@ -1201,7 +1201,7 @@ td.hash, td.num, th.num { padding-left: 10px; padding-right: 10px; }
 }
 .point-label.hue-2 { fill: var(--series-2); }
 .point-label.hue-3 { fill: var(--series-3); }
-/* Hit target is far larger than the 8px mark — a pinpoint dot is unhittable */
+/* Hit target is far larger than the 8px mark, a pinpoint dot is unhittable */
 .hit { fill: transparent; cursor: pointer; }
 .hit:hover ~ .hover-layer,
 .hit:focus-visible ~ .hover-layer { opacity: 1; }

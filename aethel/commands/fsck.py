@@ -120,7 +120,7 @@ def run_fsck(verbose: bool) -> None:
     if unreachable:
         console.print(
             f"[yellow]{unreachable} unreachable object(s)[/yellow] "
-            f"[dim]— not referenced by any branch; harmless (interrupted commits)[/dim]"
+            f"[dim]not referenced by any branch; harmless (interrupted commits)[/dim]"
         )
 
     if corrupt or missing:

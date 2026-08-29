@@ -2,7 +2,7 @@
 
 Why the Hub's pages look and move the way they do. This is the design record for
 `hub/templates/`, `hub/static/hub.css`, and the two scripts that generate their
-assets — the reasoning that does not fit in a stylesheet comment, and the rules
+assets, the reasoning that does not fit in a stylesheet comment, and the rules
 that a later change has to either keep or knowingly break.
 
 The pages are server-rendered Jinja with one stylesheet and a small amount of
@@ -18,7 +18,7 @@ another.
 ## 1. The subject is a hash, so the type is chosen for hashes
 
 A digest is not prose and it is not code. It is an identifier a person has to
-compare, character by character, against another one — usually a few lines away,
+compare, character by character, against another one, usually a few lines away,
 sometimes in another window.
 
 **The monospace face is a display face here, not a fallback for code.** It sets
@@ -38,7 +38,7 @@ always present, and a copy button sits next to it because the realistic next
 action is pasting it into a terminal.
 
 `copy.js` copies the element's `textContent`. That makes the rendered text the
-contract — not the markup, which splits the value across two elements for
+contract, not the markup, which splits the value across two elements for
 styling. A test asserts the copied string, by walking the nested spans rather
 than by regex, because a regex that stopped at the first `</span>` would
 silently measure the head alone and pass.
@@ -47,7 +47,7 @@ silently measure the head alone and pass.
 reasons, any one of which would be enough: the demo network may not reach a CDN;
 the Content-Security-Policy names no external origin, so a linked font would be
 blocked by our own header; and a system-font stack resolves to Cantarell on the
-development machine and Segoe UI on the presentation machine — different metrics,
+development machine and Segoe UI on the presentation machine, different metrics,
 so the layout tuned on one is not the layout shown on the other.
 
 The pair needs no optical-size correction, and that was measured rather than
@@ -71,7 +71,7 @@ reference instance and carry measured figures:
 **Changing a hex invalidates the measurement, which is the strongest thing about
 the palette.** So everything layered on top is derived with `color-mix` from
 those values rather than introduced as fresh hex. There is exactly one raw
-addition per theme — the recessed well — and it is a neutral that carries no
+addition per theme (the recessed well), and it is a neutral that carries no
 data.
 
 Two consequences are worth stating because they look like mistakes:
@@ -80,16 +80,16 @@ Two consequences are worth stating because they look like mistakes:
 of the three values *together*, so keeping the set intact is what makes adding a
 second series a lookup instead of a fresh guess.
 
-**Slot 1 is also the accent** — links, the fold chip, focus rings, marks. That
+**Slot 1 is also the accent**, links, the fold chip, focus rings, marks. That
 makes it ink as well as a graphic, and ink answers to 4.5:1 rather than the 3:1 a
 stroke gets. The tension is real: a brighter blue clears the graphic bar and
 fails the text one, worst on the fold chip where the ink sits on a 10% tint of
 itself, so darkening the ink darkens its own ground. The chosen value clears
-every use it has — 6.7:1 on a card, 5.2:1 on that chip.
+every use it has, 6.7:1 on a card, 5.2:1 on that chip.
 
 The quiet ink tier shows the same discipline in reverse. The obvious grey for
 "de-emphasised" measures 3.4:1 on the page, under the 4.5:1 that 12px text
-needs — and the text wearing it is a figure's label, a table header, and the tail
+needs, and the text wearing it is a figure's label, a table header, and the tail
 of a hash, none of which is decorative enough to be exempt. So the floor set the
 value, not the taste: 5.1:1 on the page, 4.7:1 on the well. The honest cost is
 that three ink tiers on a near-white ground were only three tiers because the
@@ -129,7 +129,7 @@ the drawing still shows a fold; it just no longer shows the direction. Measured
 delays, leaf to root: 0, 70, 140, 210, 420ms.
 
 Everything else that moves is a transition on a state the reader is currently
-changing — a hover, a focus, a control mid-press, a rung resolving as the check
+changing, a hover, a focus, a control mid-press, a rung resolving as the check
 reaches it.
 
 ### Three durations and one curve
@@ -160,7 +160,7 @@ as the pointer lands.
 
 **`transition: all` is banned.** It transitions layout, so a hover that changed
 padding would animate the page's geometry. The shared declaration names four
-properties — colour, border colour, background colour, opacity — which are the
+properties (colour, border colour, background colour, opacity), which are the
 only things a hover changes anywhere on this site.
 
 **The theme switch is instant.** A colour theme is a mode, not an event.
@@ -177,7 +177,7 @@ reader gets the result with no travel, and nothing on this site listens for
 `transitionend`.
 
 Zeroing an *animation* would be a bug. An animation with a zero duration and a
-`backwards` fill still applies its first keyframe for the length of its delay — so
+`backwards` fill still applies its first keyframe for the length of its delay, so
 zeroing the tokens would hold the ladder at `opacity: 0` for 420ms and then snap
 it in. That is a flash of missing content, produced in the name of respecting a
 preference against motion.
@@ -188,7 +188,7 @@ with `--force-prefers-reduced-motion`: every rung and node reports
 `animation-name: none` and `opacity: 1`, while the four duration tokens read
 `0s`.
 
-Both halves of that are asserted in `tests/test_hub_motion.py` — that the tokens
+Both halves of that are asserted in `tests/test_hub_motion.py`; that the tokens
 are zeroed under `reduce`, and that no `animation` is declared anywhere outside
 the `no-preference` gate.
 
@@ -198,7 +198,7 @@ the `no-preference` gate.
 
 A colour that stops resolving renders black. A missing font falls back to
 Cantarell. Both show up in a screenshot. A `var(--dur-tap)` that stops resolving
-produces `transition-duration: 0s` — an instant state change, indistinguishable
+produces `transition-duration: 0s`, an instant state change, indistinguishable
 from a deliberate one, and exactly what the site did before the tokens existed.
 No screenshot catches that, and nothing else in the suite would notice.
 
@@ -260,7 +260,7 @@ already there.
 
 1. Every duration comes from a token, and the tokens live on bare `:root`.
 2. Entrance animations stay behind `no-preference`, never behind a zeroed token.
-3. No new hex in the palette — derive with `color-mix`, or re-run the validator
+3. No new hex in the palette, derive with `color-mix`, or re-run the validator
    and update the measured figures in the stylesheet header.
 4. Colour never carries a value alone; a directly-labelled line or a table row
    carries it too.

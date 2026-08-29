@@ -1,7 +1,9 @@
-"""
-Aethel-Git Training Command
-Supports loading real CSV/JSONL datasets from local paths.
-Falls back to a synthetic stub dataset if the path is not a real directory.
+"""LoRA fine-tuning, driven by a YAML config.
+
+Loads a real CSV or JSONL dataset from a local path. A missing path is a hard
+error, not a warning: training on synthetic filler would produce a committable
+adapter with plausible metrics that had learned nothing. Pass --allow-stub to
+ask for the synthetic dataset deliberately, and the commit is marked as such.
 """
 import json
 import os

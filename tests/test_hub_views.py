@@ -148,11 +148,13 @@ class TestEvaluationBlockMetrics:
         assert _accuracy_of(record) == pytest.approx(0.93)
 
     def test_a_measured_number_beats_a_training_one(self):
-        """Both present: prefer the held-out score.
+        """Both present: prefer the evaluator's score.
 
-        Training metrics are computed on data the adapter fitted; the evaluation
-        block is computed on data it did not see. When they disagree the second
-        is the honest figure to publish.
+        Training metrics fall out of fitting the adapter; the evaluation block is
+        a deliberate measurement of the finished artifact. When they disagree the
+        second is the one to publish, not because it is held out (it is not yet;
+        the evaluator scores the dataset recorded at training time) but because it
+        measures the thing the commit actually contains.
         """
         record = {
             "training_info": {

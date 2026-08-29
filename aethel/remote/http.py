@@ -100,7 +100,7 @@ class HubClient:
             response = self._client.request(method, path, **kwargs)
         except httpx.ConnectError as exc:
             raise RemoteError(
-                f"Cannot reach the Hub at {self.base_url} — is it running?\n"
+                f"Cannot reach the Hub at {self.base_url}. Is it running?\n"
                 f"  Start it with: python -m hub  (or scripts/dev.sh)"
             ) from exc
         except httpx.TimeoutException as exc:
@@ -136,7 +136,7 @@ class HubClient:
             payload = response.json()
         except ValueError as exc:
             raise RemoteError(
-                f"{self.base_url} responded to {API}/version with non-JSON — "
+                f"{self.base_url} responded to {API}/version with non-JSON, "
                 f"that does not look like an Aethel Hub."
             ) from exc
 
@@ -273,7 +273,7 @@ def _verify_echo(response, expected: str, label: str) -> dict:
     if returned != expected:
         raise RemoteError(
             f"Hub acknowledged {label} {returned or '<none>'} "
-            f"but {expected[:12]} was uploaded — refusing to trust this remote."
+            f"but {expected[:12]} was uploaded. Refusing to trust this remote."
         )
 
     return payload

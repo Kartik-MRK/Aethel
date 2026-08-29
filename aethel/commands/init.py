@@ -130,4 +130,4 @@ def run_init(model: str | None, author: str | None) -> None:
     console.print(f"[cyan]Base ref:  [/cyan] {base_hash[:12]}")
     console.print(f"[cyan]Author:    [/cyan] {resolved_author}")
     console.print()
-    console.print("[dim]Base weights are not stored — only the pinned reference.[/dim]")
+    console.print("[dim]Base weights are not stored, only the pinned reference.[/dim]")

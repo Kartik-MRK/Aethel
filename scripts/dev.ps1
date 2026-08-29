@@ -28,7 +28,7 @@ Write-Host "Running checks"
 ruff check .
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-pytest tests/ -q
+pytest tests/
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""

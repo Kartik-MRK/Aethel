@@ -1,6 +1,6 @@
 """Server-side storage: objects, repository index, and health checks.
 
-The Hub reuses `aethel.core.ObjectStore` unchanged. That is deliberate — the
+The Hub reuses `aethel.core.ObjectStore` unchanged. That is deliberate, the
 same content-addressed store, the same atomic writes, the same verify-on-read.
 A second storage implementation would be a second set of bugs, and any drift
 between them would show up as false "corrupt" reports.
@@ -31,7 +31,7 @@ class HashMismatch(HubStorageError):
     """Uploaded content does not hash to the hash it claimed.
 
     The single most important rejection in the Hub. It means a client never has
-    to trust that the server stored what was sent — if the bytes were altered
+    to trust that the server stored what was sent, if the bytes were altered
     in transit or substituted, the hash will not match and the write fails.
     """
 
@@ -125,7 +125,7 @@ class HubStorage:
     def missing_objects(self, wanted: dict[str, list[str]]) -> dict[str, list[str]]:
         """Given hashes a client holds, report which the Hub lacks.
 
-        Lets `push` upload only what is actually needed — the difference
+        Lets `push` upload only what is actually needed, the difference
         between re-uploading an entire history and sending one new commit.
         """
         missing: dict[str, list[str]] = {}
@@ -174,7 +174,7 @@ class HubStorage:
 
         if not self.objects.exists("commits", digest):
             raise HubStorageError(
-                f"cannot point {repo_name}/{branch} at {digest[:12]} — "
+                f"cannot point {repo_name}/{branch} at {digest[:12]}, "
                 f"that commit object has not been uploaded"
             )
 

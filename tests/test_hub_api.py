@@ -817,7 +817,7 @@ class TestViews:
     def test_an_evaluated_commit_shows_its_accuracy_on_both_pages(
         self, hub_client, core_repo, base_hash
     ):
-        """A held-out score reaches the pages, from the shape the evaluator writes.
+        """An evaluated score reaches the pages, from the shape the evaluator writes.
 
         `aethel commit` stores its evaluation under
         `training_info.evaluation.current`, not in `training_info.metrics`. The

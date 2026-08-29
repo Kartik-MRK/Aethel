@@ -52,7 +52,7 @@ EXPLANATIONS = {
     404: (
         "Nothing at this address",
         "No repository, commit, or page here. A commit URL wants the full "
-        "64-character hash — a truncated one will not resolve, because a prefix "
+        "64-character hash, a truncated one will not resolve, because a prefix "
         "is not a name.",
     ),
     405: (

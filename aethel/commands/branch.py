@@ -77,7 +77,7 @@ def run_create(name: str, start_point: str | None) -> None:
         commit_hash = repo.refs.resolve_head_commit()
         if commit_hash is None:
             raise InvalidRef(
-                "No commits yet — nothing for a branch to point at. "
+                "No commits yet, nothing for a branch to point at. "
                 "Make your first commit, then create a branch."
             )
 
@@ -97,7 +97,7 @@ def run_delete(name: str) -> None:
 
     if not head.is_detached and head.branch == name:
         err_console.print(
-            f"[bold red]Cannot delete '{name}' — it is the current branch.[/bold red]"
+            f"[bold red]Cannot delete '{name}'; it is the current branch.[/bold red]"
         )
         err_console.print("Check out a different branch first.")
         raise typer.Exit(code=1)
@@ -112,5 +112,5 @@ def run_delete(name: str) -> None:
     if tip:
         console.print(
             f"[dim]Its commits are still in the object store at {short(tip)} "
-            f"— nothing was destroyed.[/dim]"
+            f"and nothing was destroyed.[/dim]"
         )
