@@ -151,7 +151,7 @@ def run_push(
 
         console.print()
         if total_needed == 0:
-            console.print("[green]Hub already holds every object — nothing to upload.[/green]")
+            console.print("[green]Hub already holds every object, nothing to upload.[/green]")
         else:
             console.print(f"Hub needs [bold]{total_needed}[/bold] of {plan.total()} objects.")
 

@@ -1,4 +1,4 @@
-"""`python -m hub` — start the Hub server.
+"""`python -m hub`: start the Hub server.
 
 A module entry point rather than a console script on purpose: it works from a
 bare checkout with no `pip install`, which is the situation on a demo machine

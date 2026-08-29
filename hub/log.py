@@ -13,8 +13,8 @@ property holds because the code has no way to violate it.
 
 **The log file is the source of truth; the tree is derived.** Leaves live in a
 JSONL file, one entry per line, and the Merkle tree is recomputed from them.
-That keeps the on-disk format trivially auditable — you can read the log with
-`cat` — and means a corrupted in-memory tree can always be rebuilt.
+That keeps the on-disk format trivially auditable; you can read the log with
+`cat`, and means a corrupted in-memory tree can always be rebuilt.
 
 **Leaves are commit hashes, not commit bodies.** A commit hash already commits
 to its entire content (it is the hash of the canonical JSON), so hashing the
@@ -23,7 +23,7 @@ hash is sufficient and keeps leaves fixed-width.
 **Domain separation is mandatory.** `aethel.core.aggregator` tags leaves with
 0x00 and internal nodes with 0x01, per RFC 6962. Without that, a tree built
 over another tree's internal nodes yields an identical root, and an operator
-could forge an inclusion proof for something never committed — defeating the
+could forge an inclusion proof for something never committed, defeating the
 entire point of anchoring.
 """
 
@@ -136,7 +136,7 @@ class TransparencyLog:
 
         Returns the leaf, its sibling path, the root, and the log size. A
         verifier recomputes the root from the leaf and the path and compares it
-        against the anchored root — the Hub is not consulted in that check.
+        against the anchored root, the Hub is not consulted in that check.
         """
         digest = normalize_hash(commit_hash)
         tree = self.tree()
@@ -252,7 +252,7 @@ class AnchorStore:
 
     Written by the anchoring job (not yet built) and read by the ops board, so
     "last anchored root" and "is the current root anchored?" are answerable
-    from day one — with an honest "never anchored" while the chain layer is
+    from day one, with an honest "never anchored" while the chain layer is
     still pending.
     """
 

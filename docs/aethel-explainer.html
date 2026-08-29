@@ -267,7 +267,7 @@ blockquote p:last-child { margin-bottom: 0; }
    .error-detail, and its reasoning applies here too: the page has spent the
    boxed-panel idiom on figures, tables and code blocks, so boxing the asides
    as well flattens the hierarchy instead of ranking it. Tone stays on the rule
-   alone — the eyebrow is never tinted, because --status-warning is a marker
+   alone, the eyebrow is never tinted, because --status-warning is a marker
    yellow with no contrast as text. */
 .callout {
   padding: 1px 0 1px 15px;
@@ -461,7 +461,7 @@ footer p { font-family: var(--mono); font-size: var(--step-s); color: var(--text
 
 <header class="masthead">
   <h1 class="wordmark">aethel<span class="dot">.</span></h1>
-  <p class="tagline">git for fine-tuned models &mdash; content-addressed, crash-safe,<br>and publicly auditable.</p>
+  <p class="tagline">git for fine-tuned models: content-addressed, crash-safe,<br>and publicly auditable.</p>
   <p class="deck">A version control system whose unit of history is a <strong>LoRA adapter</strong>, not a
     250&nbsp;MB checkpoint. Every artifact is named by the SHA-256 of its own bytes, every commit is
     appended to a <strong>Merkle transparency log</strong>, and every claim the server makes can be
@@ -510,7 +510,7 @@ footer p { font-family: var(--mono); font-size: var(--step-s); color: var(--text
       <h2>One frozen base, many small patches</h2>
 
       <p>Fine-tuning a language model with <strong>LoRA</strong> does not produce a new model. It produces a
-        small set of low-rank matrices &mdash; a <em>patch</em> &mdash; that sits on top of a base model whose
+        small set of low-rank matrices (a <em>patch</em>) that sits on top of a base model whose
         weights never change. That patch is around <strong>0.6&nbsp;MB</strong>. The base is around
         <strong>250&nbsp;MB</strong>.</p>
 
@@ -525,14 +525,14 @@ footer p { font-family: var(--mono); font-size: var(--step-s); color: var(--text
 
       <p>The <code>revision</code> is a Hugging Face <em>commit SHA</em>, never a tag. Tags move. A repo owner
         can retag <code>main</code> tomorrow and every "reproducible" pipeline pinned to it silently trains
-        against different weights. A SHA cannot move &mdash; if the bytes change, the SHA changes, and
+        against different weights. A SHA cannot move: if the bytes change, the SHA changes, and
         resolution fails loudly instead of succeeding wrongly.</p>
 
       <div class="callout">
         <h5>The consequence</h5>
         <p>A hundred experiments cost ~60&nbsp;MB instead of ~25&nbsp;GB, and a version's identity is a
           64-character hex string that anyone can recompute from the bytes. That single property is what
-          makes everything downstream &mdash; dedup, transparency logging, third-party verification &mdash;
+          makes everything downstream (dedup, transparency logging, third-party verification)
           possible at all.</p>
       </div>
 
@@ -563,8 +563,8 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
         <h5>The failure mode</h5>
         <p>A database next to the objects is a <em>second source of truth</em>. Once two places can disagree,
           one of them is lying and you cannot tell which. <code>checkout.py</code> could not resolve a commit
-          without <code>repo.db</code>, which made the headline claim &mdash; "copy the folder and you have
-          the version" &mdash; false.</p>
+          without <code>repo.db</code>, which made the headline claim ("copy the folder and you have
+          the version") false.</p>
       </div>
 
       <p>The rebuild deleted SQLite entirely. History is walked from refs, through the object store, one
@@ -572,17 +572,17 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
 
       <ol>
         <li><strong>Portability becomes true, not aspirational.</strong> <code>.aethel/</code> is a directory of
-          hash-named files. Copy it, zip it, rsync it &mdash; it works, because there is nothing else to bring.</li>
+          hash-named files. Copy it, zip it, rsync it; it works, because there is nothing else to bring.</li>
         <li><strong><code>reindex</code> became unnecessary.</strong> The plan specified a command to rebuild the
           cache from objects. With no cache, there is nothing to rebuild. A whole subsystem was deleted rather
-          than written &mdash; the best kind of progress.</li>
+          than written, the best kind of progress.</li>
         <li><strong>Verification becomes possible for outsiders.</strong> You cannot hand someone a SQLite file and
           ask them to check your integrity claim. You can hand them a digest and a proof.</li>
       </ol>
 
       <p>The cost is real and worth naming: reads walk the graph instead of hitting an index. For a
         history of hundreds of commits that is microseconds. For a history of millions it would not be, and
-        the honest answer is that we would add a cache back &mdash; but as a <em>derived</em> cache that no read
+        the honest answer is that we would add a cache back, but as a <em>derived</em> cache that no read
         path is allowed to require.</p>
     </div>
   </div>
@@ -595,7 +595,7 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
     <div class="col">
       <h2>Six layers, each usable without the one above</h2>
 
-      <p>Every layer depends only downward. That is not an aesthetic preference &mdash; it is what lets the
+      <p>Every layer depends only downward. That is not an aesthetic preference; it is what lets the
         core ship with <strong>zero third-party dependencies</strong> while the Hub uses FastAPI and training
         uses PyTorch. You can run <code>aethel commit</code> on a machine with neither installed.</p>
 
@@ -653,10 +653,10 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
           </defs>
         </svg>
         </div>
-        <figcaption><b>Fig 1.</b> The stack as it actually stands. L0/L1 are pure stdlib &mdash; <code>aethel commit</code>
-          needs no wheel from PyPI. L2 is where the gap is: training works, evaluation is written but still on a
-          separate branch, and diff and merge are unwritten &mdash; which is why the ML story is the weakest part
-          of the demo. L5 exists only on paper.</figcaption>
+        <figcaption><b>Fig 1.</b> The stack as it actually stands. L0/L1 are pure stdlib: <code>aethel commit</code>
+          needs no wheel from PyPI. L2 is where the gap is. Training works, evaluation is written and green on
+          <code>feat/evaluation-metrics</code> but not yet merged, and diff and merge are unwritten, which is why
+          the ML story is the weakest part of the demo. L5 exists only on paper.</figcaption>
       </figure>
 
       <div class="tw"><table>
@@ -666,7 +666,7 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
           <tr><td>L2</td><td class="mono">aethel/commands/train.py</td><td>torch, transformers&nbsp;&ge;&nbsp;4.46, peft</td><td><span class="pill part">partial</span></td></tr>
           <tr><td>L3</td><td class="mono">aethel/remote/</td><td>none (urllib)</td><td><span class="pill done">built</span></td></tr>
           <tr><td>L4</td><td class="mono">hub/</td><td>fastapi, uvicorn, jinja2</td><td><span class="pill done">built</span></td></tr>
-          <tr><td>L5</td><td class="mono">&mdash; does not exist &mdash;</td><td>web3, eth-account, requests</td><td><span class="pill plan">planned</span></td></tr>
+          <tr><td>L5</td><td class="mono">does not exist</td><td>web3, eth-account, requests</td><td><span class="pill plan">planned</span></td></tr>
         </tbody>
       </table></div>
     </div>
@@ -681,7 +681,7 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
       <h2>The object store</h2>
 
       <p>Four kinds of object. Each is named by the SHA-256 of its own content, and each name is sharded on
-        the first two hex characters so no directory ever accumulates tens of thousands of entries &mdash; the
+        the first two hex characters so no directory ever accumulates tens of thousands of entries, the
         same trick Git uses.</p>
 
       <pre><code>.aethel/
@@ -753,7 +753,7 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
 
           <!-- adapter_blob shortcut -->
           <path class="arrow accent dash" d="M 300 122 C 300 40 500 -2 670 14" marker-end="url(#a2o)"/>
-          <text class="sm" x="470" y="12" style="fill:var(--series-2)">adapter_blob — the weights specifically</text>
+          <text class="sm" x="470" y="12" style="fill:var(--series-2)">adapter_blob, the weights specifically</text>
 
           <text class="sm" x="14" y="216">every arrow is a SHA-256; nothing is a filename, a row id or a path</text>
         </svg>
@@ -768,9 +768,9 @@ aethel push          <span class="c"># upload to Hub, get a transparency-log rec
       <div class="tw"><table>
         <thead><tr><th>Property</th><th>Mechanism</th><th>Test</th></tr></thead>
         <tbody>
-          <tr><td><strong>Deduplication</strong> &mdash; identical weights are stored once, however many commits reference them</td><td>blob key <em>is</em> the content hash</td><td class="mono">test_core_objects</td></tr>
-          <tr><td><strong>Tamper evidence</strong> &mdash; a flipped byte anywhere is detectable without a reference copy</td><td><code>fsck</code> re-hashes every object and compares to its own name</td><td class="mono">test_s1_corruption</td></tr>
-          <tr><td><strong>Portability</strong> &mdash; the folder is the whole repository</td><td>no database; history walked from refs</td><td class="mono">test_core_resolve</td></tr>
+          <tr><td><strong>Deduplication</strong>: identical weights are stored once, however many commits reference them</td><td>blob key <em>is</em> the content hash</td><td class="mono">test_core_objects</td></tr>
+          <tr><td><strong>Tamper evidence</strong>: a flipped byte anywhere is detectable without a reference copy</td><td><code>fsck</code> re-hashes every object and compares to its own name</td><td class="mono">test_s1_corruption</td></tr>
+          <tr><td><strong>Portability</strong>: the folder is the whole repository</td><td>no database; history walked from refs</td><td class="mono">test_core_resolve</td></tr>
         </tbody>
       </table></div>
 
@@ -797,7 +797,7 @@ $ aethel fsck
 
       <p>Version 1 stored commit metadata <em>inside the adapter's folder</em>:
         <code>objects/&lt;adapter_hash&gt;/commit.json</code>. Adapter hashes deduplicate by design. So two
-        commits with byte-identical weights &mdash; say you commit, tweak the message, commit again &mdash;
+        commits with byte-identical weights (say you commit, tweak the message, commit again)
         resolved to <strong>the same path</strong>. The second <code>commit.json</code> overwrote the first.
         Both commits still had rows in SQLite, so history <em>looked</em> intact.</p>
 
@@ -817,7 +817,7 @@ $ aethel fsck
           </defs>
 
           <!-- ==== left: v1 ==== -->
-          <text class="hd" x="14" y="20" style="fill:var(--status-critical)">v1 — KEYED BY ADAPTER HASH</text>
+          <text class="hd" x="14" y="20" style="fill:var(--status-critical)">v1, KEYED BY ADAPTER HASH</text>
           <line x1="14" y1="30" x2="418" y2="30" stroke="var(--status-critical)" stroke-width="1"/>
 
           <rect class="box-plain" x="14" y="52" width="128" height="44" rx="6"/>
@@ -845,7 +845,7 @@ $ aethel fsck
           <line x1="452" y1="8" x2="452" y2="288" stroke="var(--gridline)" stroke-width="1"/>
 
           <!-- ==== right: v2 ==== -->
-          <text class="hd" x="486" y="20" style="fill:var(--success-text)">v2 — KEYED BY COMMIT HASH</text>
+          <text class="hd" x="486" y="20" style="fill:var(--success-text)">v2, KEYED BY COMMIT HASH</text>
           <line x1="486" y1="30" x2="890" y2="30" stroke="var(--success-text)" stroke-width="1"/>
 
           <rect class="box-plain" x="486" y="52" width="128" height="44" rx="6"/>
@@ -868,10 +868,10 @@ $ aethel fsck
           <path class="arrow dash" d="M 618 154 C 660 190 660 198 700 202" marker-end="url(#a3)"/>
           <rect x="704" y="184" width="182" height="38" rx="6" style="fill:var(--well)" stroke="var(--success-text)" stroke-width="1.5"/>
           <text class="sm" x="716" y="200">blobs/1b/b2d78c…</text>
-          <text class="sm" x="716" y="215" style="fill:var(--success-text)">one shared copy — deduped</text>
+          <text class="sm" x="716" y="215" style="fill:var(--success-text)">one shared copy, deduped</text>
 
           <text class="sm" x="486" y="252" style="fill:var(--success-text)">Distinct metadata paths. Shared weights.</text>
-          <text class="sm" x="486" y="270">The defect has no representable form in this layout —</text>
+          <text class="sm" x="486" y="270">The defect has no representable form in this layout.</text>
           <text class="sm" x="486" y="286">it is not merely guarded against.</text>
         </svg>
         </div>
@@ -944,12 +944,12 @@ $ aethel fsck
           <path class="arrow" d="M 528 68 L 536 68" marker-end="url(#a4)"/>
           <path class="arrow" d="M 704 68 L 712 68" marker-end="url(#a4)"/>
 
-          <text class="sm" x="16" y="20">a reader at any instant sees the complete old file or the complete new file — never a prefix</text>
+          <text class="sm" x="16" y="20">a reader at any instant sees the complete old file or the complete new file, never a prefix</text>
 
           <text class="sm" x="16" y="126" style="fill:var(--series-2)">why step 6:</text>
           <text class="sm" x="96" y="126">fsyncing the file persists its contents; the directory entry pointing at it is a separate write.</text>
           <text class="sm" x="16" y="146" style="fill:var(--series-2)">the escape hatch:</text>
-          <text class="sm" x="126" y="146">durable=False skips 3, 4 and 6 — used only for regenerable caches, never for objects or refs.</text>
+          <text class="sm" x="126" y="146">durable=False skips 3, 4 and 6, used only for regenerable caches, never for objects or refs.</text>
           <text class="sm" x="16" y="166" style="fill:var(--series-2)">on interrupt:</text>
           <text class="sm" x="106" y="166">cleanup is under `except BaseException`, so Ctrl-C unlinks the temp file instead of leaving debris.</text>
         </svg>
@@ -962,7 +962,7 @@ $ aethel fsck
       </figure>
 
       <h3>Objects first, ref last</h3>
-      <p>Atomicity per file is not enough &mdash; a commit writes several files. So the <em>order</em> is fixed
+      <p>Atomicity per file is not enough: a commit writes several files. So the <em>order</em> is fixed
         such that every possible crash point leaves a valid repository:</p>
 
       <figure>
@@ -995,7 +995,7 @@ $ aethel fsck
           <text class="sm" x="310" y="124" text-anchor="middle">crash anywhere in here …</text>
 
           <text class="sm" x="46" y="160">… and you get unreferenced objects plus an <tspan style="fill:var(--text-secondary)">unchanged</tspan> ref.</text>
-          <text class="sm" x="46" y="178">That is a <tspan style="fill:var(--success-text)">valid repository</tspan> — the commit simply did not happen.</text>
+          <text class="sm" x="46" y="178">That is a <tspan style="fill:var(--success-text)">valid repository</tspan>, the commit simply did not happen.</text>
           <text class="sm" x="46" y="196">Wasted disk, recoverable by a future `gc`. Zero corruption.</text>
 
           <rect x="668" y="104" width="176" height="30" rx="4" fill="none" stroke="var(--series-3)"/>
@@ -1011,7 +1011,7 @@ $ aethel fsck
       </figure>
 
       <h3>Advisory locks</h3>
-      <p>Two named locks per store &mdash; <code>refs.lock</code>/<code>repos.lock</code> for pointer moves,
+      <p>Two named locks per store, <code>refs.lock</code>/<code>repos.lock</code> for pointer moves,
         <code>log.lock</code> for transparency-log appends. Acquisition is
         <code>os.open(path, O_CREAT | O_EXCL)</code>, which is atomic at the kernel level, with a timeout that
         raises <code>LockTimeout</code> rather than blocking forever.</p>
@@ -1021,7 +1021,7 @@ $ aethel fsck
         <p>Stale locks are <strong>not</strong> auto-cleared. If a process dies holding one, the next writer
           fails and a human deletes the file. That is Git's <code>index.lock</code> trade-off, chosen for the same
           reason: an automatic staleness heuristic ("older than 30 s must be dead") is wrong exactly when a
-          machine is slow or swapping, and its failure mode is two concurrent writers &mdash; far worse than a
+          machine is slow or swapping, and its failure mode is two concurrent writers, far worse than a
           confusing error message.</p>
       </div>
 
@@ -1056,7 +1056,7 @@ $ aethel fsck
             </marker>
           </defs>
 
-          <text class="hd" x="16" y="18">LOCAL — no network, no server, no database</text>
+          <text class="hd" x="16" y="18">LOCAL, no network, no server, no database</text>
           <line x1="16" y1="26" x2="640" y2="26" stroke="var(--gridline)"/>
 
           <rect class="box" x="16" y="44" width="128" height="56" rx="6"/>
@@ -1111,7 +1111,7 @@ $ aethel fsck
           <path class="arrow" d="M 596 196 L 628 196" marker-end="url(#a6)"/>
 
           <rect class="box-plain dash ghost" x="16" y="252" width="360" height="38" rx="6"/>
-          <text class="sm ghost" x="28" y="276">L5 · anchor root on Sepolia + mirror to IPFS &nbsp;— planned</text>
+          <text class="sm ghost" x="28" y="276">L5 · anchor root on Sepolia + mirror to IPFS &nbsp;· planned</text>
 
           <rect class="box" x="410" y="252" width="396" height="38" rx="6"/>
           <text class="sm" x="422" y="276" style="fill:var(--series-3)">anyone opens /verify in a browser and recomputes the proof</text>
@@ -1123,7 +1123,7 @@ $ aethel fsck
           diagram that does not exist yet.</figcaption>
       </figure>
 
-      <h3>What <code>train</code> actually does &mdash; and its known warts</h3>
+      <h3>What <code>train</code> actually does, and its known warts</h3>
       <p><code>aethel/commands/train.py</code> is the largest single command (477 lines): it loads a base model at a
         pinned revision, attaches a LoRA config via <code>peft</code>, runs a Hugging Face <code>Trainer</code>, and
         writes the adapter plus a <code>training_info.json</code> into the workspace.</p>
@@ -1132,21 +1132,21 @@ $ aethel fsck
         <h5>Say this out loud in the demo rather than hoping nobody asks</h5>
         <ul style="margin:0;padding-left:1.15em">
           <li>The old code silently trained on <code>f"sample training record {i}"</code> when a dataset path was
-            typo'd, and still produced a committable adapter with plausible metrics. That is fixed &mdash; it now
-            hard-errors unless you pass <code>--allow-stub</code> &mdash; but <em>the module docstring still
+            typo'd, and still produced a committable adapter with plausible metrics. That is fixed (it now
+            hard-errors unless you pass <code>--allow-stub</code>), but <em>the module docstring still
             describes the old fallback</em>. Doc lag, not a live bug.</li>
           <li><code>train.py</code> bypasses <code>aethel.core</code> entirely: it hardcodes the literal string
             <code>".aethel"</code> instead of using the repo resolver, and its <code>TrainError</code> sits outside
             the <code>AethelError</code> tree, so the shared <code>handle_errors</code> decorator does not catch it.
             It is the one module that has not been brought into the rebuilt architecture.</li>
           <li>The number that says whether a model is any <strong>good</strong> is written but not merged. The
-            evaluator &mdash; eval loss, accuracy, adapter size, current-versus-parent comparison
-            &mdash; lives on a separate branch, and <code>hub/views.py</code> already prefers
-            <code>training_info.evaluation.current</code> over the trainer's metrics when both are present. It
-            scores the dataset recorded at training time, so a train/validation split is still needed before the
-            figure is quotable. Until it lands and runs on a machine with torch, the only metrics in a real commit
-            are <code>Trainer</code> loss and runtime, and the accuracy on the dashboard comes from
-            <code>scripts/seed_demo.py</code> fixtures.</li>
+            evaluator (eval loss, accuracy, adapter size, current-versus-parent comparison) lives on
+            <code>feat/evaluation-metrics</code> with four tests of its own and a green CI run, and
+            <code>hub/views.py</code> already prefers <code>training_info.evaluation.current</code> over the
+            trainer's metrics when both are present. It scores the dataset recorded at training time, so a
+            train/validation split is still needed before the figure is quotable. Until it lands and runs on a
+            machine with torch, the only metrics in a real commit are <code>Trainer</code> loss and runtime, and
+            the accuracy on the dashboard comes from <code>scripts/seed_demo.py</code> fixtures.</li>
         </ul>
       </div>
     </div>
@@ -1182,7 +1182,7 @@ $ aethel fsck
           <path class="arrow" d="M 124 74 L 696 74" marker-end="url(#a7)"/>
           <text class="sm" x="410" y="66" text-anchor="middle">GET /version</text>
           <path class="arrow dash" d="M 696 96 L 124 96" marker-end="url(#a7)"/>
-          <text class="sm" x="410" y="90" text-anchor="middle">protocol version — refuse early on mismatch, not mid-upload</text>
+          <text class="sm" x="410" y="90" text-anchor="middle">protocol version, refuse early on mismatch, not mid-upload</text>
 
           <!-- 2 negotiate -->
           <text class="sm" x="8" y="134" style="fill:var(--series-2)">2 · negotiate</text>
@@ -1196,7 +1196,7 @@ $ aethel fsck
           <text class="sm" x="8" y="228">(ordered)</text>
           <rect x="150" y="192" width="520" height="86" rx="6" style="fill:var(--well)" stroke="var(--border-strong)"/>
           <text class="sm" x="166" y="212" style="fill:var(--text-secondary)">UPLOAD_ORDER = ("blobs", "trees", "bases", "commits")</text>
-          <text class="sm" x="166" y="232">referents before referrers — at no instant does the hub hold an object</text>
+          <text class="sm" x="166" y="232">referents before referrers, at no instant does the hub hold an object</text>
           <text class="sm" x="166" y="248">whose children are missing, even if the connection drops mid-stream</text>
           <text class="sm" x="166" y="268" style="fill:var(--series-2)">hash verified on write, then echoed back and re-checked by the client</text>
           <path class="arrow" d="M 670 236 L 696 236" marker-end="url(#a7)"/>
@@ -1204,7 +1204,7 @@ $ aethel fsck
           <!-- 4 ref -->
           <text class="sm" x="8" y="314" style="fill:var(--series-3)">4 · move ref</text>
           <path d="M 124 326 L 696 326" stroke="var(--series-3)" stroke-width="1.5" fill="none" marker-end="url(#a7)"/>
-          <text class="sm" x="410" y="318" text-anchor="middle" style="fill:var(--series-3)">last — and only now is the push visible to anyone else</text>
+          <text class="sm" x="410" y="318" text-anchor="middle" style="fill:var(--series-3)">last, and only now is the push visible to anyone else</text>
           <path class="arrow dash" d="M 696 350 L 124 350" marker-end="url(#a7)"/>
           <text class="sm" x="410" y="344" text-anchor="middle">409 if the hub's own re-walk of the history disagrees</text>
         </svg>
@@ -1221,7 +1221,7 @@ $ aethel fsck
           <tr><td><strong>Integrity end to end</strong></td><td>Hash computed by the client before send, recomputed by the hub on write, echoed back, and re-compared by the client (<code>_verify_echo</code>). A byte flipped by a proxy is caught at three points.</td></tr>
           <tr><td><strong>No partial history</strong></td><td>Dependency-ordered upload plus ref-last means an interrupted push leaves orphans, never a ref into nothing.</td></tr>
           <tr><td><strong>Idempotence</strong></td><td>Re-pushing the same commits resolves to the existing log leaves. The response distinguishes <code>logged_indices</code> (where they are) from <code>appended_indices</code> (what was new this time), so a retry after a timeout is safe and does not double-log.</td></tr>
-          <tr><td><strong>The hub is untrusted</strong></td><td>Clients verify the hub's claims rather than believing them. The hub also holds <em>no outbound credential</em> &mdash; no wallet key, no Pinata token &mdash; so even a fully compromised hub cannot forge an on-chain anchor.</td></tr>
+          <tr><td><strong>The hub is untrusted</strong></td><td>Clients verify the hub's claims rather than believing them. The hub also holds <em>no outbound credential</em> (no wallet key, no Pinata token), so even a fully compromised hub cannot forge an on-chain anchor.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -1242,7 +1242,7 @@ $ aethel fsck
       <pre><code>{"index": 4, "commit_hash": "3478ef8f…", "repo": "demo/sentiment",
  "accepted_at": "2026-08-27T09:14:03Z"}</code></pre>
 
-      <p>Leaves live in a JSONL file. <strong>The file is the truth and the tree is never cached</strong> &mdash;
+      <p>Leaves live in a JSONL file. <strong>The file is the truth and the tree is never cached</strong>:
         it is rebuilt from the JSONL on every read. That is slower and it is correct: a cached root is a second
         source of truth, and we already know how that story ends.</p>
 
@@ -1273,25 +1273,25 @@ $ aethel fsck
           <text class="sm" x="45" y="150" text-anchor="middle" style="fill:var(--series-2)">0x01</text>
           <rect class="box" x="80" y="126" width="300" height="38" rx="5"/>
           <text class="sm" x="94" y="145">(left_hex + right_hex).encode()</text>
-          <text class="sm" x="94" y="159" style="fill:var(--series-2)">128 ASCII chars — not 64 raw bytes</text>
+          <text class="sm" x="94" y="159" style="fill:var(--series-2)">128 ASCII chars, not 64 raw bytes</text>
           <path class="arrow" d="M 386 145 L 424 145" marker-end="url(#a8)"/>
           <text class="sm" x="432" y="141">SHA-256</text>
           <path class="arrow" d="M 500 145 L 534 145" marker-end="url(#a8)"/>
           <rect class="box" x="540" y="126" width="344" height="38" rx="5"/>
           <text class="sm" x="554" y="150">6eba45ad75414a76…  ← internal node digest</text>
 
-          <text class="sm" x="16" y="194">RFC 6962 prefixes. The hex-string detail is the one every reimplementation gets wrong — and the browser verifier must match it exactly.</text>
+          <text class="sm" x="16" y="194">RFC 6962 prefixes. The hex-string detail is the one every reimplementation gets wrong, and the browser verifier must match it exactly.</text>
         </svg>
         </div>
         <figcaption><b>Fig 8.</b> One byte of prefix separates "this is raw data" from "this is a pair of children".
-          The specific choice &mdash; hex strings concatenated <em>then</em> encoded, rather than raw digests
-          concatenated &mdash; is an interoperability contract between <code>aggregator.py</code> and the 359-line
+          The specific choice (hex strings concatenated <em>then</em> encoded, rather than raw digests
+          concatenated) is an interoperability contract between <code>aggregator.py</code> and the 359-line
           hand-written SHA-256 in <code>verify.js</code>. Getting it wrong makes every browser check fail.</figcaption>
       </figure>
 
       <h3>Odd nodes are promoted, not duplicated</h3>
       <p>When a level has an odd count, the last node <em>rides up unchanged</em> to the next level. The obvious
-        alternative &mdash; duplicate it and hash it with itself &mdash; is the CVE-2012-2459 shape: it lets two
+        alternative (duplicate it and hash it with itself) is the CVE-2012-2459 shape: it lets two
         different leaf counts produce the same root.</p>
 
       <figure>
@@ -1356,15 +1356,15 @@ $ aethel fsck
         <figcaption><b>Fig 9.</b> Real digests, produced by running the project's own
           <code>aethel.core.aggregator</code> on a 5-leaf log. Watch <code>99dbc5f7…</code> climb three levels
           without being rehashed. Had we
-          duplicated instead of promoted, an attacker could construct a different leaf sequence with the same root
-          &mdash; the classic Bitcoin merkle-tree malleability bug, in a system whose entire pitch is
+          duplicated instead of promoted, an attacker could construct a different leaf sequence with the same root,
+          the classic Bitcoin merkle-tree malleability bug, in a system whose entire pitch is
           "the root proves the history".</figcaption>
       </figure>
 
       <h3>Append-only by construction</h3>
-      <p><code>hub/log.py</code> exposes read methods &mdash; <code>entries</code>, <code>leaves</code>,
+      <p><code>hub/log.py</code> exposes eight read methods (<code>entries</code>, <code>leaves</code>,
         <code>size</code>, <code>contains</code>, <code>tree</code>, <code>root</code>,
-        <code>inclusion_proof</code>, static <code>verify</code> &mdash; and exactly two that mutate:
+        <code>inclusion_proof</code>, static <code>verify</code>) and exactly two that mutate:
         <code>append</code> and <code>append_many</code>. There is no update path and no delete path, so
         "append-only" is not a policy someone enforces; it is the absence of code.</p>
 
@@ -1405,7 +1405,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
             </marker>
           </defs>
 
-          <text class="hd" x="16" y="20">REAL — four leaves</text>
+          <text class="hd" x="16" y="20">REAL, four leaves</text>
           <rect class="box-plain" x="16" y="196" width="72" height="28" rx="5"/><text class="sm" x="52" y="215" text-anchor="middle">l0</text>
           <rect class="box-plain" x="96" y="196" width="72" height="28" rx="5"/><text class="sm" x="132" y="215" text-anchor="middle">l1</text>
           <rect class="box-plain" x="176" y="196" width="72" height="28" rx="5"/><text class="sm" x="212" y="215" text-anchor="middle">l2</text>
@@ -1429,7 +1429,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <text class="sm" x="450" y="128" text-anchor="middle" style="fill:var(--status-critical)">different history</text>
           <line x1="450" y1="150" x2="450" y2="236" stroke="var(--gridline)" stroke-dasharray="4 3"/>
 
-          <text class="hd" x="884" y="20" text-anchor="end">FORGED — two leaves</text>
+          <text class="hd" x="884" y="20" text-anchor="end">FORGED, two leaves</text>
           <rect x="572" y="126" width="130" height="28" rx="5" style="fill:var(--well)" stroke="var(--status-critical)" stroke-width="1.5"/>
           <text class="sm" x="637" y="145" text-anchor="middle" style="fill:var(--status-critical)">"leaf" = H(l0+l1)</text>
           <rect x="726" y="126" width="130" height="28" rx="5" style="fill:var(--well)" stroke="var(--status-critical)" stroke-width="1.5"/>
@@ -1447,9 +1447,9 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <text class="sm" x="16" y="264" style="fill:var(--success-text)">real tree hashed them as nodes (0x01). The roots diverge. The attack has no input.</text>
         </svg>
         </div>
-        <figcaption><b>Fig 10.</b> A second-preimage attack on the tree structure itself &mdash; no SHA-256 weakness
+        <figcaption><b>Fig 10.</b> A second-preimage attack on the tree structure itself, with no SHA-256 weakness
           required. It works purely because, undomained, "a leaf" and "a pair of children" are indistinguishable
-          byte strings. <code>tests/test_core_merkle.py</code> holds 18 tests; the ones that matter assert the
+          byte strings. <code>tests/test_core_merkle.py</code> holds 18 test functions; the ones that matter assert the
           prefixed construction rejects exactly this substitution.</figcaption>
       </figure>
     </div>
@@ -1478,7 +1478,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
   ]
 }</code></pre>
 
-      <p>Three siblings for eight leaves &mdash; <code>log&#8322;(8)</code>. A million-entry log needs twenty. That
+      <p>Three siblings for eight leaves, <code>log&#8322;(8)</code>. A million-entry log needs twenty. That
         logarithmic size is why this scales to a public registry and a database of "trust me" rows does not.</p>
 
       <h3>The fold, with real values</h3>
@@ -1523,14 +1523,14 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <div class="body">
             <span class="op">computed root == published root &nbsp;&rarr;&nbsp; <b style="color:var(--series-3)">INCLUDED</b></span>
             <span style="color:var(--text-muted)">The commit is in the log at index 4 of 8. Nobody had to be trusted for
-              this &mdash; only SHA-256.</span>
+              this. Only SHA-256.</span>
           </div>
         </div>
       </div>
 
       <p style="margin-top:22px">Note the <code>side</code> field names <em>where the sibling sits</em>, so the
         verifier knows the concatenation order. Get it backwards and the fold produces a valid-looking digest
-        that matches nothing &mdash; which is exactly the right failure: wrong order means wrong root, means
+        that matches nothing, which is exactly the right failure: wrong order means wrong root, means
         rejected.</p>
 
       <div class="callout">
@@ -1538,7 +1538,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <p>The ladder above staggers in at 70&nbsp;ms per rung, in fold order. That is the project's own motion
           rule applied here: animate only where the sequence <em>is</em> the data dependency. Under
           <code>prefers-reduced-motion: reduce</code> the animation rule is not defined at all rather than being
-          set to zero duration &mdash; a zeroed animation with <code>backwards</code> fill would still hold
+          set to zero duration, a zeroed animation with <code>backwards</code> fill would still hold
           <code>opacity: 0</code> through its delay, hiding content from the people who asked for less motion.</p>
       </div>
     </div>
@@ -1551,7 +1551,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
     <div class="col">
       <h2>The Hub</h2>
 
-      <p>7,068 lines across <code>hub/</code> &mdash; a FastAPI JSON API, a server-rendered Jinja dashboard,
+      <p>7,098 lines across <code>hub/</code>, a FastAPI JSON API, a server-rendered Jinja dashboard,
         the transparency log, and a browser-side verifier. It is the largest package in the project and the
         one a panel will actually look at.</p>
 
@@ -1559,24 +1559,24 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
       <div class="tw"><table>
         <thead><tr><th class="mono">route</th><th>purpose</th><th>auth</th></tr></thead>
         <tbody>
-          <tr><td class="mono">GET /api/v1/version</td><td>protocol version handshake</td><td>&mdash;</td></tr>
+          <tr><td class="mono">GET /api/v1/version</td><td>protocol version handshake</td><td>open</td></tr>
           <tr><td class="mono">POST /api/v1/repos/{r}/negotiate</td><td>which of these hashes do you already have?</td><td>write</td></tr>
           <tr><td class="mono">PUT /api/v1/blobs/{hash}</td><td>upload raw bytes, verified against the name</td><td>write</td></tr>
           <tr><td class="mono">PUT /api/v1/{kind}/{hash}</td><td>upload a tree, base or commit object</td><td>write</td></tr>
-          <tr><td class="mono">POST /api/v1/repos/{r}/refs</td><td>move a branch &mdash; last step, 409 on disagreement</td><td>write</td></tr>
-          <tr><td class="mono">GET /api/v1/repos</td><td>list repositories</td><td>&mdash;</td></tr>
-          <tr><td class="mono">GET /api/v1/repos/{r}/commits</td><td>history for a repo</td><td>&mdash;</td></tr>
-          <tr><td class="mono">GET /api/v1/commits/{hash}</td><td>one commit's metadata</td><td>&mdash;</td></tr>
-          <tr><td class="mono">GET /api/v1/trees|bases|blobs/{hash}</td><td>fetch an object by hash</td><td>&mdash;</td></tr>
-          <tr><td class="mono">GET /api/v1/log</td><td>entries, size, current root</td><td>&mdash;</td></tr>
-          <tr><td class="mono">GET /api/v1/log/proof/{commit}</td><td>self-contained inclusion proof</td><td>&mdash;</td></tr>
-          <tr><td class="mono">POST /api/v1/log/verify</td><td>check a proof server-side (convenience only)</td><td>&mdash;</td></tr>
-          <tr><td class="mono">GET /api/v1/health</td><td>per-subsystem status</td><td>&mdash;</td></tr>
+          <tr><td class="mono">POST /api/v1/repos/{r}/refs</td><td>move a branch, last step, 409 on disagreement</td><td>write</td></tr>
+          <tr><td class="mono">GET /api/v1/repos</td><td>list repositories</td><td>open</td></tr>
+          <tr><td class="mono">GET /api/v1/repos/{r}/commits</td><td>history for a repo</td><td>open</td></tr>
+          <tr><td class="mono">GET /api/v1/commits/{hash}</td><td>one commit's metadata</td><td>open</td></tr>
+          <tr><td class="mono">GET /api/v1/trees|bases|blobs/{hash}</td><td>fetch an object by hash</td><td>open</td></tr>
+          <tr><td class="mono">GET /api/v1/log</td><td>entries, size, current root</td><td>open</td></tr>
+          <tr><td class="mono">GET /api/v1/log/proof/{commit}</td><td>self-contained inclusion proof</td><td>open</td></tr>
+          <tr><td class="mono">POST /api/v1/log/verify</td><td>check a proof server-side (convenience only)</td><td>open</td></tr>
+          <tr><td class="mono">GET /api/v1/health</td><td>per-subsystem status</td><td>open</td></tr>
         </tbody>
       </table></div>
 
       <p>Reads are open; writes require a token. Note that <code>POST /log/verify</code> is a
-        <em>convenience</em>, not the trust path &mdash; asking the log's operator whether the log is honest is
+        <em>convenience</em>, not the trust path: asking the log's operator whether the log is honest is
         not verification. The trust path is the browser recomputing it locally.</p>
 
       <h3>Five dashboard pages, no build step</h3>
@@ -1585,8 +1585,8 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <tbody>
           <tr><td class="mono">/</td><td>every repository, store totals, the current log root</td></tr>
           <tr><td class="mono">/r/&lt;repo&gt;</td><td>accuracy per commit as one line per branch, plus a history table with a DAG rail showing where branches part</td></tr>
-          <tr><td class="mono">/c/&lt;hash&gt;</td><td>one commit's provenance, its base reference, its files, and its inclusion proof rung by rung &mdash; recomputed <em>in the browser</em></td></tr>
-          <tr><td class="mono">/api</td><td>the REST surface: every route, its parameters, its status codes &mdash; generated from the code, 511 lines in <code>apidocs.py</code></td></tr>
+          <tr><td class="mono">/c/&lt;hash&gt;</td><td>one commit's provenance, its base reference, its files, and its inclusion proof rung by rung, recomputed <em>in the browser</em></td></tr>
+          <tr><td class="mono">/api</td><td>the REST surface: every route, its parameters, its status codes, generated from the code, 511 lines in <code>apidocs.py</code></td></tr>
           <tr><td class="mono">/ops</td><td>per-subsystem health, including a live recomputation of the log root</td></tr>
         </tbody>
       </table></div>
@@ -1598,7 +1598,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
 
       <h3>Content-Security-Policy</h3>
       <pre><code>default-src 'none'; script-src 'nonce-&lt;per-response&gt;'; …</code></pre>
-      <p><code>default-src 'none'</code> means every asset class must be named explicitly &mdash; nothing loads by
+      <p><code>default-src 'none'</code> means every asset class must be named explicitly: nothing loads by
         accident. The dashboard needs exactly two inline scripts, and the lazy fix (<code>'unsafe-inline'</code>)
         would permit every <em>other</em> inline script too, including one an attacker injects. A nonce is minted
         per response and published on <code>request.state.csp_nonce</code>; it is never reused, because a fixed
@@ -1616,8 +1616,8 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
       </div>
 
       <p>Hand-rolled crypto is normally a red flag, so it is fenced in: the file self-tests against published
-        vectors on load &mdash; the empty string, <code>"abc"</code>, and 55, 56 and 64 <code>"a"</code>s, chosen
-        because 55/56 straddle the message-padding block boundary where naive implementations break &mdash; and
+        vectors on load (the empty string, <code>"abc"</code>, and 55, 56 and 64 <code>"a"</code>s, chosen
+        because 55/56 straddle the message-padding block boundary where naive implementations break), and
         if any vector fails, it <strong>refuses to render a verdict at all</strong> rather than showing a green
         tick it cannot justify. A separate CI script, <code>scripts/check_verify_js.py</code>, keeps the JS
         constants in lockstep with the Python.</p>
@@ -1662,7 +1662,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <text class="sm" x="24" y="42">no single component has to be trusted, because no single component is the only one checking</text>
 
           <text class="sm" x="24" y="186" style="fill:var(--series-3)">Point 6 is the one that matters for the pitch: it needs no account, no API key, and no trust in us. Just SHA-256 and a browser tab.</text>
-          <text class="sm" x="24" y="208">Points 1–5 protect against accident — bad disks, flaky proxies, truncated uploads. Point 6 protects against us.</text>
+          <text class="sm" x="24" y="208">Points 1–5 protect against accident, bad disks, flaky proxies, truncated uploads. Point 6 protects against us.</text>
         </svg>
         </div>
         <figcaption><b>Fig 11.</b> Defence in depth for integrity. The first five checkpoints catch mistakes; only
@@ -1679,7 +1679,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
     <div class="col">
       <h2>Every module, what it does, how big it is</h2>
 
-      <h4>aethel/core &mdash; 1,411 lines, stdlib only</h4>
+      <h4>aethel/core: 1,511 lines, stdlib only</h4>
       <div class="tw"><table>
         <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
         <tbody>
@@ -1695,7 +1695,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         </tbody>
       </table></div>
 
-      <h4>aethel/commands &mdash; 1,647 lines</h4>
+      <h4>aethel/commands: 1,560 lines</h4>
       <div class="tw"><table>
         <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
         <tbody>
@@ -1704,14 +1704,14 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <tr><td class="mono">log.py</td><td class="num">140</td><td>history walk and rendering</td></tr>
           <tr><td class="mono">init.py</td><td class="num">133</td><td>create the store; refuse to clobber an existing one</td></tr>
           <tr><td class="mono">fsck.py</td><td class="num">131</td><td>re-hash everything, report corrupt and missing objects, exit non-zero</td></tr>
-          <tr><td class="mono">branch.py</td><td class="num">115</td><td>create/list/delete branches. Uses a weaker <code>startswith</code> containment check than <code>refs.py</code> does &mdash; a real inconsistency worth fixing</td></tr>
-          <tr><td class="mono">checkout.py</td><td class="num">104</td><td>restore a commit's tree into the workspace</td></tr>
+          <tr><td class="mono">branch.py</td><td class="num">116</td><td>create/list/delete branches. Every name check and every write goes through <code>refs.py</code>, so the validation rules live in exactly one place</td></tr>
+          <tr><td class="mono">checkout.py</td><td class="num">105</td><td>restore a commit's tree into the workspace</td></tr>
           <tr><td class="mono">commit.py</td><td class="num">77</td><td>the thin CLI shell over <code>core/commits.py</code></td></tr>
-          <tr><td class="mono">_common.py</td><td class="num">68</td><td><code>handle_errors</code>, shared output helpers</td></tr>
+          <tr><td class="mono">_common.py</td><td class="num">78</td><td><code>handle_errors</code>, shared output helpers</td></tr>
         </tbody>
       </table></div>
 
-      <h4>aethel/remote &mdash; 440 lines, urllib only</h4>
+      <h4>aethel/remote: 440 lines, urllib only</h4>
       <div class="tw"><table>
         <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
         <tbody>
@@ -1720,21 +1720,21 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         </tbody>
       </table></div>
 
-      <h4>hub &mdash; 7,068 lines</h4>
+      <h4>hub: 7,098 lines</h4>
       <div class="tw"><table>
         <thead><tr><th class="mono">file</th><th class="num">lines</th><th>responsibility</th></tr></thead>
         <tbody>
           <tr><td class="mono">static/hub.css</td><td class="num">1843</td><td>the whole design system: measured palette, type scale, motion tokens, both themes</td></tr>
-          <tr><td class="mono">views.py</td><td class="num">1087</td><td>the five dashboard pages, server-side SVG chart geometry, DAG rail layout</td></tr>
+          <tr><td class="mono">views.py</td><td class="num">1117</td><td>the five dashboard pages, server-side SVG chart geometry, DAG rail layout</td></tr>
           <tr><td class="mono">api.py</td><td class="num">565</td><td>every JSON route, upload verification, 409 logic</td></tr>
           <tr><td class="mono">apidocs.py</td><td class="num">511</td><td><code>/api</code> generated from the routes rather than hand-maintained</td></tr>
           <tr><td class="mono">static/verify.js</td><td class="num">359</td><td>hand-written SHA-256 + proof folding + self-tests; refuses to render on vector failure</td></tr>
-          <tr><td class="mono">log.py</td><td class="num">280</td><td><code>TransparencyLog</code>: read methods plus exactly two appenders. Also <code>AnchorStore</code>, which has no callers yet</td></tr>
+          <tr><td class="mono">log.py</td><td class="num">280</td><td><code>TransparencyLog</code>: read methods plus exactly two appenders. Also <code>AnchorStore</code>, which <code>/api/v1/health</code> and <code>/ops</code> already read; nothing writes to it until L5 lands</td></tr>
           <tr><td class="mono">storage.py</td><td class="num">277</td><td>server-side object store and repo registry</td></tr>
-          <tr><td class="mono">errors.py</td><td class="num">203</td><td>typed HTTP errors with human-readable pages</td></tr>
-          <tr><td class="mono">static/copy.js</td><td class="num">193</td><td>copy-to-clipboard that copies <code>textContent</code> &mdash; so the <em>rendered</em> digest is the contract</td></tr>
-          <tr><td class="mono">app.py</td><td class="num">151</td><td>wiring, middleware order, static mount</td></tr>
-          <tr><td class="mono">security.py</td><td class="num">143</td><td>nonce minting, CSP, security headers</td></tr>
+          <tr><td class="mono">errors.py</td><td class="num">202</td><td>typed HTTP errors with human-readable pages</td></tr>
+          <tr><td class="mono">static/copy.js</td><td class="num">193</td><td>copy-to-clipboard that copies <code>textContent</code>, so the <em>rendered</em> digest is the contract</td></tr>
+          <tr><td class="mono">app.py</td><td class="num">150</td><td>wiring, middleware order, static mount</td></tr>
+          <tr><td class="mono">security.py</td><td class="num">142</td><td>nonce minting, CSP, security headers</td></tr>
           <tr><td class="mono">config.py</td><td class="num">136</td><td>paths, tokens, limits</td></tr>
         </tbody>
       </table></div>
@@ -1758,7 +1758,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
     <div class="col">
       <h2>715 tests, and a CI job whose purpose is to fail</h2>
 
-      <p>The audit's third severity-1 finding was <em>zero tests</em> &mdash; not few, none. Today there are 580
+      <p>The audit's third severity-1 finding was <em>zero tests</em>, not few, none. Today there are 580
         test functions which expand to <strong>715 collected cases</strong> under parametrisation, running in
         about nine seconds. That number is measured, not quoted.</p>
 
@@ -1783,8 +1783,8 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <tr><td class="mono">test_hub_motion.py</td><td class="num">15</td><td>reduced-motion rules exist and animations are <em>removed</em>, not zeroed</td></tr>
           <tr><td class="mono">test_hub_fonts.py</td><td class="num">14</td><td>subset fonts are self-hosted and actually cover the glyphs used</td></tr>
           <tr><td class="mono">test_core_resolve.py</td><td class="num">11</td><td>branch names, short hashes and HEAD resolving to one commit, or refusing</td></tr>
-          <tr><td class="mono">test_s1_corruption.py</td><td class="num">8</td><td>S1.1 cannot recur &mdash; and was not "fixed" by duplicating weights per commit</td></tr>
           <tr><td class="mono">test_cli_parsing.py</td><td class="num">9</td><td>option order on the commands that take a positional argument, parsed but not run</td></tr>
+          <tr><td class="mono">test_s1_corruption.py</td><td class="num">8</td><td>S1.1 cannot recur, and was not "fixed" by duplicating weights per commit</td></tr>
         </tbody>
       </table></div>
 
@@ -1804,7 +1804,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
       <div class="callout">
         <h5>Motion is tested because motion fails quietly</h5>
         <p>A broken animation does not throw. It just looks slightly wrong, or hides content, and nobody
-          notices for a month. So five test files assert the CSS invariants directly &mdash; that
+          notices for a month. So four test files read <code>hub.css</code> and assert its invariants directly: that
           <code>transition: all</code> appears nowhere, that the reduced-motion block removes rather than zeroes,
           that exactly one entrance animation exists.</p>
       </div>
@@ -1847,18 +1847,16 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <header><h4>Partly there</h4><span class="pill part">gaps</span></header>
           <ul>
             <li><code>train.py</code> is not integrated <i>bypasses aethel.core, hardcodes ".aethel", its TrainError escapes handle_errors</i></li>
-            <li>Docs lag the code <i>train.py's docstring still describes the removed synthetic-data fallback; repo.py still documents index.db and `aethel reindex`, neither of which exists</i></li>
-            <li><code>branch.py</code> containment check <i>uses startswith where refs.py uses a structural parent comparison</i></li>
-            <li><code>AnchorStore</code> exists with no callers <i>the seam for L5 is cut, nothing plugs into it</i></li>
+            <li><code>AnchorStore</code> has readers but no writer <i>the health endpoint and /ops already query it; the anchoring job that would fill it is L5</i></li>
             <li>Coverage <i>80% gate enforced in CI; 95.98% measured on aethel.core, 572 statements, 23 missed</i></li>
-            <li>Evaluation <i>written on a separate branch &mdash; eval loss, accuracy, adapter size, current-vs-parent &mdash; and wired into `aethel commit`; not merged, never yet run on a machine with torch, and it scores the training file rather than a held-out split</i></li>
-            <li>Divergence detection <i>cosine similarity between consecutive patches plus a stay-or-fork prompt; written on a separate branch, no tests yet</i></li>
+            <li>Evaluation <i>on feat/evaluation-metrics: eval loss, accuracy, adapter size, current-vs-parent, wired into `aethel commit`, four tests, CI green; not merged, never yet run on a machine with torch, and it scores the training file rather than a held-out split</i></li>
           </ul>
         </div>
 
         <div class="card is-plan">
           <header><h4>Not started</h4><span class="pill plan">planned</span></header>
           <ul>
+            <li>Divergence detection <i>designed in full, on no branch yet: cosine similarity between consecutive patches plus a stay-or-fork prompt</i></li>
             <li><code>aethel diff</code> <i>per-layer ΔW norms, cosine similarity, prediction flips</i></li>
             <li><code>aethel merge</code> <i>task arithmetic, TIES, DARE</i></li>
             <li><code>pull</code> / <code>clone</code> <i>push exists; the reverse direction does not</i></li>
@@ -1893,8 +1891,8 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
     <div class="col">
       <h2>Roughly two and a half layers of five</h2>
 
-      <p>If you count the six architectural layers, four are built. If you count them by <em>weight</em> &mdash;
-        how much of the project's actual claim each one carries &mdash; the number is less flattering, and this is
+      <p>If you count the six architectural layers, four are built. If you count them by <em>weight</em>,
+        how much of the project's actual claim each one carries, the number is less flattering, and this is
         the framing to use with the panel before they use it on us.</p>
 
       <div class="tw"><table>
@@ -1902,19 +1900,19 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <tbody>
           <tr><td>"Version control for fine-tuned models"</td><td><strong>Done.</strong> Store, commits, branches, checkout, fsck, push. This is genuinely finished and genuinely correct.</td></tr>
           <tr><td>"Crash-safe and tamper-evident"</td><td><strong>Done, and tested.</strong> The strongest part of the project.</td></tr>
-          <tr><td>"Publicly auditable"</td><td><strong>Done up to the hub boundary.</strong> The log is real, the proofs are real, the browser verifier is real. What is missing is the anchor &mdash; so today a hub operator could still rewrite history, and only the anchor closes that.</td></tr>
-          <tr><td>"An ML tool"</td><td><strong>Weakest claim.</strong> We can train and version an adapter. We cannot evaluate it, diff it, or merge it. A version control system for models that cannot tell you whether a model got better is doing half the job.</td></tr>
-          <tr><td>"Blockchain-backed"</td><td><strong>Paper only.</strong> A contract sketch, a store class with no callers, and a well-argued design. Zero deployed code.</td></tr>
+          <tr><td>"Publicly auditable"</td><td><strong>Done up to the hub boundary.</strong> The log is real, the proofs are real, the browser verifier is real. What is missing is the anchor, so today a hub operator could still rewrite history, and only the anchor closes that.</td></tr>
+          <tr><td>"An ML tool"</td><td><strong>Weakest claim.</strong> We can train and version an adapter. On <code>foundation</code> we cannot yet evaluate it, and we cannot diff or merge it at all. The evaluator is written and green on a branch, which makes the first of those a merge rather than a feature, but a version control system for models that cannot tell you whether a model got better is doing half the job.</td></tr>
+          <tr><td>"Blockchain-backed"</td><td><strong>Paper only.</strong> A contract sketch, a store class nothing writes to, and a well-argued design. Zero deployed code.</td></tr>
         </tbody>
       </table></div>
 
       <div class="callout good">
         <h5>How to present this without undercutting the work</h5>
-        <p>The infrastructure is excellent and unusually rigorous for a capstone &mdash; 715 tests, a
+        <p>The infrastructure is excellent and unusually rigorous for a capstone, 715 tests, a
           structurally-impossible-by-construction bug class, RFC-conformant crypto with a demonstrated attack in
           the docstring, a from-scratch SHA-256 with published-vector self-tests. Lead with that. Then name the
-          two gaps yourself, in one sentence each: <em>"the evaluator is written but not yet merged or run on
-          real hardware, and the anchor is designed but not deployed."</em> Naming your own gaps is what makes the
+          two gaps yourself, in one sentence each: <em>"the evaluator is written and green on a branch but not yet
+          merged or run on real hardware, and the anchor is designed but not deployed."</em> Naming your own gaps is what makes the
           rest of the claims credible.</p>
       </div>
     </div>
@@ -1926,7 +1924,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
   <div class="grid">
     <div class="rail"><div class="idx">17</div><div class="eyebrow">Layer 5</div></div>
     <div class="col">
-      <h2>What the chain will &mdash; and will not &mdash; prove</h2>
+      <h2>What the chain will prove, and what it will not</h2>
 
       <p>Stating this precisely <em>before</em> building it, because the overclaim is the tempting one and a
         panel will reach for it immediately.</p>
@@ -1937,7 +1935,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <ul>
             <li>A commit record <strong>existed at a given time</strong></li>
             <li>It has <strong>not been altered or removed since</strong></li>
-            <li>&mdash; including by whoever runs the Hub</li>
+            <li>Including whoever runs the Hub</li>
           </ul>
         </div>
         <div class="card is-plan">
@@ -1954,7 +1952,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         afterwards.</p></blockquote>
 
       <p>Closing that second gap is what dataset fingerprinting, the reproducibility record and Ed25519 commit
-        signing are for &mdash; and all three are unbuilt. Say so.</p>
+        signing are for, and all three are unbuilt. Say so.</p>
 
       <h3>The contract, as designed</h3>
       <pre><code><span class="k">contract</span> AethelAnchor {
@@ -1964,9 +1962,9 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
     mapping(address =&gt; bool) <span class="k">public</span> canAnchor;<span class="c">// allowlist</span>
 
     <span class="k">event</span> Anchored(
-        uint256 <span class="k">indexed</span> batchIndex,  <span class="c">// topic1 — ordering</span>
-        bytes32 <span class="k">indexed</span> root,        <span class="c">// topic2 — reverse lookup: root -> tx</span>
-        uint64  <span class="k">indexed</span> logSize,     <span class="c">// topic3 — which prefix of the log</span>
+        uint256 <span class="k">indexed</span> batchIndex,  <span class="c">// topic1, ordering</span>
+        bytes32 <span class="k">indexed</span> root,        <span class="c">// topic2, reverse lookup: root -> tx</span>
+        uint64  <span class="k">indexed</span> logSize,     <span class="c">// topic3, which prefix of the log</span>
         address submitter,
         uint64  timestamp
     );
@@ -1981,9 +1979,9 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
           <tr><td><code>logSize</code> must be monotonic</td><td>A non-increasing <code>logSize</code> is not a mistake, it is a signature: it means the operator truncated the log. Making it checkable on-chain turns deletion into a visible event.</td></tr>
           <tr><td><code>canAnchor</code> allowlist</td><td>Not optional. Without it, anyone can spam rows that render on our dashboard.</td></tr>
           <tr><td>Append-only, no update or delete</td><td>Same principle as <code>hub/log.py</code>: the guarantee is the absence of a code path.</td></tr>
-          <tr><td>Etherscan-verified source</td><td>Unverified, the events render as raw hex &mdash; unreadable on a projector, and unauditable by a panel member on their phone.</td></tr>
+          <tr><td>Etherscan-verified source</td><td>Unverified, the events render as raw hex, unreadable on a projector, and unauditable by a panel member on their phone.</td></tr>
           <tr><td><code>pending &rarr; confirmed</code> states</td><td>Sepolia reorgs are real. A UI that shows "anchored" the instant a transaction is broadcast is lying about finality.</td></tr>
-          <tr><td>The Hub holds no key</td><td>Anchoring runs as a separate job with the wallet credential. A fully compromised Hub still cannot forge an anchor &mdash; which is the entire point of anchoring a Hub you do not trust.</td></tr>
+          <tr><td>The Hub holds no key</td><td>Anchoring runs as a separate job with the wallet credential. A fully compromised Hub still cannot forge an anchor, which is the entire point of anchoring a Hub you do not trust.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -2000,10 +1998,10 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
       <div class="tw"><table>
         <thead><tr><th>Owner</th><th>Module</th><th>Why this seam</th><th class="mono">tests</th></tr></thead>
         <tbody>
-          <tr><td><strong>Sathwik</strong></td><td>Hub server contract and transparency machinery &mdash; <code>api.py</code>, <code>storage.py</code>, <code>log.py</code>, <code>security.py</code>, <code>app.py</code>, <code>verify.js</code> &mdash; plus <code>push</code>, the Merkle log, and L5 chain</td><td>The log is the bridge between the core and the chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves, and the leaf is a commit hash produced by the API he owns.</td><td class="mono">249</td></tr>
-          <tr><td><strong>Adyaa G B</strong></td><td>The rendered dashboard and design system &mdash; <code>views.py</code>, <code>hub.css</code>, the templates, <code>build_fonts.py</code> &mdash; plus <code>init</code> and the commit-record schema</td><td>She reduced the commit record from everything-we-could-capture to only what provenance and verification need, which is what makes a record small enough to anchor. The pages are where that record becomes legible.</td><td class="mono">187</td></tr>
-          <tr><td><strong>Karthik</strong></td><td>L0/L1 &mdash; <code>aethel/core/</code>, the CLI commands &mdash; plus divergence detection and, later, <code>merge</code></td><td>Knows the original code; the rebuild is the highest-value thing to own. Divergence detection is the one idea here that Git does not have: cosine similarity between consecutive patches, with a stay-or-fork prompt rather than an automatic branch.</td><td class="mono">186</td></tr>
-          <tr><td><strong>Shravan</strong></td><td>The error contract and generated API reference &mdash; <code>errors.py</code>, <code>apidocs.py</code>, <code>prose.py</code> &mdash; plus <code>commit</code>, <code>train</code> and the evaluation package</td><td>Evaluation is fully isolated behind one field in the commit record, and the Hub already prefers it. Written and working on a branch; not yet merged, and never yet run on a machine with torch.</td><td class="mono">93</td></tr>
+          <tr><td><strong>Sathwik</strong></td><td>Hub server contract and transparency machinery (<code>api.py</code>, <code>storage.py</code>, <code>log.py</code>, <code>security.py</code>, <code>app.py</code>, <code>verify.js</code>) plus <code>push</code>, the Merkle log, and L5 chain</td><td>The log is the bridge between the core and the chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves, and the leaf is a commit hash produced by the API he owns.</td><td class="mono">249</td></tr>
+          <tr><td><strong>Adyaa G B</strong></td><td>The rendered dashboard and design system (<code>views.py</code>, <code>hub.css</code>, the templates, <code>build_fonts.py</code>) plus <code>init</code> and the commit-record schema</td><td>She reduced the commit record from everything-we-could-capture to only what provenance and verification need, which is what makes a record small enough to anchor. The pages are where that record becomes legible.</td><td class="mono">187</td></tr>
+          <tr><td><strong>Karthik</strong></td><td>L0/L1: <code>aethel/core/</code>, the CLI commands, plus divergence detection and, later, <code>merge</code></td><td>Knows the original code; the rebuild is the highest-value thing to own. Divergence detection is the one idea here that Git does not have: cosine similarity between consecutive patches, with a stay-or-fork prompt rather than an automatic branch. It is designed and not yet written.</td><td class="mono">186</td></tr>
+          <tr><td><strong>Shravan</strong></td><td>The error contract and generated API reference: <code>errors.py</code>, <code>apidocs.py</code>, <code>prose.py</code>, plus <code>commit</code>, <code>train</code> and the evaluation package</td><td>Evaluation is fully isolated behind one field in the commit record, and the Hub already prefers it. Pushed to <code>feat/evaluation-metrics</code> with four tests and all five CI checks green; not merged, and never yet run on a machine with torch.</td><td class="mono">93</td></tr>
         </tbody>
       </table></div>
 
@@ -2012,7 +2010,7 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         <thead><tr><th class="mono">M</th><th>window</th><th>content</th><th>state</th></tr></thead>
         <tbody>
           <tr><td class="mono">M0</td><td>2 weeks, to the review</td><td>Object-layer rebuild, atomic writes, ref locking, corruption regression test, <code>fsck</code>, CI, FastAPI Hub + dashboard, <code>push</code>, append-only Merkle log, <code>/ops</code>, docs rewrite</td><td><span class="pill done">mostly done</span></td></tr>
-          <tr><td class="mono">M0</td><td>&#8203;</td><td>Merge the evaluator and record one real run (accuracy, eval loss, adapter size, current-vs-parent) &middot; merge divergence detection with its tests &middot; <code>aethel diff</code> &middot; base-model reference + <code>aethel base verify</code> &middot; <code>AethelAnchor</code> on Sepolia + <code>aethel anchor</code> + PASS&rarr;tamper&rarr;FAIL page &middot; Pinata mirror</td><td><span class="pill plan">outstanding</span></td></tr>
+          <tr><td class="mono">M0</td><td>&#8203;</td><td>Merge the evaluator and record one real run (accuracy, eval loss, adapter size, current-vs-parent) &middot; write divergence detection with its tests &middot; <code>aethel diff</code> &middot; base-model reference + <code>aethel base verify</code> &middot; <code>AethelAnchor</code> on Sepolia + <code>aethel anchor</code> + PASS&rarr;tamper&rarr;FAIL page &middot; Pinata mirror</td><td><span class="pill plan">outstanding</span></td></tr>
           <tr><td class="mono">M1</td><td>weeks 3&ndash;6</td><td><code>merge</code> (task arithmetic, TIES, DARE) with a merged-vs-parent accuracy table &middot; dataset fingerprinting &middot; Ed25519 signing + <code>aethel verify</code> &middot; <code>aethel reproduce</code> &middot; reproducibility study: same seed + revision &rarr; identical patch SHA-256 across both machines &middot; <code>gc</code></td><td><span class="pill plan">planned</span></td></tr>
           <tr><td class="mono">M2</td><td>weeks 7&ndash;11</td><td>Auth, multi-user, multiple base models, proofs served per commit, pagination, real deployment</td><td><span class="pill plan">planned</span></td></tr>
           <tr><td class="mono">M3</td><td>weeks 12&ndash;15</td><td>Batched anchoring on a schedule, per-repo filtering over the hub-wide log, reorg-aware confirmation states, gas and latency measurements</td><td><span class="pill plan">planned</span></td></tr>
@@ -2025,15 +2023,20 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
 
       <h3>If you fix three things this week</h3>
       <ol>
-        <li><strong>Merge the evaluator and record one real run.</strong> The code exists on a branch and the
-          Hub already reads the field it writes, so this is an afternoon of integration, not a feature. Until it
+        <li><strong>Merge the evaluator and record one real run.</strong> The code is on
+          <code>feat/evaluation-metrics</code>, CI is green on it, and the Hub already reads the field it writes,
+          so this is an afternoon of integration, not a feature. Until it
           lands, "we version models but cannot say if they improved" is the one criticism with no good answer,
-          and the accuracy on the dashboard is honestly labelled as seeded.</li>
+          and the accuracy on the dashboard is honestly labelled as seeded. Worth doing on the way in: its gate
+          is a module-level <code>importorskip("torch")</code>, so all four of its tests skip in the four core
+          jobs even though the comparison arithmetic imports nothing.</li>
         <li><strong>Deploy <code>AethelAnchor</code> to Sepolia.</strong> Even a single anchored root turns the
-          whole L5 story from a slide into a link. <code>AnchorStore</code> is already waiting for a caller.</li>
-        <li><strong>Reconcile the docs with the tree.</strong> Delete the <code>index.db</code> and
-          <code>reindex</code> references, fix <code>train.py</code>'s docstring, rename the packages in the
-          plan. An hour of work that removes every "your own docs contradict this" question.</li>
+          whole L5 story from a slide into a link. <code>AnchorStore</code> is already read by the health
+          endpoint and by <code>/ops</code>; what it is missing is the job that writes to it.</li>
+        <li><strong>Write divergence detection.</strong> It is the one promised feature that exists only as a
+          design: embed a patch and its parent, take the cosine similarity, and prompt rather than branch
+          automatically when it drops below the threshold. The similarity arithmetic and the threshold decision
+          are testable with hand-built vectors and no torch, so it can land green on every Python version.</li>
       </ol>
     </div>
   </div>
@@ -2050,43 +2053,44 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
       <p>Git stores whole files and has no notion of a base model, a training run, or a public log. The
         interesting parts here are the ones Git does not have: a base referenced by immutable revision SHA so
         reproducibility is checkable, and a Merkle transparency log so a stranger can verify history without
-        trusting the server. The Git-shaped parts &mdash; content addressing, sharding, ref-last ordering &mdash;
+        trusting the server. The Git-shaped parts (content addressing, sharding, ref-last ordering)
         we copied deliberately, because they are correct and battle-tested.</p>
 
       <h4>"Why not DVC, MLflow, or Hugging Face Hub?"</h4>
       <p>They version artifacts by pointer and trust the server's metadata. None gives you a
         cryptographic receipt you can check offline, and none makes tampering by the registry operator
-        detectable. That is the specific gap this fills. It is a narrow gap &mdash; say so.</p>
+        detectable. That is the specific gap this fills. It is a narrow gap, say so.</p>
 
       <h4>"Why blockchain? Isn't that bolted on?"</h4>
-      <p>It would be, if it were storing the models. It isn't &mdash; it stores <em>one 32-byte root per batch</em>.
+      <p>It would be, if it were storing the models. It isn't; it stores <em>one 32-byte root per batch</em>.
         The honest framing: the Merkle log already prevents <em>undetected</em> tampering by the operator, because
         every issued receipt commits to a root. What it cannot do is stop the operator from serving a
         <em>consistent alternate history</em> to someone who has no old receipt. An external append-only
         timestamp closes that, and a public testnet is the cheapest one that a panel can independently check.</p>
 
       <h4>"You wrote your own SHA-256. Why should we trust it?"</h4>
-      <p>You shouldn't, and it doesn't ask you to. It self-tests against published NIST vectors on every load
-        &mdash; including 55, 56 and 64 byte inputs that straddle the padding boundary where naive
-        implementations fail &mdash; and if any vector mismatches it refuses to display a verdict rather than
+      <p>You shouldn't, and it doesn't ask you to. It self-tests against published NIST vectors on every load,
+        including 55, 56 and 64 byte inputs that straddle the padding boundary where naive
+        implementations fail, and if any vector mismatches it refuses to display a verdict rather than
         showing a tick. It exists only because <code>crypto.subtle</code> is undefined on plain HTTP, which is
         what the demo runs on. On a deployed HTTPS hub the native API would be preferable.</p>
 
       <h4>"How do you know the S1.1 bug is really gone?"</h4>
       <p>There is no check to bypass. A commit's address is the hash of the commit's own bytes, so two commits
-        that differ in any field &mdash; message included &mdash; land at different paths. Eight regression tests
+        that differ in any field (message included) land at different paths. Eight regression tests
         pin it, one of which asserts we didn't take the lazy fix of storing a full weights copy per commit.</p>
 
       <h4>"What happens if I Ctrl-C during a commit?"</h4>
-      <p>You get unreferenced objects and an unchanged branch pointer &mdash; a valid repository in which the
+      <p>You get unreferenced objects and an unchanged branch pointer, a valid repository in which the
         commit simply did not happen. Objects are written before the ref, and the ref move is a single
         <code>os.replace</code>. Cleanup is under <code>except BaseException</code> specifically so
         <code>KeyboardInterrupt</code> unlinks the temp file. Demonstrate it live; it is a good moment.</p>
 
       <h4>"Can it evaluate models?"</h4>
-      <p>The code to do it is written, on a branch, not yet merged &mdash; eval loss, accuracy,
-        adapter size, and a current-versus-parent comparison that says whether the new adapter improved, called
-        from <code>aethel commit</code> so it runs without being asked. What is on <code>foundation</code> today
+      <p>The code to do it is written and pushed to <code>feat/evaluation-metrics</code>, green on CI, not yet
+        merged: eval loss, accuracy, adapter size, and a current-versus-parent comparison that says whether the
+        new adapter improved, called from <code>aethel commit</code> so it runs without being asked. It ships four
+        tests, all gated on the <code>[ml]</code> extra. What is on <code>foundation</code> today
         records only the <code>Trainer</code>'s loss and runtime. The Hub already prefers the evaluation field
         over the training metrics when both are present, so the dashboard needs no change to show real numbers;
         it has simply never been run on a machine with torch installed. If asked how good the number is, say the
@@ -2096,9 +2100,9 @@ real.get_root() == forged.get_root()        <span class="c"># -> True</span></co
         dress it up beyond that.</p>
 
       <h4>"What's the biggest weakness?"</h4>
-      <p>Two, and they are worth volunteering: the ML layer is thin &mdash; evaluation and divergence detection
-        are written but unmerged and untested, <code>diff</code> and <code>merge</code> are unwritten &mdash; and
-        the chain layer does not exist outside a design document. The infrastructure underneath both is finished
+      <p>Two, and they are worth volunteering. The ML layer is thin: evaluation is written and tested but not
+        merged, divergence detection is designed and not yet written, and <code>diff</code> and <code>merge</code>
+        do not exist. And the chain layer does not exist outside a design document. The infrastructure underneath both is finished
         and heavily tested, which is why those two are tractable rather than existential.</p>
     </div>
   </div>

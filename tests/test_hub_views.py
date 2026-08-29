@@ -152,7 +152,7 @@ class TestEvaluationBlockMetrics:
 
         Training metrics fall out of fitting the adapter; the evaluation block is
         a deliberate measurement of the finished artifact. When they disagree the
-        second is the one to publish — not because it is held out (it is not yet;
+        second is the one to publish, not because it is held out (it is not yet;
         the evaluator scores the dataset recorded at training time) but because it
         measures the thing the commit actually contains.
         """

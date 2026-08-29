@@ -1,4 +1,4 @@
-# Tweet Eval Hate Speech Detection — Binary (hateful / not hateful)
+# Tweet Eval Hate Speech Detection: Binary (hateful / not hateful)
 # Compatible with: aethel train --config train_yaml/tweet_eval_hate_config.yaml
 
 dataset: ./datasets/tweet_eval_hate

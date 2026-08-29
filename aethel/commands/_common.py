@@ -36,7 +36,7 @@ def render_detached_head(exc: DetachedHead, attempted: str) -> None:
     right call: a commit made here is referenced by nothing and the next
     checkout orphans it.
     """
-    err_console.print("[bold yellow]Detached HEAD — commit blocked.[/bold yellow]")
+    err_console.print("[bold yellow]Detached HEAD, commit blocked.[/bold yellow]")
     err_console.print()
     err_console.print("You are not on any branch.")
     err_console.print(f"HEAD points directly at commit [cyan]{exc.commit_hash[:12]}[/cyan]")

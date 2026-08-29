@@ -225,13 +225,19 @@ class TestHistory:
 
         The old checkout path could not resolve a commit without repo.db
         (checkout.py:51-70), which made the documented "copy the folder"
-        claim false.
+        claim false. Here there is no database to resolve against, and this
+        test is what stops one reappearing.
         """
         make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
         second = make_commit(core_repo, base_hash, "second", ADAPTER_BYTES_B)
 
-        core_repo.index_path.unlink(missing_ok=True)
+        databases = [
+            path
+            for path in core_repo.aethel_dir.rglob("*")
+            if path.suffix in {".db", ".sqlite", ".sqlite3"}
+        ]
 
+        assert databases == []
         assert len(list(walk_history(core_repo, second))) == 2
 
 

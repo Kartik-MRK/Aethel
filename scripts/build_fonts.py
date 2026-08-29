@@ -298,7 +298,7 @@ beside this file.
 ## public-sans.woff2
 
 Public Sans, from the United States Web Design System.
-<https://github.com/uswds/public-sans> — Copyright 2015 The Public Sans Project
+<https://github.com/uswds/public-sans>, Copyright 2015 The Public Sans Project
 Authors. Licence: `public-sans-OFL.txt`.
 
 Subset to Latin-1 and Latin Extended-A, weight axis limited to 400-700, and all
@@ -308,7 +308,7 @@ original family name.
 
 ## aethel-mono.woff2
 
-Derived from IBM Plex Mono. <https://github.com/IBM/plex> — Copyright 2017 IBM
+Derived from IBM Plex Mono. <https://github.com/IBM/plex>, Copyright 2017 IBM
 Corp. with Reserved Font Name "Plex". Licence: `aethel-mono-OFL.txt`.
 
 Subset to ASCII plus a few identifier and numeric marks, weight axis limited to

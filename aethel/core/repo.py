@@ -5,7 +5,6 @@ Layout::
     .aethel/
         HEAD                     active branch or detached commit
         config.json              repository configuration
-        index.db                 DERIVED CACHE ONLY -- rebuildable by `aethel reindex`
         refs/heads/<branch>      branch tips
         objects/blobs/...        content-addressed object store
         objects/trees/...
@@ -13,11 +12,12 @@ Layout::
         objects/bases/...
         workspace/               staging area written by `aethel train`
 
-The index is a cache, never a source of truth. Every read path must work from
-the object store alone. The old implementation violated this -- checkout
-could not resolve a commit without SQLite (checkout.py:51-70) -- which made
-the documented "copy the folder and you have the version" claim false. Here,
-deleting index.db costs a reindex and nothing else.
+There is deliberately no database in that list. Every read path resolves from
+the object store alone, which is what makes "copy the folder and you have the
+version" true. The old implementation could not: checkout needed SQLite to turn
+a commit hash into a tree (checkout.py:51-70), so a copied repository was inert.
+tests/test_core_commits.py keeps the property honest, asserting that no database
+file exists anywhere under .aethel/ while history still walks.
 """
 
 import json
@@ -30,7 +30,6 @@ from aethel.core.refs import DEFAULT_BRANCH, Refs
 
 AETHEL_DIR_NAME = ".aethel"
 CONFIG_NAME = "config.json"
-INDEX_NAME = "index.db"
 WORKSPACE_NAME = "workspace"
 
 #: Bumped when the on-disk layout changes incompatibly. Version 1 was the
@@ -105,10 +104,6 @@ class Repo:
     @property
     def config_path(self) -> Path:
         return self.aethel_dir / CONFIG_NAME
-
-    @property
-    def index_path(self) -> Path:
-        return self.aethel_dir / INDEX_NAME
 
     # -- configuration -----------------------------------------------------
 

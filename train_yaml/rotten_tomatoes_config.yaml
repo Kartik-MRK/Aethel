@@ -1,4 +1,4 @@
-# Rotten Tomatoes Movie Review Sentiment — Binary (positive / negative)
+# Rotten Tomatoes Movie Review Sentiment: Binary (positive / negative)
 # Compatible with: aethel train --config train_yaml/rotten_tomatoes_config.yaml
 
 dataset: ./datasets/rotten_tomatoes

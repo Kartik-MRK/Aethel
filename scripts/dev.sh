@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aethel development setup — Linux / macOS.
+# Aethel development setup for Linux and macOS.
 # Idempotent: safe to re-run. Mirrors scripts/dev.ps1 exactly.
 set -euo pipefail
 
@@ -25,10 +25,10 @@ pip install -e ".[dev,hub]" --quiet
 
 echo
 echo "Running checks"
-# The whole tree, not just aethel/ and tests/ — a lint that skips hub/ and
+# The whole tree, not just aethel/ and tests/: a lint that skips hub/ and
 # scripts lets exactly the code under active development drift.
 ruff check .
-pytest tests/ -q
+pytest tests/
 
 echo
 echo "Ready. Activate with:  source $VENV/bin/activate"

@@ -2,7 +2,7 @@
 
 Nothing here is hard-coded to a host or a port. The Hub may run on a
 teammate's laptop, an Oracle Cloud VM, or behind a tunnel, and the demo
-machine decides at run time via `AETHEL_HUB_URL` — so a deployment choice
+machine decides at run time via `AETHEL_HUB_URL`, so a deployment choice
 never requires a code change.
 
 Chain settings are read but unused until the anchoring layer lands. They live
@@ -14,8 +14,8 @@ and the wallet key that will sign anchor transactions are deliberately absent:
 they belong to the command-line tools that pin and anchor, not to the process
 that serves HTML to a browser. A web process that holds no outbound credential
 has none to leak, and the split costs nothing because pinning and anchoring are
-already client-side operations. What the Hub gets instead is `AETHEL_IPFS_GATEWAY`
-— a public URL, useful for building links, worthless to an attacker.
+already client-side operations. What the Hub gets instead is `AETHEL_IPFS_GATEWAY`,
+a public URL, useful for building links and worthless to an attacker.
 """
 
 import os

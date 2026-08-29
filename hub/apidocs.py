@@ -105,7 +105,7 @@ PUBLISHING = Group(
             purpose="Ask which objects the Hub is missing.",
             detail=(
                 "Send the hashes the client holds; get back only the ones the Hub "
-                "does not. This is what makes a push incremental — a second push of "
+                "does not. This is what makes a push incremental, a second push of "
                 "a branch that added one commit uploads one commit, not the whole "
                 "history. Unknown object kinds and malformed hashes are dropped from "
                 "the request rather than rejected, so a newer client talking to an "
@@ -140,7 +140,7 @@ PUBLISHING = Group(
                 Param("blob_hash", PATH, "SHA-256 of the bytes being sent, lower-case hex."),
             ),
             returns=(
-                "`{hash, status, bytes}`. `status` is `stored` or `already-present` — "
+                "`{hash, status, bytes}`. `status` is `stored` or `already-present`, "
                 "re-uploading a blob the Hub has is a no-op, not an error."
             ),
             notable=(
@@ -155,7 +155,7 @@ PUBLISHING = Group(
             purpose="Upload a commit, tree, or base reference.",
             detail=(
                 "Same contract as a blob upload, for the three structured object "
-                "kinds. The body is the object's canonical JSON — canonical because "
+                "kinds. The body is the object's canonical JSON, canonical because "
                 "the hash is taken over those exact bytes, so re-serialising with "
                 "different key order or spacing would produce a different digest and "
                 "be rejected."
@@ -180,7 +180,7 @@ PUBLISHING = Group(
                 "Ancestors are appended oldest-first, so log order matches commit "
                 "order. The append is idempotent: re-pushing a branch adds only the "
                 "genuinely new commits and leaves the root unchanged when there are "
-                "none. That is why the response separates the two — `logged_indices` "
+                "none. That is why the response separates the two, `logged_indices` "
                 "is where the whole history sits, `appended_indices` only what this "
                 "call created."
             ),
@@ -267,7 +267,7 @@ READING = Group(
             path="/api/v1/bases/{base_hash}",
             purpose="The base model a commit was trained against.",
             detail=(
-                "Base weights are never stored here — a version is a patch plus a "
+                "Base weights are never stored here, a version is a patch plus a "
                 "pinned reference. This object is that reference: model id, immutable "
                 "revision SHA, architecture, and the hashes of the config and "
                 "tokenizer as they were fetched. It is the reproducibility contract."
@@ -282,8 +282,8 @@ READING = Group(
             detail=(
                 "Returns the raw file with `X-Aethel-Blob-Sha256` set to the digest "
                 "requested. **Re-hash what you receive and compare.** That single "
-                "check is what lets any transport — this Hub, an IPFS gateway, a USB "
-                "stick — be untrusted without risking integrity, and it is the reason "
+                "check is what lets any transport (this Hub, an IPFS gateway, a USB "
+                "stick) be untrusted without risking integrity, and it is the reason "
                 "nothing in this system needs to trust the server it downloaded from."
             ),
             params=(Param("blob_hash", PATH, "Blob hash."),),
@@ -307,7 +307,7 @@ LOG = Group(
             returns=(
                 "`{size, root, entries, last_anchor, current_root_anchored}`. "
                 "`current_root_anchored` is false whenever commits have been accepted "
-                "since the last anchor — a normal state, not a fault."
+                "since the last anchor, a normal state, not a fault."
             ),
         ),
         Endpoint(
@@ -317,13 +317,13 @@ LOG = Group(
             detail=(
                 "The response is self-contained: leaf index, sibling path, root, and "
                 "log size. A verifier recomputes the root from those alone and never "
-                "calls back here. That independence is the whole point — it is what "
+                "calls back here. That independence is the whole point; it is what "
                 "makes a dishonest Hub unable to fake inclusion, because forging a "
                 "proof would mean finding a SHA-256 collision."
             ),
             params=(Param("commit_hash", PATH, "Commit hash."),),
             returns="`{commit_hash, leaf_index, log_size, root, proof}`.",
-            notable=(("404", "The commit is not in the log — it was never pushed."),),
+            notable=(("404", "The commit is not in the log; it was never pushed."),),
             example="""{
   "commit_hash": "1b855137d2897c3e…",
   "leaf_index": 7,
@@ -363,7 +363,7 @@ OPERATIONS = Group(
             purpose="Per-subsystem health.",
             detail=(
                 "Every check is wrapped so one dead dependency degrades its own row "
-                "rather than failing the page — a status endpoint that cannot answer "
+                "rather than failing the page, a status endpoint that cannot answer "
                 "during an incident is useless precisely when it is needed. The "
                 "overall verdict is the worst single row.\n\n"
                 "The row worth watching is **Log vs anchored root**: it recomputes the "
@@ -407,7 +407,7 @@ CONVENTIONS = (
         "Authentication",
         "`Authorization: Bearer <token>`",
         "Required on the four publishing endpoints, and only when the Hub was "
-        "started with a token configured. Reads are always open — a transparency "
+        "started with a token configured. Reads are always open, a transparency "
         "log that needs a credential to read is not transparent.",
     ),
     (
@@ -445,7 +445,7 @@ PUSH_SEQUENCE = (
         method="PUT",
         path="/api/v1/{kind}/{object_hash}",
         note=(
-            "Bases, then trees, then commits — referents before referrers, so the "
+            "Bases, then trees, then commits, referents before referrers, so the "
             "store never holds an object that points at nothing."
         ),
     ),

@@ -1,4 +1,4 @@
-# SST-2 Sentiment Analysis — Binary (positive / negative)
+# SST-2 Sentiment Analysis: Binary (positive / negative)
 # Compatible with: aethel train --config train_yaml/sst2_config.yaml
 
 dataset: ./datasets/sst2

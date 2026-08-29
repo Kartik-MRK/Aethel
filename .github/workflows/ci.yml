@@ -22,13 +22,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install (base only — deliberately no torch, no fastapi)
+      - name: Install (base only; deliberately no torch, no fastapi)
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Test
-        run: pytest tests/ -q
+        run: pytest tests/
 
       - name: Coverage (core must stay well covered)
         run: |
@@ -63,4 +63,4 @@ jobs:
         run: python -c "import fastapi.testclient, httpx, jinja2, hub.app"
 
       - name: Test
-        run: pytest tests/ -q
+        run: pytest tests/

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import digest, figure, pill %}
 {% set nav = 'repos' %}
-{% block title %}{{ repo.name }} — Aethel Hub{% endblock %}
+{% block title %}{{ repo.name }} · Aethel Hub{% endblock %}
 
 {% block content %}
 <div class="lede">
@@ -88,7 +88,7 @@
            role="img"
            aria-label="Line chart of evaluation accuracy per commit, axis {{ g.low_pct }} to {{ g.high_pct }} percent{% if series.lines | length > 1 %}, one line per branch: {{ series.lines | map(attribute='branch') | join(', ') }}{% endif %}. Values are also listed in the table below.">
 
-        {# Solid hairline gridlines, one step off the surface — never dashed #}
+        {# Solid hairline gridlines, one step off the surface, never dashed #}
         {% for line in g.grid %}
         <line class="grid-line" x1="{{ g.left }}" y1="{{ line.y }}" x2="{{ g.right }}" y2="{{ line.y }}"/>
         <text class="axis-text" x="{{ g.left - 8 }}" y="{{ line.y + 4 }}" text-anchor="end">{{ line.label }}</text>
@@ -215,7 +215,7 @@
                   {% endfor %}
                 </svg>
                 <span class="rail-node{{ ' root' if row.is_root }}"
-                      title="{{ 'Root commit — no parent' if row.is_root else row.short }}"></span>
+                      title="{{ 'Root commit, no parent' if row.is_root else row.short }}"></span>
               </td>
               <td>
                 <a class="hash-strong" href="/c/{{ row.hash }}">{{ row.short }}</a>

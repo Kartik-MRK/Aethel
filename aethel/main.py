@@ -10,7 +10,7 @@ import typer
 from aethel.commands import branch, checkout, commit, fsck, init, log, push
 
 app = typer.Typer(
-    help="Aethel — version control and provenance for LoRA adapters.",
+    help="Aethel: version control and provenance for LoRA adapters.",
     add_completion=False,
     no_args_is_help=True,
 )

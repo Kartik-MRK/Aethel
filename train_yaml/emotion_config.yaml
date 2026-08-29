@@ -1,4 +1,4 @@
-# Emotion Detection — 6 classes (sadness, joy, love, anger, fear, surprise)
+# Emotion Detection: 6 classes (sadness, joy, love, anger, fear, surprise)
 # Compatible with: aethel train --config train_yaml/emotion_config.yaml
 
 dataset: ./datasets/emotion

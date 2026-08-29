@@ -1,7 +1,7 @@
 # Landing work on a branch
 
-This is the procedure for bringing work that was written outside the repository — a new package, a
-new command, a change to an existing module — into `foundation` without breaking anyone else's copy.
+This is the procedure for bringing work that was written outside the repository, a new package, a
+new command, a change to an existing module, into `foundation` without breaking anyone else's copy.
 It is deliberately short. Read it once, then follow the command blocks.
 
 The rule behind all of it: **`foundation` must be green at every commit.** Anyone should be able to
@@ -18,7 +18,7 @@ foundation    the integration branch. Everything lands here first, by pull reque
 <your work>   your branch, cut from foundation, one topic, opened as a PR into foundation.
 ```
 
-`main` is behind `foundation` on purpose — it moves when a review boundary is passed, not when a
+`main` is behind `foundation` on purpose; it moves when a review boundary is passed, not when a
 feature is finished. **Always branch from `foundation`, never from `main`**, or your first PR will
 carry a hundred unrelated commits.
 
@@ -33,8 +33,8 @@ git clone https://github.com/Kartik-MRK/Aethel.git
 cd Aethel
 ```
 
-Then install it in editable mode with the extras you need. The base install is deliberately small —
-no torch, no FastAPI — so pick what your work touches:
+Then install it in editable mode with the extras you need. The base install is deliberately small,
+no torch, no FastAPI, so pick what your work touches:
 
 ```bash
 python3 -m pip install -e '.[dev]'            # tests + linter. Everyone needs this.
@@ -45,14 +45,14 @@ python3 -m pip install -e '.[dev,hub,ml]'     # ...plus torch/transformers/peft 
 Confirm the baseline before you change anything:
 
 ```bash
-python3 -m pytest -q          # expect: 715 passed
+python3 -m pytest              # expect: 715 passed
 ruff check .                  # expect: All checks passed!
 ```
 
-If either of those is red on a fresh clone, stop and say so in the group — that is a broken
+If either of those is red on a fresh clone, stop and say so in the group; that is a broken
 `foundation`, not your problem to work around.
 
-> `ruff check .` — with the dot. Never `ruff check *`, which the shell expands into a file list that
+> `ruff check .`, with the dot. Never `ruff check *`, which the shell expands into a file list that
 > silently skips dotfiles and directories.
 
 ### If you are on Windows, read this bit
@@ -71,7 +71,7 @@ and pick LF. Notepad and older PowerShell ISE write CRLF and will not ask.
 
 Two reasons this matters more here than in a normal repository. A file committed with CRLF shows as
 *every line changed*, so a two-line fix arrives as a 400-line diff and nobody can review it. And this
-project addresses content by SHA-256 — the same text checked out with CRLF hashes to something
+project addresses content by SHA-256, the same text checked out with CRLF hashes to something
 different from the LF original, so mixed endings could produce two different object hashes for
 identical content. That is the one bug class the whole storage layer exists to prevent.
 
@@ -118,7 +118,7 @@ your own name, `new`, `final`, `final2`.
 | A new subsystem | `aethel/<name>/` with an `__init__.py` that exports the public functions |
 | A new CLI command | `aethel/commands/<name>.py`, registered in `aethel/main.py` |
 | Anything Hub-side | `hub/<name>.py`; templates in `hub/templates/`, assets in `hub/static/` |
-| Tests | `tests/test_<area>.py` — one file per module, matching the existing names |
+| Tests | `tests/test_<area>.py`: one file per module, matching the existing names |
 | A design note | `docs/design/<name>.md` |
 
 Copy the files in by hand rather than replacing directories. If you are tempted to `cp -r` a whole
@@ -131,8 +131,8 @@ check `git status --short` before every commit anyway and look at what is actual
 `git diff --cached --stat`.
 
 One gotcha in the other direction: `.gitignore` also excludes `*.json`, `*.csv`, `*.safetensors` and
-`*.bin` globally, because those are almost always data here. If you genuinely need to commit one — a
-small test fixture, say — add it with `git add -f path/to/file.json` and mention it in the PR so it
+`*.bin` globally, because those are almost always data here. If you genuinely need to commit one, a
+small test fixture, say, add it with `git add -f path/to/file.json` and mention it in the PR so it
 is a visible decision rather than a surprise.
 
 ---
@@ -152,7 +152,7 @@ pytestmark = pytest.mark.ml
 ```
 
 The `ml` marker is already declared in `pyproject.toml`, and the same pattern with `"fastapi"` is
-used by every Hub test file — `tests/test_hub_views.py` is the example to copy. In library code the
+used by every Hub test file, `tests/test_hub_views.py` is the example to copy. In library code the
 equivalent is to import the heavy module inside the function that uses it, not at module top level,
 so that `aethel --help` still works on a machine with no torch.
 
@@ -164,14 +164,14 @@ Run all four. They take under fifteen seconds together.
 
 ```bash
 ruff check .
-python3 -m pytest -q
+python3 -m pytest
 git status --short
 git diff --cached --stat
 ```
 
 Then check the list:
 
-- The suite passes, and the number went **up** by however many tests you added — not down.
+- The suite passes, and the number went **up** by however many tests you added, not down.
 - Nothing you added is unreachable from a test. A module with no test does not count as landed.
 - No secret, key, token, mnemonic or absolute path from your machine appears anywhere in the diff.
 - No AI-assistant attribution, co-author trailer or generated signature in any commit message, file
@@ -195,7 +195,7 @@ Then check the list:
 git push -u origin feat/evaluation-metrics
 ```
 
-Then open a PR into `foundation` — not `main` — on GitHub. Write three things in the body:
+Then open a PR into `foundation` (not `main`) on GitHub. Write three things in the body:
 
 1. **What it does**, in two sentences.
 2. **How to see it work**, as commands someone else can paste.
@@ -213,65 +213,72 @@ git rebase origin/foundation
 git push --force-with-lease
 ```
 
-`--force-with-lease` rather than `--force` — it refuses if someone else pushed to your branch in the
+`--force-with-lease` rather than `--force`; it refuses if someone else pushed to your branch in the
 meantime, which is exactly the accident plain `--force` causes.
 
 ---
 
 ## 8. The two pieces of work waiting to land
 
-Both of these are written and living outside the repository. Neither one needs anybody else's files
-changed, which is the point of the seams — the interfaces are already there.
+Neither one needs anybody else's files changed, which is the point of the seams: the interfaces are
+already there. The first has landed on a branch; the second has not been written.
 
 ### The evaluation and comparison package
 
-Lands as `aethel/evaluation/` — dataset loading, base-plus-adapter loading, loss/accuracy/adapter
-size, and the current-versus-parent comparison. Two call sites come with it, and **both have to be
-written; neither exists on `foundation` today**:
+This one is written. It is on `origin/feat/evaluation-metrics` as `aethel/evaluation/`, dataset
+loading, base-plus-adapter loading, loss/accuracy/adapter size, and the current-versus-parent
+comparison, and it is waiting to be merged into `foundation`. Both call sites came with it:
 
 - `aethel/commands/commit.py` calls the evaluator and writes the result into
   `training_info["evaluation"]` before the commit object is built.
 - `aethel/commands/log.py` prefers `training_info["evaluation"]["current"]["accuracy"]` over the
-  trainer metrics, falling back to the existing `metrics.get("eval_accuracy", ...)` when there is no
-  evaluation block. Line 81 is the one to change.
+  trainer metrics, falling back to `metrics.get("eval_accuracy", ...)` when there is no evaluation
+  block.
 
-**The import in `commit.py` must be deferred into the function body.** `aethel/evaluation/` imports
-torch, transformers and peft at module scope, `aethel/main.py` imports `commit` at module scope, and
-the four `core` CI jobs install `.[dev]` with no ML stack. A top-level
-`from aethel.evaluation.evaluator import ...` in `commit.py` therefore breaks `aethel --help` and
-collapses every core test into a collection error. `aethel/main.py:33-53` is the pattern to copy: the
-import sits inside the function, inside `try/except ImportError`, and the command degrades instead of
-dying. Evaluation should skip with a warning on a base install, not fail the commit.
+**The import in `commit.py` had to be deferred into the function body, and is.** `aethel/evaluation/`
+imports torch, transformers and peft at module scope, `aethel/main.py` imports `commit` at module
+scope, and the four `core` CI jobs install `.[dev]` with no ML stack. A top-level
+`from aethel.evaluation.evaluator import ...` in `commit.py` would therefore break `aethel --help`
+and collapse every core test into a collection error. `aethel/main.py:33-53` is the pattern, and
+`commit.py:63-79` on that branch follows it: the import sits inside the function, inside
+`try/except ImportError`, and the command degrades instead of dying. Evaluation skips with a warning
+on a base install rather than failing the commit. Anyone adding a second call site copies the same
+shape.
 
 What already exists on the other side of the seam, so **do not change it**:
 
 - `hub/views.py` reads `training_info["evaluation"]["current"]` and prefers it over the training
   metrics when both are present (`_first_metric`). The dashboard's accuracy column and chart will
-  start showing real numbers the moment real ones arrive — no Hub change needed.
+  start showing real numbers the moment real ones arrive, no Hub change needed.
 - `training_info["metrics"]` stays where it is. That is the trainer's loss and runtime, a different
   measurement, and both shapes are expected to coexist in one commit record.
-- On a root commit, `"parent"` and `"comparison"` are `None`, not zeroes. Keep that — the dashboard
+- On a root commit, `"parent"` and `"comparison"` are `None`, not zeroes. Keep that, the dashboard
   distinguishes "not measured" from a real value of zero, and the tests around the metrics pipeline
   assert that distinction.
 
-Still owed with it: its own test file, `tests/test_evaluation.py`, guarded as in section 5, and a real
-run recorded so the numbers on the dashboard stop being seeded fixtures.
+It ships `tests/test_evaluation.py` with four tests, gated on the `[ml]` extra, and all five CI check
+runs are green on the branch. Still owed: the merge itself, and a real run recorded on a machine with
+torch so the numbers on the dashboard stop being seeded fixtures. Worth fixing on the way in: the gate
+is a module-level `pytest.importorskip("torch")`, so all four tests skip in the four core jobs even
+though `compare_metrics` needs no torch at all. Moving that one test into an ungated module would give
+the comparison logic real coverage on every Python version.
 
 And one correction to make on the way in, because it changes what the number means. The evaluator
-currently calls `load_validation_dataset`, which reads `dataset_file` out of `training_info.json` —
+currently calls `load_validation_dataset`, which reads `dataset_file` out of `training_info.json`,
 that is the file the adapter *trained* on, so the accuracy it reports is accuracy on seen data. The
 current-versus-parent comparison is still meaningful, because both sides are scored the same way, but
 the absolute figure is not quotable until there is a deterministic train/validation split and the
 evaluator scores the held-out half. Do that in the same branch if there is time, or immediately after
-it merges. Until it exists, say "accuracy on the training split" and not "accuracy" — the deck and
+it merges. Until it exists, say "accuracy on the training split" and not "accuracy", the deck and
 `README.md` both already say so, and a number that quietly overstates itself is the one thing a panel
 will find.
 
 ### Divergence detection between consecutive patches
 
-Lands as a module under `aethel/core/` or `aethel/ml/` plus a call site in the commit path: embed the
-new patch and its parent, take the cosine similarity, and when it falls below the threshold, prompt
-the user to stay on the branch or fork. Non-destructive — the prompt happens before anything is
+This one is designed and not yet written. It is on no branch. It lands as a module under
+`aethel/core/`, or beside the evaluation package if it ends up needing torch, plus a call site in the
+commit path: embed the new patch and its parent, take the cosine similarity, and when it falls below
+the threshold, prompt the user to stay on the branch or fork. Non-destructive, the prompt happens before anything is
 written, and both answers are valid.
 
 Still owed with it: a test file covering the similarity computation and the threshold decision with
@@ -287,9 +294,9 @@ Two small chores that keep the documentation from drifting:
 
 ```bash
 git fetch origin && git checkout foundation && git pull --ff-only origin foundation
-python3 -m pytest -q                      # the new total is the number everyone quotes
-python3 -m pytest --cov=aethel --cov=hub -q | tail -20
+python3 -m pytest                         # the new total is the number everyone quotes
+python3 -m pytest --cov=aethel --cov=hub | tail -20
 ```
 
-Update the test count and any per-file line counts wherever they are asserted — a stated number that
+Update the test count and any per-file line counts wherever they are asserted, a stated number that
 is no longer true costs more credibility than no number at all.

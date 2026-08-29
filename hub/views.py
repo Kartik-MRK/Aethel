@@ -1,4 +1,4 @@
-"""Dashboard views — server-rendered HTML.
+"""Dashboard views: server-rendered HTML.
 
 Server-rendered on purpose. The dashboard's job is to make provenance legible,
 and a page whose values are already in the HTML can be read with View Source,
@@ -6,7 +6,7 @@ screenshotted, and printed. A client-side app would put a JavaScript bundle
 between the reader and the data for no gain here.
 
 Chart data is prepared in Python and handed to the template as plain numbers.
-The template draws inline SVG — no chart library, so nothing to load from a CDN
+The template draws inline SVG, no chart library, so nothing to load from a CDN
 (which the demo network may not reach) and no version to keep current.
 """
 
@@ -63,7 +63,7 @@ def _mapping(value: object) -> dict:
 def _metric_sources(commit: dict) -> tuple[dict, dict]:
     """The two places a commit can carry numbers, in preference order.
 
-    `training_info["metrics"]` is what the trainer writes at the end of a run —
+    `training_info["metrics"]` is what the trainer writes at the end of a run,
     loss and runtime, and whatever else the trainer happened to compute.
     `training_info["evaluation"]["current"]` is what the commit-time evaluator
     writes after scoring the adapter itself, and it wins because it is a
@@ -95,7 +95,7 @@ def _accuracy_of(commit: dict) -> float | None:
     Tolerates several key spellings because two independent pieces of the
     metrics pipeline write them: the trainer emits HuggingFace's `eval_`
     prefixes, the commit-time evaluator emits a bare `accuracy`. Returns None
-    when there is genuinely no number — the dashboard then shows an em dash
+    when there is genuinely no number, the dashboard then shows an em dash
     rather than inventing a zero, which would read as "this model scored 0%"
     instead of "not measured".
     """
@@ -1086,7 +1086,7 @@ async def ops(
     log: Annotated[TransparencyLog, Depends(get_log)],
     anchors: Annotated[AnchorStore, Depends(get_anchors)],
 ) -> HTMLResponse:
-    """Operations board — which subsystems are healthy, and why.
+    """Operations board: which subsystems are healthy, and why.
 
     Reuses the /api/v1/health logic rather than duplicating it, so the page and
     the endpoint can never disagree about the state of the system.

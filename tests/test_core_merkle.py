@@ -45,7 +45,7 @@ class TestDomainSeparation:
         forged = MerkleTree(internal)
 
         assert real.get_root() != forged.get_root(), (
-            "an internal node can be presented as a committed leaf — "
+            "an internal node can be presented as a committed leaf, "
             "inclusion proofs are forgeable"
         )
 

@@ -1,4 +1,4 @@
-# AG News Topic Classification — 4 classes (World, Sports, Business, Sci/Tech)
+# AG News Topic Classification: 4 classes (World, Sports, Business, Sci/Tech)
 # Compatible with: aethel train --config train_yaml/ag_news_config.yaml
 
 dataset: ./datasets/ag_news

@@ -1,4 +1,4 @@
-# Aethel — System Reference
+# Aethel: System Reference
 
 Complete reference for how Aethel works: architecture, every command, the
 storage model, the Hub and its transparency log, and a demo walkthrough you can
@@ -18,7 +18,7 @@ keeps one frozen base model and versions only the small LoRA patches trained
 on top. A version is ~0.6 MB instead of ~250 MB.
 
 The base model's weights are **never stored**. A repository records
-`(model_id, revision_sha)` — an immutable Hugging Face revision — and anyone
+`(model_id, revision_sha)` (an immutable Hugging Face revision), and anyone
 reproducing a result downloads that exact revision themselves and applies the
 patch.
 
@@ -77,7 +77,7 @@ without the client ever depending on a web framework.
 Three consequences worth knowing:
 
 - The entire VCS is testable with no GPU, no model download, and no network.
-  715 tests run in under 10 seconds — including a full push, because the Hub's tests
+  715 tests run in under 10 seconds, including a full push, because the Hub's tests
   run the ASGI application in-process rather than over a socket.
 - `pip install -e .` gives a working repository tool *that can push*. PyTorch is
   the separate `[ml]` extra, needed only by `aethel train`; FastAPI is the
@@ -119,7 +119,7 @@ does, so no single directory accumulates tens of thousands of entries.
 
 This is the single most important design decision in the storage layer.
 
-Blobs deduplicate by content — two commits with byte-identical weights share
+Blobs deduplicate by content, two commits with byte-identical weights share
 one blob, which is exactly what you want. But if commit *metadata* were also
 keyed by the adapter's hash, those two commits would share one metadata slot
 and the second would overwrite the first. Checking out the first commit would
@@ -147,7 +147,7 @@ Deduplication of weights is preserved; metadata never collides.
 }
 ```
 
-The `tree` records the **whole workspace**, not just the weights — so a
+The `tree` records the **whole workspace**, not just the weights, so a
 checkout restores `adapter_config.json` and `training_info.json` from
 content-addressed storage too, rather than from whatever happens to be on
 disk.
@@ -184,7 +184,7 @@ load-bearing:
 **Ordering within a commit:** objects are written first, the ref advances
 last. Objects are immutable and self-verifying, so an interrupted commit
 leaves unreferenced garbage that `fsck` reports. Advancing the ref first would
-leave a branch pointing at objects that don't exist — unrecoverable.
+leave a branch pointing at objects that don't exist, unrecoverable.
 
 **Ref updates take a lock** (`O_CREAT | O_EXCL`). Without it, two concurrent
 commits both read the same branch tip and the second silently discards the
@@ -207,7 +207,7 @@ Revision:   a1b2c3d4...
 Base ref:   7f3a91c204e8
 Author:     johndoe
 
-Base weights are not stored — only the pinned reference.
+Base weights are not stored, only the pinned reference.
 ```
 
 Options: `--model/-m`, `--author` (defaults to `$AETHEL_AUTHOR`, then `$USER`).
@@ -245,7 +245,7 @@ model that learned nothing. To train on synthetic text deliberately, pass
 Snapshots the workspace into a new commit and advances the current branch.
 Does not train, and does not modify the workspace.
 
-Blocked on a detached HEAD — see §5.
+Blocked on a detached HEAD, see §5.
 
 ### `aethel branch [name] [start-point]`
 
@@ -297,9 +297,9 @@ commit's tree.
 Re-hashes every object and compares against its name. Reports three distinct
 classes:
 
-- **corrupt** — content no longer matches its name (real damage)
-- **missing** — something references an object that isn't in the store
-- **unreachable** — objects no ref can reach (harmless; interrupted commits)
+- **corrupt**: content no longer matches its name (real damage)
+- **missing**: something references an object that isn't in the store
+- **unreachable**: objects no ref can reach (harmless; interrupted commits)
 
 Exits 1 on corrupt or missing.
 
@@ -333,7 +333,7 @@ Options:
 | `--repo` | `hub_repo` from config, then the directory name |
 | `--branch/-b` | the current branch |
 | `--token` | `$AETHEL_HUB_TOKEN` |
-| `--dry-run` | off — show what would upload, then stop |
+| `--dry-run` | off: show what would upload, then stop |
 
 The published name is written to `config.json` on the first push, so later
 pushes need no flags and the name cannot drift if the local folder is renamed.
@@ -357,7 +357,7 @@ NULL <── c1 <── c2 <── c3   (main)
 
 `HEAD` holds either `ref: refs/heads/<branch>` (attached) or a raw commit hash
 (detached). Branch refs are files containing a single commit hash. Creating a
-branch just writes one small file — no weights are copied.
+branch just writes one small file, no weights are copied.
 
 ### The detached-HEAD guard
 
@@ -367,7 +367,7 @@ referenced by nothing and is lost the moment you check out anything else.
 
 ```console
 $ aethel commit -m "experiment"
-Detached HEAD — commit blocked.
+Detached HEAD, commit blocked.
 
 You are not on any branch.
 HEAD points directly at commit 9ee8ea047e14
@@ -388,7 +388,7 @@ To keep this work, put a branch here first:
 ### Verification on every read
 
 Because an object's name *is* its content hash, verification is exact. It
-happens on every read, not only during `fsck` — the cost is one hash of a
+happens on every read, not only during `fsck`, the cost is one hash of a
 small file, and the benefit is that bit-rot or tampering surfaces the moment
 the data is used.
 
@@ -421,7 +421,7 @@ without trusting the Hub.
 ```
 
 **Leaves are commit hashes, not commit bodies.** A commit hash already commits
-to the entire commit content — it *is* the hash of the canonical JSON — so
+to the entire commit content (it *is* the hash of the canonical JSON), so
 hashing the hash is sufficient and keeps every leaf fixed-width.
 
 **Append-only is structural, not a promise.** `hub/log.py` has exactly one
@@ -448,7 +448,7 @@ internal = SHA256(0x01 || left || right)
 ```
 
 Without distinct prefixes, leaves and internal nodes share a hash space, and a
-tree built over another tree's internal nodes produces an **identical root** —
+tree built over another tree's internal nodes produces an **identical root**,
 letting an operator forge an inclusion proof for a value that was never
 committed. That defeats the entire purpose of anchoring. The prefixes make the
 two hash spaces disjoint.
@@ -471,7 +471,7 @@ $ curl -s localhost:8000/api/v1/log/proof/<commit-hash>
 }
 ```
 
-The response is self-contained — leaf, sibling path, root, log size. A verifier
+The response is self-contained, leaf, sibling path, root, log size. A verifier
 recomputes the root from those alone and never calls back, which is precisely
 why a dishonest Hub cannot fake inclusion.
 
@@ -480,7 +480,7 @@ why a dishonest Hub cannot fake inclusion.
 It proves that a commit record was accepted at a position in this log and that
 the published root commits to it. It does **not** yet prove the operator never
 rewrote the log wholesale, because nothing outside the Hub currently pins the
-root — that is what anchoring adds, and until it lands the ops board reports
+root; that is what anchoring adds, and until it lands the ops board reports
 "never anchored" rather than implying a guarantee that is not there.
 
 ---
@@ -532,8 +532,8 @@ Four rules make this trustworthy:
    re-checks the hash the Hub echoes back, so a lying or buggy remote is caught
    at both ends.
 2. **Bytes are uploaded verbatim, never re-serialized.** A JSON object is sent
-   as the exact bytes stored on disk. Re-serializing anywhere in the path —
-   client or server — could reorder keys and change the hash, and a hash that
+   as the exact bytes stored on disk. Re-serializing anywhere in the path,
+   client or server, could reorder keys and change the hash, and a hash that
    drifts in transit would break every downstream proof.
 3. **The server decides the delta.** The client offers what it has and the Hub
    answers with what it lacks, rather than the client guessing from a previous
@@ -542,7 +542,7 @@ Four rules make this trustworthy:
 4. **The ref moves last, and only after a re-walk.** `POST .../refs` re-walks
    the commit's whole history in the Hub's own store and returns 409 if anything
    is missing. A published branch can never point at an object nobody can
-   fetch. An interrupted push leaves unreferenced objects — retryable — which is
+   fetch. An interrupted push leaves unreferenced objects (retryable), which is
    the same failure mode as an interrupted local commit.
 
 Blobs arrive as raw request bodies rather than multipart form data: content
@@ -572,7 +572,7 @@ The real verification runs client-side against the anchored root.
 
 Write endpoints are gated by `AETHEL_HUB_TOKEN` when it is set. An unset token
 means an open Hub, which is the right default for a laptop demo and is reported
-as "open — no push token set" on the ops board rather than passed off as
+as "open, no push token set" on the ops board rather than passed off as
 security.
 
 ### Dashboard
@@ -580,7 +580,7 @@ security.
 Server-rendered HTML, because the dashboard's job is to make provenance
 legible: a page whose values are already in the HTML can be read with View
 Source, screenshotted, and printed. Chart data is prepared in Python and drawn
-as inline SVG — no chart library, so nothing loads from a CDN the demo network
+as inline SVG, no chart library, so nothing loads from a CDN the demo network
 may not reach. The same applies to the two typefaces, which are subset and
 served from this origin. `docs/design/dashboard.md` records why these pages look
 and move the way they do.
@@ -596,7 +596,7 @@ and move the way they do.
 `/api` is hand-written from the same route table the tests read, rather than
 generated by a bundled Swagger UI. The generated page would have needed an
 external origin the Content-Security-Policy does not name, and a test asserts
-that every path documented there is a path the application actually serves — so
+that every path documented there is a path the application actually serves, so
 the reference cannot drift from the routes.
 
 A commit page's inclusion proof is served *by the Hub*, which means reading it is
@@ -605,7 +605,7 @@ fetches the proof as JSON, folds it with a SHA-256 implementation in
 `hub/static/verify.js`, and marks each rung against what it computed rather than
 against what the page says. The hash is written out by hand because
 `crypto.subtle` is unavailable outside a secure context, and the demo runs on a
-LAN address — where a verifier built on it would be `undefined` in exactly the
+LAN address, where a verifier built on it would be `undefined` in exactly the
 place it is meant to work. It self-checks against published vectors before
 rendering any verdict, because a subtly wrong hash would report tampering that
 never happened.
@@ -613,7 +613,7 @@ never happened.
 `/ops` exists because four systems (object store, log, chain, pinning service)
 fail independently, and debugging that live in front of an audience is not a
 plan. Every check is wrapped so one dead dependency degrades its own row rather
-than failing the page — an ops board that cannot render during an incident is
+than failing the page, an ops board that cannot render during an incident is
 useless exactly when it is needed.
 
 The important row is **log vs anchored root**: it recomputes the root from
@@ -642,7 +642,7 @@ python setup_demo_data.py        # downloads 5 small CSV datasets
 `setup_demo_data.py` writes `datasets/<name>/train.csv` with `text,label`
 columns for SST-2, Rotten Tomatoes, Emotion, AG News, and Tweet-Eval Hate.
 
-### Phase 1 — initialize
+### Phase 1: initialize
 
 ```bash
 mkdir demo && cd demo
@@ -653,7 +653,7 @@ aethel log          # "No commits yet."
 Look inside: `.aethel/objects/` has four empty subdirectories, `refs/heads/main`
 is an empty file (an unborn branch), and `config.json` holds the pinned SHA.
 
-### Phase 2 — train and commit
+### Phase 2: train and commit
 
 ```bash
 aethel train --config ../train_yaml/sst2_config.yaml
@@ -666,7 +666,7 @@ aethel log
 The adapter is a few hundred KB. The 250 MB base model was downloaded to the
 Hugging Face cache, not into the repository.
 
-### Phase 3 — a second version
+### Phase 3: a second version
 
 ```bash
 aethel train --config ../train_yaml/sst2_config.yaml   # more epochs
@@ -676,7 +676,7 @@ aethel log
 
 Two commits, two accuracy numbers.
 
-### Phase 4 — branch to a different task
+### Phase 4: branch to a different task
 
 ```bash
 aethel branch emotion
@@ -686,7 +686,7 @@ aethel commit -m "Emotion 6-class"
 aethel log --all
 ```
 
-### Phase 5 — time travel
+### Phase 5: time travel
 
 ```bash
 aethel checkout main
@@ -698,7 +698,7 @@ cat .aethel/workspace/training_info.json    # now the emotion adapter
 Each checkout swaps which capability is staged, in milliseconds, by copying
 ~0.6 MB. Three different models, one base.
 
-### Phase 6 — the detached-HEAD guard
+### Phase 6: the detached-HEAD guard
 
 ```bash
 aethel log                        # copy an older commit hash
@@ -706,7 +706,7 @@ aethel checkout <old-hash>        # HEAD detaches
 aethel commit -m "should fail"    # blocked, with recovery steps
 ```
 
-### Phase 7 — integrity
+### Phase 7: integrity
 
 ```bash
 aethel fsck                                             # OK
@@ -714,16 +714,16 @@ printf 'x' >> .aethel/objects/blobs/<ab>/<rest>         # corrupt one byte
 aethel fsck                                             # names that exact object, exits 1
 ```
 
-### Phase 8 — portability
+### Phase 8: portability
 
 ```bash
 cp -r .aethel /tmp/copied-repo/ && cd /tmp/copied-repo
-find . -name '*.db' | wc -l       # 0 — there is no database
+find . -name '*.db' | wc -l       # 0; there is no database
 aethel log --all                  # complete history
 aethel fsck                       # OK
 ```
 
-### Phase 9 — publish to a Hub
+### Phase 9: publish to a Hub
 
 In a second terminal:
 
@@ -739,7 +739,7 @@ aethel push --repo sentiment      # publish the current branch
 aethel checkout emotion && aethel push
 ```
 
-Then open `http://localhost:8000` — repositories, then `/r/sentiment` for the
+Then open `http://localhost:8000`, repositories, then `/r/sentiment` for the
 commit history with accuracy per commit, then any commit for its inclusion
 proof, then `/ops` for the health board.
 
@@ -750,7 +750,7 @@ aethel push                       # again: "nothing to upload", root unchanged
 ```
 
 A second push is a no-op. The Hub already holds every object, the log resolves
-each commit to its existing leaf, and the root does not move — which is what
+each commit to its existing leaf, and the root does not move, which is what
 makes "push" a sync rather than an event.
 
 ```bash
@@ -761,7 +761,7 @@ aethel push                                  # it comes back
 The delta is decided by the Hub, not remembered by the client, so a Hub that
 lost data repairs itself on the next push.
 
-### Phase 10 — inclusion proofs
+### Phase 10: inclusion proofs
 
 ```bash
 curl -s localhost:8000/api/v1/log | python3 -m json.tool
@@ -769,7 +769,7 @@ curl -s localhost:8000/api/v1/log/proof/<commit-hash> | python3 -m json.tool
 ```
 
 The proof is self-contained: leaf, sibling path, root, log size. Recompute the
-root from those alone and compare — nothing calls back to the Hub mid-check,
+root from those alone and compare, nothing calls back to the Hub mid-check,
 which is what catches a Hub serving a proof that does not fold to the root it
 publishes. It does **not** catch a Hub that rewrote its whole log and reissued
 consistent proofs; that is precisely the gap anchoring closes.
@@ -781,7 +781,7 @@ curl -s localhost:8000/api/v1/log | python3 -c "import json,sys; print(json.load
 ```
 
 The root changes. Today that is visible by comparison; once the root is anchored
-on-chain, the `/ops` "log vs anchored root" row goes critical on its own — the
+on-chain, the `/ops` "log vs anchored root" row goes critical on its own, the
 tamper becomes detectable without anyone knowing the old root.
 
 ### Talking points
@@ -833,22 +833,22 @@ ruff check .
 | `test_cli_parsing.py` | 9 | Option order on the commands that take a positional |
 
 **No test touches the network.** The Hub's tests run the ASGI application
-in-process, so a full push — negotiate, upload, move the ref, append to the log
-— is exercised without a socket, a port, or a background process. That is why
+in-process, so a full push (negotiate, upload, move the ref, append to the log)
+is exercised without a socket, a port, or a background process. That is why
 the whole suite is fast enough to run on every save.
 
 The Hub's tests skip themselves when FastAPI is absent, so they do not break a
 client-only install. CI therefore runs two jobs, which appear as five check
 runs:
 
-- **`core`** installs only `[dev]`, on Python 3.10–3.13 — four of the five runs.
+- **`core`** installs only `[dev]`, on Python 3.10–3.13, four of the five runs.
   It fails if the core ever grows a dependency on torch or FastAPI, and the
   Hub's tests skip by design: 312 pass, four modules skip at import, and 145
   more skip inside their fixtures.
 - **`hub`** installs `[dev,hub]`, asserts the Hub actually imports, lints the
-  whole tree, and runs the same suite — 708 pass, 7 skip for want of the
+  whole tree, and runs the same suite, 708 pass, 7 skip for want of the
   `[fonts]` extra. Without this job the 403 Hub and push tests would skip on
-  every run and CI could stay green through a Hub that does not even import — a
+  every run and CI could stay green through a Hub that does not even import, a
   passing suite that proved nothing.
 
 One-command setup: `scripts/dev.sh` (Linux/macOS), `scripts/dev.ps1`
@@ -861,7 +861,7 @@ One-command setup: `scripts/dev.sh` (Linux/macOS), `scripts/dev.ps1`
 | Term | Meaning |
 |---|---|
 | **Adapter / patch** | A LoRA module trained on top of the frozen base model |
-| **Base reference** | `(model_id, revision_sha)` — the base model, by reference |
+| **Base reference** | `(model_id, revision_sha)`: the base model, by reference |
 | **Blob** | Raw bytes of one file, stored under its content hash |
 | **Tree** | Manifest mapping filenames to blob hashes |
 | **Commit** | Metadata object: parent, tree, base, message, author, metrics |
@@ -869,10 +869,10 @@ One-command setup: `scripts/dev.sh` (Linux/macOS), `scripts/dev.ps1`
 | **Detached HEAD** | HEAD pointing at a commit rather than a branch |
 | **Hub** | The server that hosts published patches and keeps the transparency log |
 | **Inclusion proof** | The sibling hashes proving a leaf is under a given root |
-| **LoRA** | Low-Rank Adaptation — trains small matrices instead of all weights |
+| **LoRA** | Low-Rank Adaptation: trains small matrices instead of all weights |
 | **Merkle tree** | Hash tree letting one root commit to many values |
 | **Negotiation** | The Hub answering which offered objects it is missing |
 | **Revision SHA** | An immutable Hugging Face model version identifier |
 | **Transparency log** | The Hub's append-only list of accepted commits, one leaf each |
 | **Unborn branch** | A branch that exists but has no commits yet |
-| **Workspace** | `.aethel/workspace/` — staged by `train`, read by `commit` |
+| **Workspace** | `.aethel/workspace/`: staged by `train`, read by `commit` |

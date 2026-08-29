@@ -7,7 +7,7 @@ has to trust that the Hub stored what was sent, and a corrupted transfer fails
 loudly instead of silently poisoning the store.
 
 Blobs arrive as raw request bodies rather than multipart form data. Content
-addressing makes the filename irrelevant — the hash in the URL is the name —
+addressing makes the filename irrelevant, the hash in the URL is the name,
 so multipart would add a parsing dependency and a filename field that must be
 ignored anyway.
 """
@@ -64,8 +64,8 @@ def require_write_auth(
 ) -> None:
     """Gate write endpoints behind the shared token, when one is configured.
 
-    An unconfigured Hub is open on purpose — that is the right default for a
-    laptop demo — but the ops board reports it as open rather than implying
+    An unconfigured Hub is open on purpose; that is the right default for a
+    laptop demo, but the ops board reports it as open rather than implying
     security that isn't there.
     """
     config: HubConfig = request.app.state.config
@@ -315,8 +315,8 @@ async def get_blob(
     """Download a blob.
 
     The client is expected to re-hash what it receives and compare against the
-    hash it asked for. That check is what lets any transport — this Hub, an
-    IPFS gateway, a USB stick — be untrusted without risking integrity.
+    hash it asked for. That check is what lets any transport (this Hub, an
+    IPFS gateway, a USB stick) be untrusted without risking integrity.
     """
     digest = _validate_hash(blob_hash, "blob hash")
 
@@ -397,7 +397,7 @@ async def get_inclusion_proof(
     """Serve an inclusion proof for a commit.
 
     The response is self-contained: leaf, sibling path, root, and log size.
-    A verifier recomputes the root from those alone — it never calls back here,
+    A verifier recomputes the root from those alone; it never calls back here,
     which is exactly why a dishonest Hub cannot fake inclusion.
     """
     digest = _validate_hash(commit_hash, "commit hash")
@@ -420,7 +420,7 @@ async def get_inclusion_proof(
 async def verify_inclusion(payload: dict) -> dict:
     """Verify a proof server-side, for parity with the browser verifier.
 
-    Convenience and a test hook — never the authoritative check. Asking the Hub
+    Convenience and a test hook, never the authoritative check. Asking the Hub
     whether the Hub is honest proves nothing; the real verification runs
     client-side against the on-chain root.
     """
@@ -509,7 +509,7 @@ async def health(
             add(
                 "Log vs anchored root",
                 "warning",
-                "never anchored — chain layer not yet enabled",
+                "never anchored; the chain layer is not yet enabled",
             )
         elif latest.get("root") == root:
             add("Log vs anchored root", "good", f"matches anchor at block {latest.get('block', '?')}")
@@ -517,12 +517,12 @@ async def health(
             add(
                 "Log vs anchored root",
                 "critical",
-                "RECOMPUTED ROOT DOES NOT MATCH THE ANCHORED ROOT — history may have been altered",
+                "RECOMPUTED ROOT DOES NOT MATCH THE ANCHORED ROOT; history may have been altered",
             )
     except Exception as exc:
         add("Log vs anchored root", "warning", f"could not compare: {type(exc).__name__}")
 
-    # Chain RPC — reported, not dialled. A health endpoint must not block on a
+    # Chain RPC: reported, not dialled. A health endpoint must not block on a
     # third-party network call.
     if config.chain_configured:
         add("Chain", "good", f"configured: chain id {config.chain_id}, contract set")
@@ -532,12 +532,12 @@ async def health(
     if config.pinning_endpoint:
         add("IPFS mirror", "good", "pinning endpoint configured")
     else:
-        add("IPFS mirror", "warning", "not configured — Hub is the only copy")
+        add("IPFS mirror", "warning", "not configured; the Hub is the only copy")
 
     add(
         "Write auth",
         "good" if config.auth_required else "warning",
-        "token required" if config.auth_required else "open — no push token set",
+        "token required" if config.auth_required else "open; no push token set",
     )
 
     # The page's overall verdict is the worst row on it. Severity comes from the
@@ -554,7 +554,7 @@ async def health(
 
 @router.get("/api/v1/version")
 async def version(request: Request, config: Annotated[HubConfig, Depends(get_config)]) -> dict:
-    """What is actually deployed — so a stale process is visible, not guessed."""
+    """What is actually deployed, so a stale process is visible, not guessed."""
     return {
         "hub": request.app.state.hub_version,
         "git_sha": request.app.state.git_sha,
