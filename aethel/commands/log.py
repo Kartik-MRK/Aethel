@@ -77,8 +77,15 @@ def run_log(target: str | None, limit: int, all_branches: bool) -> None:
     table.add_column("Message", style="white")
 
     for commit_hash, commit, _label in rows:
-        metrics = (commit.get("training_info") or {}).get("metrics") or {}
-        accuracy = metrics.get("eval_accuracy", metrics.get("accuracy"))
+        training_info = commit.get("training_info") or {}
+        evaluation = training_info.get("evaluation") or {}
+        current = evaluation.get("current") or {}
+        metrics = training_info.get("metrics") or {}
+
+        accuracy = current.get(
+            "accuracy",
+            metrics.get("eval_accuracy", metrics.get("accuracy")),
+        )
         accuracy_text = f"{accuracy:.3f}" if isinstance(accuracy, (int, float)) else "—"
 
         table.add_row(

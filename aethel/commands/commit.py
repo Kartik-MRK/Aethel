@@ -60,6 +60,73 @@ def run_commit(message: str) -> None:
                 f"recording an empty record: {exc}[/yellow]"
             )
 
+    evaluation = None
+
+    try:
+        from aethel.evaluation.evaluator import evaluate_current_vs_parent
+    except ImportError:
+        evaluate_current_vs_parent = None
+
+    if evaluate_current_vs_parent is not None:
+        try:
+            evaluation = evaluate_current_vs_parent(
+                repo,
+                repo.workspace_dir,
+            )
+        except Exception as exc:
+            err_console.print(
+                f"[yellow]warning: evaluation failed: {exc}[/yellow]"
+            )
+
+    if evaluation is not None:
+        current = evaluation["current"]
+        parent = evaluation["parent"]
+        comparison = evaluation["comparison"]
+
+        console.print("\n[bold]Evaluation Results[/bold]")
+
+        console.print(
+            f"Current accuracy: "
+            f"[cyan]{current['accuracy']:.4f}[/cyan]"
+        )
+        console.print(
+            f"Current loss: "
+            f"[cyan]{current['eval_loss']:.6f}[/cyan]"
+        )
+        console.print(
+            f"Adapter size: "
+            f"[cyan]{current['adapter_size_mb']:.2f} MB[/cyan]"
+        )
+
+        if parent is not None:
+            console.print(
+                f"Parent accuracy: "
+                f"[cyan]{parent['accuracy']:.4f}[/cyan]"
+            )
+            console.print(
+                f"Parent loss: "
+                f"[cyan]{parent['eval_loss']:.6f}[/cyan]"
+            )
+
+            console.print(
+                f"Accuracy change: "
+                f"[cyan]{comparison['accuracy_change']:+.4f}[/cyan]"
+            )
+
+            console.print(
+                f"Loss change: "
+                f"[cyan]{comparison['loss_change']:+.6f}[/cyan]"
+            )
+
+            console.print(
+                f"Improved: "
+                f"[green]{comparison['improved']}[/green]"
+            )
+        else:
+            console.print("Parent: [yellow]None (first commit)[/yellow]")
+
+        training_info["evaluation"] = evaluation
+
     try:
         commit_hash = create_commit(
             repo,
