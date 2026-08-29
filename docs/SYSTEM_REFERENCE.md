@@ -77,7 +77,7 @@ without the client ever depending on a web framework.
 Three consequences worth knowing:
 
 - The entire VCS is testable with no GPU, no model download, and no network.
-  715 tests run in under 10 seconds, including a full push, because the Hub's tests
+  719 test cases run in under 10 seconds, including a full push, because the Hub's tests
   run the ASGI application in-process rather than over a socket.
 - `pip install -e .` gives a working repository tool *that can push*. PyTorch is
   the separate `[ml]` extra, needed only by `aethel train`; FastAPI is the
@@ -804,7 +804,7 @@ tamper becomes detectable without anyone knowing the old root.
 ## 9. Development
 
 ```bash
-python3 -m pytest                   # 715 tests, ~8s, no GPU or network
+python3 -m pytest                   # 719 cases, ~8s, no GPU or network
 pytest tests/ --cov=aethel.core     # 96%
 ruff check .
 ```
@@ -831,6 +831,7 @@ ruff check .
 | `test_hub_fonts.py` | 14 | The served fonts resolve at the URLs the CSS names |
 | `test_s1_corruption.py` | 10 | Metadata-collision regression, via the CLI |
 | `test_cli_parsing.py` | 9 | Option order on the commands that take a positional |
+| `test_evaluation.py` | 4 | The current-versus-parent comparison, adapter size, the empty-dataset guard |
 
 **No test touches the network.** The Hub's tests run the ASGI application
 in-process, so a full push (negotiate, upload, move the ref, append to the log)
@@ -843,11 +844,13 @@ runs:
 
 - **`core`** installs only `[dev]`, on Python 3.10–3.13, four of the five runs.
   It fails if the core ever grows a dependency on torch or FastAPI, and the
-  Hub's tests skip by design: 312 pass, four modules skip at import, and 145
-  more skip inside their fixtures.
+  Hub's tests skip by design: 313 pass, four modules skip at import so their 258
+  cases never collect, and 148 more skip inside their fixtures or behind the
+  torch and font gates.
 - **`hub`** installs `[dev,hub]`, asserts the Hub actually imports, lints the
-  whole tree, and runs the same suite, 708 pass, 7 skip for want of the
-  `[fonts]` extra. Without this job the 403 Hub and push tests would skip on
+  whole tree, and runs the same suite, 709 pass, 10 skip: 3 for want of the
+  `[ml]` extra and 7 for want of `[fonts]`. Without this job the 406 cases the
+  `core` job never runs would skip on
   every run and CI could stay green through a Hub that does not even import, a
   passing suite that proved nothing.
 

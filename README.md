@@ -211,9 +211,9 @@ an audience there is a way to keep going.
 The transcripts below are captured output, not illustrations. Two caveats so
 they are read correctly. They were recorded with stand-in adapter weights so
 that the whole cycle runs with no GPU, so the **accuracy column is fixture
-data**, and it stays fixture data on the `[ml]` path too, because the code that
-computes a real accuracy is on a branch awaiting merge (see *What is deliberately
-not there yet*). Object counts, deduplication and log behaviour are
+data**, and it stays fixture data until someone records a run on a machine with
+torch installed (see *What is deliberately not there yet*). Object counts,
+deduplication and log behaviour are
 real either way. And every hash is a hash of the actual bytes, so **your hashes
 will differ from these**; that is the point of a content-addressed store, not a
 discrepancy.
@@ -482,9 +482,9 @@ repos  ['sentiment-lora']  branches ['main', 'wide-rank']
 ```
 
 Identical root, identical refs. It holds across a reboot too, for the same
-reason: the seeded store used for rehearsals has objects written on 25 August
-and was serving them unchanged on the 27th, with the machine powered down in
-between. So the demo can be paused, the laptop closed, and picked up at the same
+reason: the seeded store used for rehearsals was written days before it was read
+back, with the machine powered down in between, and served the same objects
+unchanged. So the demo can be paused, the laptop closed, and picked up at the same
 commit, and a `train → commit → push` cycle started weeks later appends to the
 same tree rather than starting a new one.
 
@@ -519,34 +519,36 @@ belongs to a history grows with the logarithm of the history, not its size.
 
 Say this plainly rather than letting a panel find it.
 
-**Evaluation is on a branch, not yet merged.** `aethel train` records what the
-Hugging Face `Trainer` reports (loss and runtime), and nothing that answers "is
-this version better than its parent". The code that does answer it lives on
-`feat/evaluation-metrics`: eval loss, accuracy, adapter size, and a
-current-versus-parent comparison that extracts the parent's tree into a temporary
-directory, scores it the same way, and records whether accuracy improved. It is
-called from `aethel commit` so it runs without being asked. The Hub is already
-wired for it and prefers `training_info.evaluation.current` over the training
-metrics when both are present, so the dashboard needs no change to start showing
-real numbers.
+**Evaluation is in the tree but has never been run against torch.** `aethel
+train` records what the Hugging Face `Trainer` reports (loss and runtime).
+Answering "is this version better than its parent" is `aethel/evaluation/`:
+eval loss, accuracy, adapter size, and a current-versus-parent comparison that
+extracts the parent's tree into a temporary directory, scores it the same way,
+and records whether accuracy improved. It is called from `aethel commit` so it
+runs without being asked, and the Hub prefers
+`training_info.evaluation.current` over the training metrics when both are
+present, so the dashboard shows real numbers the moment real ones arrive.
 
-The branch is green on CI and ships four tests of its own, all gated on the
-`[ml]` extra. Two things are still missing before the number means anything: the
-merge, and one recorded run on a machine with torch. Then a train/validation
-split, because the evaluator scores the dataset file recorded at training time,
-which is the file the adapter trained on, so today it would report accuracy on
-data the model has already seen.
+Four tests cover it. Three need the `[ml]` extra and skip without it; the
+current-versus-parent comparison is pure arithmetic and runs everywhere, which
+is why it is the one part of the package with 100% coverage on a base install.
+The package as a whole sits at 13% there, and that number is the honest measure
+of what is untested: nothing has yet loaded a real base model and scored a real
+adapter. That run is the missing piece, and after it a train/validation split,
+because the evaluator scores the dataset file recorded at training time, which
+is the file the adapter trained on, so today it would report accuracy on data
+the model has already seen.
 The comparison is still informative (both sides are scored identically), but a
-held-out split is what makes the figure quotable, and it is the next task on
-that branch. Until then the accuracy on screen comes from `scripts/seed_demo.py`
-and is labelled as seeded. Divergence detection (cosine similarity between
-consecutive patches, with a prompt to stay on the branch or fork) is designed and
-not yet written.
+held-out split is what makes the figure quotable. Until then the accuracy on
+screen comes from `scripts/seed_demo.py` and is labelled as seeded. Divergence
+detection (cosine similarity between consecutive patches, with a prompt to stay
+on the branch or fork) is designed and not yet written.
 
 **`aethel merge` is not implemented.** Branch and checkout work; merging adapters
 (task arithmetic, TIES, DARE) lands after this review, and deliberately after the
-evaluator, because choosing between those three means measuring which one
-actually produces a better adapter. `aethel diff` is designed and unwritten.
+evaluator, which is why the evaluator landed first: choosing between those three
+strategies means measuring which one actually produces a better adapter.
+`aethel diff` is designed and unwritten.
 
 **There is no `pull` or `clone`.** A Hub serves patches over its REST API and the
 dashboard; the client half of that is later work.
@@ -594,12 +596,14 @@ hotspot is the quickest way around it. And the port is configurable
 ## Development
 
 ```bash
-python -m pytest                    # 715 tests, no GPU or network required
+python -m pytest                    # 719 cases, no GPU or network required
 python -m pytest --cov=aethel.core  # 96% core coverage
 ruff check .
 ```
 
-No test touches the network: the Hub's tests run the ASGI application
+716 of those pass on a base install and 3 skip: they are the evaluation tests
+that need to load a real model, and they run once the `[ml]` extra is
+installed. No test touches the network: the Hub's tests run the ASGI application
 in-process, so a push is exercised end to end without a socket. The VCS core
 needs no `[ml]` extra and the whole suite finishes in seconds.
 
@@ -629,13 +633,14 @@ Working today: `init`, `train`, `commit`, `branch`, `checkout`, `log`,
 `status`, `fsck`, `push` · a Hub with a REST API of 15 JSON endpoints, a
 five-page server-rendered dashboard, an ops health board, an append-only Merkle
 transparency log serving inclusion proofs, and an in-browser verifier that
-recomputes a root without trusting the page it is on. 715 tests, 96% coverage on
-`aethel.core`.
+recomputes a root without trusting the page it is on · adapter evaluation and
+the current-versus-parent comparison, called from `commit` and displayed by
+`log`. 719 test cases, 96% coverage on `aethel.core`.
 
-On a branch, awaiting merge: adapter evaluation and the current-versus-parent
-comparison, four tests of its own, green on CI. Designed and unwritten:
-divergence detection between consecutive patches. Both are described under
-*What is deliberately not there yet*, and neither is counted above.
+Written but not yet exercised for real: the evaluator has never scored a real
+adapter, because that needs the `[ml]` extra and a machine with torch. Designed
+and unwritten: divergence detection between consecutive patches. Both are
+described under *What is deliberately not there yet*.
 
 Planned, in order: anchoring the log's root to a public testnet so a model's
 recorded history cannot be rewritten even by whoever runs the Hub · a Pinata

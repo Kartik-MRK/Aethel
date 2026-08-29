@@ -484,24 +484,86 @@ the assignment as agreed; § "Where the work actually landed" below records what
 |---|---|---|
 | **Sathwik** | L5 chain + L4 Merkle log, **co-owns L0 object model** | The log is the bridge between core and chain. You cannot defend an anchoring scheme without explaining exactly what is hashed into the leaves. |
 | **Karthik** | L0/L1 core rebuild + L2 train / diff / merge | Knows the existing code; the rebuild is the highest-value thing to own. |
-| **Shravan** | evaluation: eval split, metrics, `compute_metrics` | Fully isolated, genuinely needed, absent entirely when this was written (defect S1.2). Landed as `aethel/evaluation/` on `feat/evaluation-metrics`. |
+| **Shravan** | evaluation: eval split, metrics, `compute_metrics` | Fully isolated, genuinely needed, absent entirely when this was written (defect S1.2). Landed as `aethel/evaluation/` and merged into `foundation`. |
 | **Adyaa** | Base-model registry + encoder-model support (config-driven) | Clean seam; directly serves "more base models later". |
 
 ### Where the work actually landed
 
-The table above is the assignment as agreed. This is the split as built, measured by the tests each
-person owns (715 collected cases in total):
+The table above is the assignment as agreed. This is the split as built.
 
-| Person | Owns in the tree | Tests |
-|---|---|---:|
-| **Sathwik** | The Hub's server contract and the transparency machinery: `hub/{api,storage,log,security,app,config}.py`, `hub/static/verify.js`, the commit and ops templates, plus `aethel push`, the Merkle log and the L5 chain design | 249 |
-| **Adyaa G B** | The rendered dashboard and the design system: `hub/views.py`, `hub/static/hub.css`, the base/index/repo/macro templates, `scripts/build_fonts.py`, plus `aethel init` and the commit-record schema | 187 |
-| **Karthik** | L0 and L1: `aethel/core/` apart from the aggregator and commit builder, and `aethel/commands/{branch,checkout,log,fsck,_common}.py`, plus divergence detection and merge | 186 |
-| **Shravan** | The error contract and the generated API reference: `hub/{errors,apidocs,prose}.py`, `api.html`, `error.html`, plus `aethel commit`, `aethel train` and the evaluation package | 93 |
+**How it is counted.** Source modules are owned whole, because each one has a single author. Tests
+are attributed **by test class**, not by file, because a class exercises one subsystem and ten of the
+twenty-one files span several. `tests/test_hub_views.py` on its own covers the chart geometry, the commit rail,
+the metric pipeline and the proof ladder, which are four different people's work; splitting it along
+its own class boundaries is more honest than handing all 126 cases to whoever happened to start the
+file. No class is counted twice, and the four columns sum to the 719 cases the suite collects.
 
-Two items in that table are not on `foundation` yet. Evaluation is written and green on
-`feat/evaluation-metrics` and waiting to merge; divergence detection is designed and not yet
-written. `docs/CONTRIBUTING_BRANCHES.md` §8 has the detail for both.
+| Person | Owns in the tree | Cases | Python | Assets |
+|---|---|---:|---:|---:|
+| **Sathwik H S** | The server contract and the transparency machinery: `hub/{api,storage,log,security,app,config}.py`, `hub/static/verify.js`, `aethel/core/aggregator.py`, `aethel/commands/push.py`, `aethel/remote/`, the commit and ops templates, plus the L5 chain design | 198 | 2,411 | 774 |
+| **Karthik M** | L0 and L1, the Git-shaped core: `aethel/core/{objects,refs,hashing,atomic,repo,errors}.py`, `aethel/commands/{branch,checkout,log,fsck,_common}.py`, the fast-forward rule on the ref-update endpoint and the commit DAG rail, plus divergence detection and merge | 175 | 1,516 | 0 |
+| **Adyaa G B** | The rendered dashboard, the design system and the commit-record schema: `hub/views.py`, `hub/static/hub.css`, the base/index/repo/macro templates, `scripts/build_fonts.py`, `aethel/core/commits.py`, `aethel/commands/init.py`, the base reference object, canonical JSON, blob dedup and the tree manifest | 174 | 1,804 | 2,591 |
+| **Shravan M** | Evaluation and the failure surface: `aethel/evaluation/`, `aethel/commands/{commit,train}.py`, `hub/{errors,apidocs,prose}.py`, `api.html`, `error.html`, `aethel/core/env.py`, plus the accuracy column he added to `aethel log` | 172 | 1,923 | 258 |
+
+Per file, so the arithmetic is checkable. `pyproject.toml` sets `addopts = "-q"`, which cancels out a
+single `-v`, so clear it to get one node id per line and count them:
+
+```bash
+python3 -m pytest --collect-only -q -o addopts="" | grep '::' | sed 's/::.*//' | sort | uniq -c
+```
+
+
+| Test file | Cases | Sathwik | Karthik | Adyaa | Shravan |
+|---|---:|---:|---:|---:|---:|
+| `test_cli_parsing.py` | 9 | | 9 | | |
+| `test_core_atomic.py` | 18 | | 18 | | |
+| `test_core_commits.py` | 23 | | | 23 | |
+| `test_core_env.py` | 29 | | | | 29 |
+| `test_core_hashing.py` | 24 | | 17 | 7 | |
+| `test_core_merkle.py` | 29 | 22 | 7 | | |
+| `test_core_objects.py` | 29 | | 6 | 23 | |
+| `test_core_refs.py` | 52 | | 48 | | 4 |
+| `test_core_resolve.py` | 15 | | 15 | | |
+| `test_evaluation.py` | 4 | | | | 4 |
+| `test_hub_api.py` | 94 | 47 | 12 | 21 | 14 |
+| `test_hub_apidocs.py` | 36 | | | 5 | 31 |
+| `test_hub_errors.py` | 57 | 9 | | 14 | 34 |
+| `test_hub_fonts.py` | 14 | | | 14 | |
+| `test_hub_log.py` | 28 | 28 | | | |
+| `test_hub_motion.py` | 24 | | | 24 | |
+| `test_hub_security.py` | 39 | 26 | | 12 | 1 |
+| `test_hub_verify.py` | 18 | 18 | | | |
+| `test_hub_views.py` | 126 | 17 | 43 | 31 | 35 |
+| `test_push.py` | 41 | 31 | | | 10 |
+| `test_s1_corruption.py` | 10 | | | | 10 |
+| **719** | **719** | **198** | **175** | **174** | **172** |
+
+The five files that split need their class boundaries stated, or the numbers above are unfalsifiable:
+
+- `test_core_hashing.py`: `TestCanonicalJson` (7) is Adyaa's, because canonical JSON is what makes a
+  commit record hash identically twice. `TestHashValidation` (11) and `TestHashing` (6) are Karthik's.
+- `test_core_merkle.py`: `TestInclusionProofs` (20) and `TestDomainSeparation` (2) are Sathwik's;
+  `TestTreeConstruction` (7) is Karthik's, since it is the hashing primitive rather than the proof.
+- `test_hub_api.py`: reads, log endpoints, blob and JSON upload, write auth and version (47) are
+  Sathwik's; `TestRefUpdate` (12) is Karthik's fast-forward rule; the two view classes (21) are
+  Adyaa's; health and content negotiation (14) are Shravan's.
+- `test_hub_errors.py`: the detail-leak, path-split, status-code, prose, leak and configuration
+  classes (34) are Shravan's error contract; the copy affordance and favicon (14) are Adyaa's; the
+  two that assert an error page still carries the security policy (9) are Sathwik's.
+- `test_hub_views.py`: `TestProofLadder` (17) is Sathwik's; the five chart and formatting classes
+  (31) are Adyaa's; the five commit-graph classes (43) are Karthik's; the four metric-pipeline
+  classes (35) are Shravan's.
+
+Code is counted whole-module with `wc -l`, Python separately from front-end assets because a
+stylesheet and a parser are not the same kind of line: `hub/static/hub.css` alone is most of Adyaa's
+asset column, and Karthik's core is dense Python with no asset side at all. `aethel/main.py`, the
+package `__init__.py` files, the test suite, shared docs, fixtures and configuration are not
+attributed to anyone. Hours logged over the phase: Sathwik 150, Karthik 110, Adyaa 100,
+Shravan 90.
+
+One item in the table is not written yet: divergence detection between consecutive patches is
+designed and on no branch. Evaluation has merged into `foundation`.
+`docs/CONTRIBUTING_BRANCHES.md` §8 has the detail.
 
 ### Learning protocol
 
@@ -580,8 +642,9 @@ itself.
 Steps 11 and 12 are the entire thesis in two screens. Everything else is supporting evidence.
 
 **Where this actually stands, as of the review.** Steps 1-4, 7 and 8 run today. Step 5 trains and
-records loss and runtime; the accuracy and F1 half sits on `feat/evaluation-metrics`, green on CI
-and not yet merged, so the number on screen is fixture data. Steps 6, 9, 10 and 11 are not built: `aethel diff`
+records loss and runtime, and `aethel/evaluation/` now computes accuracy and adapter size on top of
+that, but it has never been run on a machine with torch, so the number on screen is still fixture
+data. Steps 6, 9, 10 and 11 are not built: `aethel diff`
 is designed and unwritten, there is no Pinata mirror, and nothing is anchored. Step 12 has a
 runnable form (tamper a leaf and the root moves, so a proof issued earlier stops verifying), but
 only for someone who wrote the old root down first, because the Hub reissues proofs consistent with
@@ -677,7 +740,7 @@ tests now.
 ## 11. Verification checklist
 
 - `pytest`: green including the corruption regression test; `--cov` ≥ 80% on `core/`. The floor
-  was 60 tests when this was written; the suite currently stands at 715 with 96% coverage on
+  was 60 tests when this was written; the suite currently stands at 719 cases with 96% coverage on
   `aethel.core`, and CI enforces the 80% floor rather than the count
 - **Corruption regression:** commit identical weights twice with different messages; assert both
   commit objects survive and each checkout returns *its own* metadata

@@ -45,7 +45,7 @@ python3 -m pip install -e '.[dev,hub,ml]'     # ...plus torch/transformers/peft 
 Confirm the baseline before you change anything:
 
 ```bash
-python3 -m pytest              # expect: 715 passed
+python3 -m pytest              # expect: 716 passed, 3 skipped
 ruff check .                  # expect: All checks passed!
 ```
 
@@ -103,7 +103,7 @@ have been on a branch; move them (`git switch -c my-branch`) rather than merging
 Now cut your branch. One topic per branch, named for the topic:
 
 ```bash
-git switch -c feat/evaluation-metrics
+git switch -c feat/divergence-detection
 ```
 
 Names that work: `feat/<thing>`, `fix/<thing>`, `docs/<thing>`, `test/<thing>`. Names that do not:
@@ -140,8 +140,8 @@ is a visible decision rather than a surprise.
 ## 5. Guard anything that needs a heavy dependency
 
 The suite runs on machines that do not have torch installed, and it has to stay green there. So a
-test that imports torch, transformers, peft or FastAPI **skips** rather than errors. Two things at
-the top of the file:
+test that imports torch, transformers, peft or FastAPI **skips** rather than errors. When every test
+in the file needs the dependency, gate the whole module at the top:
 
 ```python
 import pytest
@@ -150,6 +150,21 @@ pytest.importorskip("torch", reason="the evaluator needs the [ml] extra")
 
 pytestmark = pytest.mark.ml
 ```
+
+When only *some* of them do, gate per test instead, with the heavy import inside the function body:
+
+```python
+@pytest.mark.ml
+def test_adapter_size(tmp_path):
+    pytest.importorskip("torch", reason="the evaluator needs the [ml] extra")
+
+    from aethel.evaluation.metrics import adapter_size
+```
+
+`tests/test_evaluation.py` does it the second way on purpose: three of its four tests reach modules
+that import torch, but the fourth is dict arithmetic, and a module-level gate would have cost that
+one real coverage on every Python version for no reason. Gating the module is simpler, so prefer it,
+but check first whether you are dragging pure-Python tests behind a dependency they do not use.
 
 The `ml` marker is already declared in `pyproject.toml`, and the same pattern with `"fastapi"` is
 used by every Hub test file, `tests/test_hub_views.py` is the example to copy. In library code the
@@ -192,7 +207,7 @@ Then check the list:
 ## 7. Push and open the pull request
 
 ```bash
-git push -u origin feat/evaluation-metrics
+git push -u origin feat/divergence-detection
 ```
 
 Then open a PR into `foundation` (not `main`) on GitHub. Write three things in the body:
@@ -218,16 +233,16 @@ meantime, which is exactly the accident plain `--force` causes.
 
 ---
 
-## 8. The two pieces of work waiting to land
+## 8. What has landed, and what is still waiting
 
-Neither one needs anybody else's files changed, which is the point of the seams: the interfaces are
-already there. The first has landed on a branch; the second has not been written.
+Neither piece needs anybody else's files changed, which is the point of the seams: the interfaces are
+already there. The first has merged; the second has not been written.
 
-### The evaluation and comparison package
+### The evaluation and comparison package (merged)
 
-This one is written. It is on `origin/feat/evaluation-metrics` as `aethel/evaluation/`, dataset
-loading, base-plus-adapter loading, loss/accuracy/adapter size, and the current-versus-parent
-comparison, and it is waiting to be merged into `foundation`. Both call sites came with it:
+This one is in the tree, on `foundation`, as `aethel/evaluation/`: dataset loading,
+base-plus-adapter loading, loss/accuracy/adapter size, and the current-versus-parent comparison.
+Both call sites came with it:
 
 - `aethel/commands/commit.py` calls the evaluator and writes the result into
   `training_info["evaluation"]` before the commit object is built.
@@ -240,12 +255,11 @@ imports torch, transformers and peft at module scope, `aethel/main.py` imports `
 scope, and the four `core` CI jobs install `.[dev]` with no ML stack. A top-level
 `from aethel.evaluation.evaluator import ...` in `commit.py` would therefore break `aethel --help`
 and collapse every core test into a collection error. `aethel/main.py:33-53` is the pattern, and
-`commit.py:63-79` on that branch follows it: the import sits inside the function, inside
-`try/except ImportError`, and the command degrades instead of dying. Evaluation skips with a warning
-on a base install rather than failing the commit. Anyone adding a second call site copies the same
-shape.
+`commit.py:63-79` follows it: the import sits inside the function, inside `try/except ImportError`,
+and the command degrades instead of dying. Evaluation skips with a warning on a base install rather
+than failing the commit. Anyone adding a second call site copies the same shape.
 
-What already exists on the other side of the seam, so **do not change it**:
+What exists on the other side of the seam, so **do not change it**:
 
 - `hub/views.py` reads `training_info["evaluation"]["current"]` and prefers it over the training
   metrics when both are present (`_first_metric`). The dashboard's accuracy column and chart will
@@ -256,22 +270,25 @@ What already exists on the other side of the seam, so **do not change it**:
   distinguishes "not measured" from a real value of zero, and the tests around the metrics pipeline
   assert that distinction.
 
-It ships `tests/test_evaluation.py` with four tests, gated on the `[ml]` extra, and all five CI check
-runs are green on the branch. Still owed: the merge itself, and a real run recorded on a machine with
-torch so the numbers on the dashboard stop being seeded fixtures. Worth fixing on the way in: the gate
-is a module-level `pytest.importorskip("torch")`, so all four tests skip in the four core jobs even
-though `compare_metrics` needs no torch at all. Moving that one test into an ungated module would give
-the comparison logic real coverage on every Python version.
+`tests/test_evaluation.py` carries four tests. The gate moved on merge: it used to be a
+module-level `importorskip("torch")`, which meant all four skipped in the four core CI jobs even
+though `compare_metrics` needs no torch at all. Now only the three that reach `metrics` and
+`evaluator` import behind the gate, inside their own bodies, so the comparison logic runs on every
+Python version and `comparison.py` sits at 100% coverage on a base install instead of zero.
 
-And one correction to make on the way in, because it changes what the number means. The evaluator
-currently calls `load_validation_dataset`, which reads `dataset_file` out of `training_info.json`,
-that is the file the adapter *trained* on, so the accuracy it reports is accuracy on seen data. The
-current-versus-parent comparison is still meaningful, because both sides are scored the same way, but
-the absolute figure is not quotable until there is a deterministic train/validation split and the
-evaluator scores the held-out half. Do that in the same branch if there is time, or immediately after
-it merges. Until it exists, say "accuracy on the training split" and not "accuracy", the deck and
-`README.md` both already say so, and a number that quietly overstates itself is the one thing a panel
-will find.
+Two things are still owed, and both change what the number means rather than whether it exists:
+
+**A real run.** Nobody has installed the `[ml]` extra and scored an actual adapter. Until someone
+does, the accuracy on the dashboard comes from `scripts/seed_demo.py` fixtures, and the package as a
+whole reads 13% covered, which is the honest measure of that gap.
+
+**A held-out split.** The evaluator calls `load_validation_dataset`, which reads `dataset_file` out
+of `training_info.json`, that is the file the adapter *trained* on, so the accuracy it reports is
+accuracy on seen data. The current-versus-parent comparison is still meaningful, because both sides
+are scored the same way, but the absolute figure is not quotable until there is a deterministic
+train/validation split and the evaluator scores the held-out half. Until it exists, say "accuracy on
+the training split" and not "accuracy", the deck and `README.md` both already say so, and a number
+that quietly overstates itself is the one thing a panel will find.
 
 ### Divergence detection between consecutive patches
 

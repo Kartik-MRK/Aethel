@@ -17,7 +17,7 @@ append-only Merkle transparency log the chain will anchor.
 
 | | Before | After |
 |---|---|---|
-| Tests | **0** | **715** |
+| Tests | **0** | **719** |
 | Core coverage | 0% | **96%** |
 | Hub + remote coverage | n/a | **91%** |
 | Linter | none | ruff, clean across the whole tree |
@@ -144,8 +144,10 @@ original got this right.
 
 No eval split, no `compute_metrics`. The only recorded numbers were training
 loss and runtime. An ML project that could not say whether its models were any
-good. `aethel log` now shows accuracy per commit; the module that computes those
-metrics sits on `feat/evaluation-metrics`, green on CI, not yet merged.
+good. `aethel/evaluation/` now computes eval loss, accuracy and adapter size,
+`aethel commit` calls it, and `aethel log` shows accuracy per commit. What is
+still owed is one run on a machine with torch, and a held-out split so the
+number is not accuracy on the training file.
 
 ---
 
@@ -210,7 +212,7 @@ same commit format as the client, while the client stays installable without a
 web framework.
 
 **Why it matters practically:** the whole VCS *and its publishing path* are
-testable with no GPU, no model download, and no network. 715 tests run in
+testable with no GPU, no model download, and no network. 719 test cases run in
 **under 10 seconds**, including full pushes, the Hub's tests drive the ASGI app
 in-process instead of over a socket. That is why we can afford to run them on
 every push.
@@ -323,8 +325,8 @@ than no table.
 | ID | Defect | Fix |
 |---|---|---|
 | **S1.1** | Commit metadata overwritten between identical-weight commits | Commits keyed by own hash |
-| **S1.2** | No evaluation anywhere | *(partly: `log` and the dashboard display accuracy and prefer it over training metrics; the module that computes it sits on `feat/evaluation-metrics`, green on CI, not yet merged, never run with torch)* |
-| **S1.3** | Zero tests | 715 tests, 96% core coverage |
+| **S1.2** | No evaluation anywhere | *(partly: `aethel/evaluation/` computes eval loss, accuracy and adapter size, `commit` calls it, `log` and the dashboard display it and prefer it over training metrics. Never yet run against torch, and the accuracy is on the training split)* |
+| **S1.3** | Zero tests | 719 test cases, 96% core coverage |
 | **S2.1** | Documented IMDB quickstart crashed (Arrow vs CSV) | Detects Arrow dirs, explains the conversion |
 | **S2.2** | Typo'd dataset path → silently trained on fake text, still committable | Refuses; requires explicit `--allow-stub` |
 | **S2.3** | No atomicity in commit | `atomic.py` everywhere |
@@ -497,9 +499,11 @@ populates `app.state`.
 **The skip trap, and why CI has two jobs.** Those tests skip themselves when
 FastAPI is absent, so a client-only install stays green. CI was installing only
 `[dev]`, which meant a completely broken Hub would still have shown a green
-tick. On today's suite that gap is **403 of the 715 tests**: 258 behind the four
-module-level `importorskip("fastapi")` gates and 145 behind the two fixture
-gates, leaving 312 that a client-only install actually runs. Measured, not guessed: a
+tick. On today's suite the `core` job runs **313 of the 719 cases**: the four
+module-level `importorskip("fastapi")` gates keep 258 from being collected at
+all, and another 148 skip inside the Hub client fixture, `push`'s in-function
+gate, and the torch and font gates. So 406 cases never execute there.
+Measured, not guessed: a
 meta-path finder that raises `ModuleNotFoundError` for `fastapi` reproduces the
 CI environment exactly. (`pytest.importorskip` only skips on
 `ModuleNotFoundError`; an `ImportError` raised inside a module body is
@@ -514,7 +518,7 @@ the Hub imports before running anything.
 ```bash
 # from the repository root
 
-python3 -m pytest                      # 715 passed in ~8s
+python3 -m pytest                      # 716 passed, 3 skipped, in ~8s
 python3 -m pytest --cov=aethel.core    # 96%
 ruff check .                           # All checks passed
 
@@ -563,12 +567,16 @@ Be honest about these, a panel will find them.
    `AutoModelForCausalLM` and falls back to `SequenceClassification` on *any*
    error. A causal model fed a classification CSV trains on garbage. Should
    come from config.
-2. **The evaluator is not merged yet.** `log` and the dashboard both read
-   `training_info["evaluation"]["current"]`, and `aethel/evaluation/`, which
-   produces it, sits on `feat/evaluation-metrics` with four tests of its own and
-   a green CI run. Until it lands, the accuracy numbers on screen come from
-   `scripts/seed_demo.py` fixtures, not a real run. See
-   `docs/CONTRIBUTING_BRANCHES.md`.
+2. **The evaluator has never scored a real adapter.** `aethel/evaluation/` is in
+   the tree, `commit` calls it, and `log` and the dashboard both read
+   `training_info["evaluation"]["current"]`. But running it needs the `[ml]`
+   extra, no CI job installs that, and nobody has run it on a machine with
+   torch, so the accuracy numbers on screen still come from
+   `scripts/seed_demo.py` fixtures. Three of its four tests skip without the
+   extra; only the current-versus-parent comparison, which is pure arithmetic,
+   runs everywhere. And the figure it would produce is accuracy on the training
+   split, because the evaluator reads `dataset_file` out of `training_info.json`
+   rather than a held-out half. See `docs/CONTRIBUTING_BRANCHES.md` §8.
 3. **`train.py` is untested** (477 lines). It needs torch, so it sits outside
    the fast suite. Needs its own marked test file.
 4. **Nothing anchors the log yet.** The log is honest about this: `/ops` reports
@@ -614,7 +622,7 @@ transparency log with inclusion proofs.
 
 - `aethel pull` / `clone` over the same API
 - The attack demo, end to end: tamper the Hub's log → `/ops` goes critical →
-  verification page fails
+  the in-browser verifier fails
 - `aethel merge` (task arithmetic, TIES, DARE) + merged-vs-parent accuracy table
 - Ed25519 commit signing; dataset fingerprinting
 
