@@ -63,12 +63,16 @@ def _mapping(value: object) -> dict:
 def _metric_sources(commit: dict) -> tuple[dict, dict]:
     """The two places a commit can carry numbers, in preference order.
 
-    `training_info["metrics"]` is what the trainer writes at the end of a run.
+    `training_info["metrics"]` is what the trainer writes at the end of a run —
+    loss and runtime, and whatever else the trainer happened to compute.
     `training_info["evaluation"]["current"]` is what the commit-time evaluator
-    writes after scoring the adapter against a held-out split, and it is the
-    better number of the two: it is measured on data the adapter did not train
-    on. Both shapes are in the wild, so both are read, and neither side has to
-    know about the other.
+    writes after scoring the adapter itself, and it wins because it is a
+    measurement of the finished artifact rather than a by-product of fitting it.
+    It is not yet a held-out score: the evaluator reads the dataset recorded at
+    training time, so today it reports accuracy on seen data, and the
+    current-versus-parent comparison is the part that carries real signal. Both
+    shapes are in the wild, so both are read, and neither side has to know about
+    the other.
     """
     info = _mapping(commit.get("training_info"))
     evaluated = _mapping(_mapping(info.get("evaluation")).get("current"))
