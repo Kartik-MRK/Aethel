@@ -1,15 +1,14 @@
+from types import SimpleNamespace
+
 import pytest
 
-pytest.importorskip("torch", reason="the evaluator needs the [ml] extra")
+from aethel.evaluation.comparison import compare_metrics
 
-pytestmark = pytest.mark.ml
-
-
-from types import SimpleNamespace  # noqa: E402
-
-from aethel.evaluation.comparison import compare_metrics  # noqa: E402
-from aethel.evaluation.evaluator import evaluate_current_vs_parent  # noqa: E402
-from aethel.evaluation.metrics import adapter_size, calculate_metrics  # noqa: E402
+# `comparison` is dict arithmetic and imports nothing, so its test runs on a base install. The
+# other three reach `metrics` and `evaluator`, which import torch and transformers at module
+# scope, so their imports sit inside the test bodies behind an importorskip. Gating the whole
+# file instead would cost the comparison logic its coverage in the four core CI jobs.
+NEEDS_ML = "the evaluator needs the [ml] extra"
 
 
 def test_compare_metrics():
@@ -33,7 +32,12 @@ def test_compare_metrics():
     assert result["improved"] is True
 
 
+@pytest.mark.ml
 def test_adapter_size(tmp_path):
+    pytest.importorskip("torch", reason=NEEDS_ML)
+
+    from aethel.evaluation.metrics import adapter_size
+
     adapter_file = tmp_path / "adapter_model.safetensors"
 
     # Create a 1 MB fixture file.
@@ -44,7 +48,12 @@ def test_adapter_size(tmp_path):
     assert size == pytest.approx(1.0)
 
 
+@pytest.mark.ml
 def test_calculate_metrics_empty_dataset():
+    pytest.importorskip("torch", reason=NEEDS_ML)
+
+    from aethel.evaluation.metrics import calculate_metrics
+
     class DummyModel:
         def eval(self):
             return self
@@ -53,7 +62,12 @@ def test_calculate_metrics_empty_dataset():
         calculate_metrics(DummyModel(), [])
 
 
+@pytest.mark.ml
 def test_evaluate_current_vs_parent_root_commit(monkeypatch, tmp_path):
+    pytest.importorskip("torch", reason=NEEDS_ML)
+
+    from aethel.evaluation.evaluator import evaluate_current_vs_parent
+
     fake_metrics = {
         "eval_loss": 0.65,
         "accuracy": 0.75,
