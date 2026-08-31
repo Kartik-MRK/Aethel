@@ -116,12 +116,17 @@ class ObjectStore:
         return digest
 
     def read_blob(self, blob_hash: str) -> bytes:
-        path = self._require("blobs", blob_hash)
-        return path.read_bytes()
+        raw = self._require("blobs", blob_hash).read_bytes()
+        if hash_bytes(raw) != normalize_hash(blob_hash):
+            raise CorruptObject(f"Blob {blob_hash[:12]} does not match its content hash")
+        return raw
 
     def blob_path(self, blob_hash: str) -> Path:
         """Path to a stored blob, for streaming copies out of the store."""
-        return self._require("blobs", blob_hash)
+        path = self._require("blobs", blob_hash)
+        if hash_file(path) != normalize_hash(blob_hash):
+            raise CorruptObject(f"Blob {blob_hash[:12]} does not match its content hash")
+        return path
 
     # -- structured objects -----------------------------------------------
 
@@ -196,6 +201,16 @@ class ObjectStore:
         if not isinstance(files, dict):
             raise CorruptObject(f"tree {tree_hash[:12]} has no valid 'files' mapping")
 
+        for name, blob_hash in files.items():
+            if (
+                not isinstance(name, str)
+                or not name
+                or name in {".", ".."}
+                or any(char in name for char in ('/', '\\', ':', '\0'))
+            ):
+                raise CorruptObject(f"Tree contains an unsafe filename: {name!r}")
+            normalize_hash(blob_hash, label=f"blob hash for {name}")
+
         return files
 
     def extract_tree(self, tree_hash: str, destination: Path | str) -> list[str]:
@@ -203,9 +218,14 @@ class ObjectStore:
         destination = Path(destination)
         destination.mkdir(parents=True, exist_ok=True)
 
+        # Verify the complete input before replacing any destination file.
+        sources = [
+            (name, self.blob_path(blob_hash))
+            for name, blob_hash in sorted(self.read_tree(tree_hash).items())
+        ]
         written: list[str] = []
-        for name, blob_hash in sorted(self.read_tree(tree_hash).items()):
-            atomic_copy_file(self.blob_path(blob_hash), destination / name)
+        for name, source in sources:
+            atomic_copy_file(source, destination / name)
             written.append(name)
 
         return written
@@ -229,4 +249,3 @@ class ObjectStore:
                 f"is missing from the object store"
             )
         return path
-
