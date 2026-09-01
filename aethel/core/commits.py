@@ -116,6 +116,7 @@ def create_commit(
     a commit whose objects do not exist -- an unrecoverable repository.
     """
     branch = repo.refs.require_attached_branch()
+    parent_hash = repo.refs.read_branch(branch)
 
     workspace = Path(workspace) if workspace is not None else repo.workspace_dir
     require_staged_adapter(workspace)
@@ -123,10 +124,16 @@ def create_commit(
     tree_hash = repo.objects.write_tree_from_directory(workspace)
     files = repo.objects.read_tree(tree_hash)
     adapter_blob = files[find_adapter_filename(files)]
+    evaluation = training_info.get("evaluation") or {}
+    measured = evaluation.get("current") or {}
+    if measured.get("adapter_sha256") and measured["adapter_sha256"] != adapter_blob:
+        raise InvalidRef("Adapter changed after evaluation. Evaluate the current workspace before committing.")
+    if measured.get("adapter_config_sha256") and measured["adapter_config_sha256"] != files.get("adapter_config.json"):
+        raise InvalidRef("Adapter configuration changed after evaluation. Evaluate again before committing.")
 
     payload = {
         "schema": COMMIT_SCHEMA,
-        "parent_hash": repo.refs.read_branch(branch),
+        "parent_hash": parent_hash,
         "tree": tree_hash,
         "adapter_blob": adapter_blob,
         "base": normalize_hash(base_hash, label="base hash"),
@@ -137,7 +144,7 @@ def create_commit(
     }
 
     commit_hash = repo.objects.write_json("commits", payload)
-    repo.refs.update_branch(branch, commit_hash)
+    repo.refs.update_branch(branch, commit_hash, expected_tip=parent_hash, check_expected=True)
 
     return commit_hash
 
