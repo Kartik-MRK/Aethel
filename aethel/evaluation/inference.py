@@ -25,7 +25,9 @@ def load_model_for_evaluation(adapter_path: Path):
         training_info = json.load(f)
 
     model_id = training_info["model_id"]
-    revision_hash = training_info["revision_hash"]
+    if training_info.get("task_type") != "SEQ_CLS":
+        raise ValueError("Only sequence-classification adapters can be evaluated")
+    revision_hash = training_info.get("revision_sha") or training_info.get("revision_hash")
     num_labels = int(training_info.get("num_labels", 2))
 
     tokenizer = AutoTokenizer.from_pretrained(
