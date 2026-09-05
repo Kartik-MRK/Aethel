@@ -86,12 +86,12 @@ def run_log(target: str | None, limit: int, all_branches: bool) -> None:
             "accuracy",
             metrics.get("eval_accuracy", metrics.get("accuracy")),
         )
-        accuracy_text = f"{accuracy:.3f}" if isinstance(accuracy, (int, float)) else "—"
+        accuracy_text = f"{accuracy:.3f}" if isinstance(accuracy, (int, float)) else "-"
 
         table.add_row(
             short(commit_hash),
             (commit.get("timestamp") or "")[:19].replace("T", " "),
-            commit.get("author", "—"),
+            commit.get("author", "-"),
             accuracy_text,
             commit.get("message", ""),
         )
