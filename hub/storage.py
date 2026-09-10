@@ -17,10 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aethel.core.atomic import atomic_write_text, file_lock
-from aethel.core.commits import walk_history
-from aethel.core.errors import AethelError, ObjectNotFound
+from aethel.core.commits import COMMIT_SCHEMA, find_adapter_filename, walk_history
+from aethel.core.errors import AethelError, CorruptObject, ObjectNotFound
 from aethel.core.hashing import hash_bytes, normalize_hash
 from aethel.core.objects import OBJECT_KINDS, ObjectStore
+from aethel.core.refs import validate_branch_name
+from hub.log import AppendResult, TransparencyLog
 
 
 class HubStorageError(AethelError):
@@ -34,6 +36,10 @@ class HashMismatch(HubStorageError):
     to trust that the server stored what was sent, if the bytes were altered
     in transit or substituted, the hash will not match and the write fails.
     """
+
+
+class RefConflict(HubStorageError):
+    """The remote branch changed or the proposed update discards history."""
 
 
 @dataclass
@@ -164,19 +170,86 @@ class HubStorage:
         return self.repos().get(name)
 
     def set_branch(self, repo_name: str, branch: str, commit_hash: str) -> RepoRecord:
-        """Point a repository's branch at a commit.
+        """Advance a complete branch without discarding its previous history."""
+        record, _ = self.publish_branch(repo_name, branch, commit_hash)
+        return record
 
-        Locked because this is a read-modify-write over a shared file: two
-        concurrent pushes to different branches of the same repository would
-        otherwise race and one would lose its ref update.
+    def validate_history(self, commit_hash: str, *, accepted: set[str] | None = None) -> list[dict]:
+        """Verify every reachable object, without a display pagination limit.
+
+        `accepted` names commits already admitted to the transparency log. Those were
+        validated in full when they were accepted, and object names are content
+        hashes, so their trees and base references are not re-read here. Their adapter
+        blob is still checked, so a blob deleted after acceptance is caught. Whole-store
+        integrity is a separate sweep: `aethel fsck` and the Hub's integrity check.
+        Pass `accepted=None` to force a complete re-validation.
         """
-        digest = normalize_hash(commit_hash, label="commit hash")
+        history = self.commit_history(commit_hash, limit=None)
+        accepted = accepted or set()
+        verified_trees: dict[str, dict[str, str]] = {}
+        verified_bases: set[str] = set()
+        verified_blobs: set[str] = set()
+        for commit in history:
+            if commit["hash"] in accepted:
+                # Cheap existence check only; the full object graph was verified on acceptance.
+                self.objects.blob_path(normalize_hash(commit.get("adapter_blob"), label="adapter hash"))
+                continue
+            if commit.get("schema") != COMMIT_SCHEMA:
+                raise CorruptObject(f"Unsupported commit schema: {commit.get('schema')!r}")
+            if "parent_hash" not in commit:
+                raise CorruptObject("Commit is missing parent_hash")
+            if commit["parent_hash"] is not None:
+                normalize_hash(commit["parent_hash"], label="parent hash")
+            for field in ("message", "author", "timestamp"):
+                if not isinstance(commit.get(field), str):
+                    raise CorruptObject(f"Commit has no valid {field}")
+            if not isinstance(commit.get("training_info"), dict):
+                raise CorruptObject("Commit has no valid training_info")
 
-        if not self.objects.exists("commits", digest):
-            raise HubStorageError(
-                f"cannot point {repo_name}/{branch} at {digest[:12]}, "
-                f"that commit object has not been uploaded"
-            )
+            tree_hash = normalize_hash(commit.get("tree"), label="tree hash")
+            base_hash = normalize_hash(commit.get("base"), label="base hash")
+            adapter_hash = normalize_hash(commit.get("adapter_blob"), label="adapter hash")
+            if tree_hash not in verified_trees:
+                files = self.objects.read_tree(tree_hash)
+                for blob_hash in files.values():
+                    if blob_hash not in verified_blobs:
+                        self.objects.blob_path(blob_hash)
+                        verified_blobs.add(blob_hash)
+                verified_trees[tree_hash] = files
+            files = verified_trees[tree_hash]
+            if files[find_adapter_filename(files)] != adapter_hash:
+                raise CorruptObject("Commit adapter_blob does not match its tree")
+            if base_hash not in verified_bases:
+                base = self.objects.read_json("bases", base_hash)
+                for field in ("model_id", "revision_sha"):
+                    if not isinstance(base.get(field), str) or not base[field].strip():
+                        raise CorruptObject(f"Base reference has no valid {field}")
+                verified_bases.add(base_hash)
+        return history
+
+    def publish_branch(
+        self,
+        repo_name: str,
+        branch: str,
+        commit_hash: str,
+        *,
+        log: TransparencyLog | None = None,
+        expected_tip: str | None = None,
+        check_expected: bool = False,
+    ) -> tuple[RepoRecord, AppendResult | None]:
+        """Validate, accept, and publish under one branch-update lock.
+
+        Rejected updates never enter the log. If the ref write fails after acceptance,
+        the old ref remains readable and a retry reuses the accepted log entries.
+        """
+        repo_name = validate_branch_name(repo_name)
+        branch = validate_branch_name(branch)
+        digest = normalize_hash(commit_hash, label="commit hash")
+        if expected_tip is not None:
+            expected_tip = normalize_hash(expected_tip, label="expected tip")
+        # Re-validating already-accepted ancestry on every push is work a client can drive.
+        history = self.validate_history(digest, accepted=set(log.snapshot()) if log is not None else None)
+        ancestors = {commit["hash"] for commit in history}
 
         with file_lock(self.data_dir / "repos.lock"):
             existing = self.repos()
@@ -185,6 +258,26 @@ class HubStorage:
             record = existing.get(repo_name) or RepoRecord(
                 name=repo_name, branches={}, created_at=now, updated_at=now
             )
+            current = record.branches.get(branch)
+            # Retrying an acknowledged or interrupted publication is harmless.
+            if current != digest:
+                if check_expected and current != expected_tip:
+                    raise RefConflict(
+                        f"Branch {repo_name}/{branch} changed during push. Fetch and retry."
+                    )
+                if current is not None and current not in ancestors:
+                    raise RefConflict(
+                        f"Non-fast-forward update to {repo_name}/{branch}. "
+                        "Fetch the remote history or publish a new branch."
+                    )
+
+            logged = None
+            if log is not None:
+                logged = log.append_many(
+                    [commit["hash"] for commit in reversed(history)],
+                    repo=repo_name,
+                    accepted_at=now,
+                )
             record.branches[branch] = digest
             record.updated_at = now
             existing[repo_name] = record
@@ -199,11 +292,11 @@ class HubStorage:
                 + "\n",
             )
 
-        return record
+        return record, logged
 
     # -- reading history ---------------------------------------------------
 
-    def commit_history(self, commit_hash: str, limit: int = 100) -> list[dict]:
+    def commit_history(self, commit_hash: str, limit: int | None = 100) -> list[dict]:
         """Walk a commit's ancestry, from the object store alone.
 
         Reuses `aethel.core.commits.walk_history` via a tiny adapter, so the
@@ -213,8 +306,8 @@ class HubStorage:
 
         history: list[dict] = []
         for chash, commit in walk_history(adapter, commit_hash):
-            history.append({"hash": chash, **commit})
-            if len(history) >= limit:
+            history.append({**commit, "hash": chash})
+            if limit is not None and len(history) >= limit:
                 break
 
         return history

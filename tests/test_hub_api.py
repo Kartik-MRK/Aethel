@@ -650,7 +650,7 @@ class TestHealth:
         by_name = {check["name"]: check for check in checks}
         assert by_name["Write auth"]["status"] == "good"
 
-    def test_a_configured_chain_reports_configured(self, hub_config):
+    def test_configuration_alone_does_not_claim_chain_health(self, hub_config):
         configured = replace(
             hub_config,
             chain_rpc_url="https://example.invalid/rpc",
@@ -662,8 +662,7 @@ class TestHealth:
             checks = client.get("/api/v1/health").json()["checks"]
 
         by_name = {check["name"]: check for check in checks}
-        assert by_name["Chain"]["status"] == "good"
-        assert "11155111" in by_name["Chain"]["detail"]
+        assert by_name["Chain"]["status"] == "warning"
 
     def test_a_flipped_byte_in_a_stored_blob_turns_the_page_critical(self, pushed, hub_storage):
         """Corruption is found by re-hashing, and it fails the endpoint loudly."""
@@ -693,7 +692,7 @@ class TestHealth:
         from hub.log import AnchorStore
 
         AnchorStore(hub_config.anchors_path).append(
-            {"root": hub_log.root(), "block": 1234, "leaf_count": hub_log.size()}
+            {"root": hub_log.root(), "block": 1234, "size": hub_log.size()}
         )
 
         healthy = pushed["client"].get("/api/v1/health").json()
