@@ -45,6 +45,77 @@
  * tuned on one is not the layout shown on the other.
  */
 
+/* Publication views use the existing type, surface, and status tokens. */
+.publication-band, .commit-publication {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-block: 1px solid var(--gridline);
+  margin: 0 0 2.5rem;
+}
+.publication-item, .commit-publication > div {
+  display: grid;
+  align-content: start;
+  gap: .6rem;
+  padding: 1.35rem 1.5rem 1.4rem 0;
+  min-width: 0;
+}
+.publication-item + .publication-item, .commit-publication > div + div {
+  border-left: 1px solid var(--gridline);
+  padding-left: 1.5rem;
+}
+.publication-item { color: var(--text-primary); text-decoration: none; }
+.publication-item:hover { background: var(--well); }
+.publication-label { font: 500 var(--step-s)/1.5 var(--mono); color: var(--text-secondary); }
+.publication-detail { font-size: var(--step-b); color: var(--text-secondary); max-width: 54ch; }
+.state-label { display: inline-flex; align-items: baseline; gap: .5rem; font-size: var(--step-b); font-weight: 600; }
+.state-label::before { content: ""; width: .45rem; height: .45rem; flex: 0 0 .45rem; border-radius: 50%; background: var(--status-warning); }
+.state-label[data-state="confirmed"]::before, .state-label[data-state="verified"]::before { background: var(--status-good); }
+.state-label[data-state="failed"]::before { background: var(--status-critical); }
+.state-label[data-state="unconfigured"]::before { background: var(--text-muted); }
+.lede-with-action { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; }
+.evidence-actions { flex: 0 0 14rem; padding-bottom: .3rem; }
+.refresh-note { font-size: var(--step-s); color: var(--text-muted); line-height: 1.6; min-height: 2.5rem; margin-top: .65rem; }
+.trust-config { display: grid; gap: 1rem; margin: 0 0 1.75rem; }
+.trust-config > div { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: 1rem; }
+.trust-config dt { font: 500 var(--step-s)/1.7 var(--mono); color: var(--text-muted); }
+.trust-config dd { margin: 0; overflow-wrap: anywhere; }
+.checkpoint-table, .mirror-table { table-layout: fixed; width: 100%; }
+.checkpoint-table th:nth-child(1) { width: 10%; }
+.checkpoint-table th:nth-child(2) { width: 24%; }
+.checkpoint-table th:nth-child(3) { width: 42%; }
+.checkpoint-table th:nth-child(4) { width: 24%; }
+.mirror-table th:nth-child(1) { width: 31%; }
+.mirror-table th:nth-child(2) { width: 31%; }
+.mirror-table th:nth-child(3) { width: 19%; }
+.mirror-table th:nth-child(4) { width: 19%; }
+.cell-note { display: block; margin-top: .45rem; font-size: var(--step-s); color: var(--text-muted); overflow-wrap: anywhere; }
+.record-links a { display: block; margin-bottom: .55rem; }
+.cid { font: var(--step-s)/1.8 var(--mono); overflow-wrap: anywhere; }
+.number { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.empty-state { padding: 2rem; background: var(--well); border-radius: var(--radius-sm); }
+.empty-state h3, .verification-recipe h3 { font-size: var(--step-m); margin: 0 0 .65rem; }
+.empty-state p, .verification-recipe p { max-width: 66ch; color: var(--text-secondary); line-height: 1.7; }
+.verification-recipe pre { background: var(--well); padding: 1.25rem; overflow-x: auto; border-radius: var(--radius-sm); line-height: 1.8; font-size: var(--step-s); }
+.registry-filter { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; padding-bottom: 1.25rem; }
+.registry-filter label, .registry-filter span { font-size: var(--step-s); color: var(--text-secondary); }
+.registry-filter input { flex: 1; min-width: 10rem; border: 1px solid var(--baseline); border-radius: var(--radius-sm); padding: .7rem .85rem; font: inherit; background: var(--surface-1); color: var(--text-primary); }
+.registry-filter[hidden], .ledger-row[hidden] { display: none; }
+.commit-publication a { font-size: var(--step-s); }
+.run-record { margin-top: 1.5rem; border-top: 1px solid var(--gridline); padding-top: 1rem; }
+.run-record summary { cursor: pointer; font-size: var(--step-b); font-weight: 500; }
+.run-record pre { max-height: 32rem; overflow: auto; background: var(--well); padding: 1rem; font: var(--step-s)/1.7 var(--mono); }
+
+@media (max-width: 720px) {
+  .lede-with-action { display: block; }
+  .evidence-actions { margin-top: 1.4rem; }
+  .publication-band, .commit-publication { grid-template-columns: 1fr; }
+  .publication-item + .publication-item, .commit-publication > div + div { border-left: 0; border-top: 1px solid var(--gridline); padding-left: 0; }
+  .trust-config > div { grid-template-columns: 1fr; gap: .2rem; }
+  .checkpoint-table, .mirror-table { min-width: 680px; }
+  .masthead-inner { flex-wrap: wrap; }
+  .nav { order: 3; width: 100%; justify-content: flex-start; }
+}
+
 /* ---------- faces ----------
  * Two variable fonts, axis-limited to the weights actually used. Fallbacks are
  * kept behind each one: a page that cannot load its font must still be

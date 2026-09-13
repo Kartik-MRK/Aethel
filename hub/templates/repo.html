@@ -25,13 +25,13 @@
       {% if stats.latest_accuracy is not none %}
       {{ figure('Latest accuracy', '%.1f' | format(stats.latest_accuracy * 100) ~ '%', lead=true) }}
       {% else %}
-      {{ figure('Latest accuracy', '—', 'not measured', lead=true, muted=true) }}
+      {{ figure('Latest accuracy', '-', 'not measured', lead=true, muted=true) }}
       {% endif %}
 
       {% if stats.best_accuracy is not none %}
       {{ figure('Best accuracy', '%.1f' | format(stats.best_accuracy * 100) ~ '%') }}
       {% else %}
-      {{ figure('Best accuracy', '—', muted=true) }}
+      {{ figure('Best accuracy', '-', muted=true) }}
       {% endif %}
 
       {{ figure('Versions', stats.versions) }}
@@ -68,13 +68,9 @@
       <div class="chart-head">
         <div class="chart-title">Evaluation accuracy per commit</div>
         <div class="chart-sub">
-          Axis spans {{ g.low_pct }}&ndash;{{ g.high_pct }}%, not 0&ndash;100% &mdash; a line
-          shows change through its slope, which a full-domain axis would flatten
-          to nothing.
+          Displayed range: {{ g.low_pct }}-{{ g.high_pct }}%.
           {% if series.lines | length > 1 %}
-          Each line follows one branch: a segment joins a commit to its own parent,
-          so the slope is a change someone made rather than two experiments that
-          happened to run in sequence.
+          Each line follows the recorded parent links of one branch.
           {% endif %}
           {% if series.unmeasured %}
           {{ series.measured }} of {{ series.total_commits }} versions have a recorded
@@ -220,7 +216,7 @@
               <td>
                 <a class="hash-strong" href="/c/{{ row.hash }}">{{ row.short }}</a>
               </td>
-              <td class="hash">{{ row.parent_short or '—' }}</td>
+              <td class="hash">{{ row.parent_short or '-' }}</td>
               <td>
                 {{ row.message }}
                 {%- for name in row.refs %}
@@ -229,10 +225,10 @@
               </td>
               <td>{{ row.author }}</td>
               <td class="num">
-                {% if row.accuracy is not none %}{{ '%.3f' | format(row.accuracy) }}{% else %}—{% endif %}
+                {% if row.accuracy is not none %}{{ '%.3f' | format(row.accuracy) }}{% else %}-{% endif %}
               </td>
               <td class="num">
-                {% if row.f1 is not none %}{{ '%.3f' | format(row.f1) }}{% else %}—{% endif %}
+                {% if row.f1 is not none %}{{ '%.3f' | format(row.f1) }}{% else %}-{% endif %}
               </td>
               <td class="hash">{{ row.timestamp }}</td>
               <td>
@@ -251,7 +247,7 @@
     <p class="footnote">
       A line in the graph is one line of work; where two meet, the lower commit is
       the fork point they share. A hollow marker is a root commit. A boxed name is
-      a branch tip &mdash; where that branch currently points. “Logged” means the
+      a branch tip - where that branch currently points. “Logged” means the
       commit is a leaf in this Hub's append-only transparency log.
     </p>
   </div>
