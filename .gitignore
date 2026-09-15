@@ -173,6 +173,10 @@ Thumbs.db
 # Data files
 *.csv
 *.json
+!contracts/package.json
+!contracts/package-lock.json
+!aethel/provenance/contracts/AethelCheckpoint.json
+!docs/evidence/*.json
 *.pkl
 *.pickle
 
