@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% from "_macros.html" import digest, figure %}
+{% set nav = 'provenance' %}
+{% block title %}Provenance - Aethel Hub{% endblock %}
+{% block content %}
+<div class="lede lede-with-action">
+  <div>
+    <p class="lede-eyebrow">Publication records / {{ network }}</p>
+    <h1>Provenance</h1>
+    <p class="lede-sub">Trace accepted versions to a chain checkpoint, then retrieve their adapter bytes from IPFS.</p>
+  </div>
+  <div class="evidence-actions">
+    <button class="check-btn" type="button" data-refresh-evidence>Refresh status</button>
+    <p class="refresh-note" data-refresh-state aria-live="polite">Checks run in the background.</p>
+  </div>
+</div>
+
+{% include "_publication.html" %}
+
+<section class="strip">
+  <div class="strip-head"><h2 class="strip-label">Coverage</h2><p class="strip-note">Accepted history and externally checked copies.</p></div>
+  <div class="strip-body">
+    <div class="figures">
+      {{ figure('Accepted versions', log_size, lead=true) }}
+      {{ figure('Confirmed entries', provenance.chain.get('size', 0) if provenance.chain.status == 'confirmed' else '-', 'RPC-checked prefix') }}
+      {{ figure('Verified IPFS copies', provenance.mirrored_count, 'SHA-256 matched on retrieval') }}
+      {{ figure('Mirror retries needed', provenance.failed_count) }}
+    </div>
+    <p class="footnote">New commits can be accepted after a checkpoint. Earlier checkpoints remain valid when their recorded prefix is unchanged.</p>
+  </div>
+</section>
+
+<section class="strip" id="checkpoints">
+  <div class="strip-head"><h2 class="strip-label">Chain checkpoints</h2><p class="strip-note">Permanent roots, ordered by the number of accepted entries.</p></div>
+  <div class="strip-body">
+    {% if provenance.contract %}
+    <dl class="trust-config">
+      <div><dt>Network</dt><dd>{{ network }} / {{ provenance.chain_id }}</dd></div>
+      <div><dt>Contract</dt><dd class="hash">{{ provenance.contract }}</dd></div>
+      <div><dt>Log identity</dt><dd>{{ digest(provenance.log_id, label=provenance.log_id, copy='log identity') }}</dd></div>
+    </dl>
+    {% endif %}
+    {% if provenance.checkpoints %}
+    <div class="panel table-wrap">
+      <table class="checkpoint-table">
+        <thead><tr><th>Entries</th><th>Recorded state</th><th>Root</th><th>Evidence</th></tr></thead>
+        <tbody>
+        {% for record in provenance.checkpoints %}
+          <tr>
+            <td class="number">{{ record.size }}</td>
+            <td><span class="state-label" data-state="{{ record.status }}">{{ record.status | capitalize }}</span><small class="cell-note">{{ record.get('checked_at', record.updated_at)[:19] | replace('T', ' ') }} UTC</small></td>
+            <td>{{ digest(record.root, label=record.root, copy='checkpoint root') }}<small class="cell-note">Block {{ record.get('block', 'pending') }}</small></td>
+            <td class="record-links">
+              {% if provenance.explorer and record.get('tx_hash') %}<a href="{{ provenance.explorer }}/tx/{{ record.tx_hash }}" target="_blank" rel="noopener noreferrer">Transaction <span aria-hidden="true">↗</span></a>{% endif %}
+              {% if sample_commit and record.status == 'confirmed' %}<a href="/api/v1/checkpoints/{{ record.size }}/bundle/{{ sample_commit }}" download="checkpoint-{{ record.size }}.json">Download proof bundle</a>{% endif %}
+              {% if record.get('error') %}<span class="cell-note">{{ record.error }}</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="footnote">Recorded confirmations describe the last worker check. The live status above rechecks the latest checkpoint, contract bytecode, log identity, and earlier prefixes through RPC.</p>
+    {% else %}
+    <div class="empty-state"><h3>No checkpoint published</h3><p>Accepted commits are available locally. Run the worker to publish their root.</p><code>aethel provenance anchor</code></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="strip" id="mirrors">
+  <div class="strip-head"><h2 class="strip-label">IPFS copies</h2><p class="strip-note">One record per adapter blob. Retries retain an existing CID.</p></div>
+  <div class="strip-body">
+    {% if provenance.mirrors %}
+    <div class="panel table-wrap"><table class="mirror-table">
+      <thead><tr><th>Adapter SHA-256</th><th>Content address</th><th>Retrieval</th><th>Record</th></tr></thead>
+      <tbody>{% for record in provenance.mirrors %}
+        <tr>
+          <td>{{ digest(record.sha256, label=record.sha256, copy='adapter hash') }}{% if record.get('bytes') is not none %}<small class="cell-note">{{ '%.1f' | format(record.bytes / 1024) }} KiB</small>{% endif %}</td>
+          <td><span class="cid">{{ record.get('cid', 'Awaiting pin') }}</span><small class="cell-note">{{ record.provider }}</small></td>
+          <td><span class="state-label" data-state="{{ record.status }}">{{ record.status | capitalize }}</span><small class="cell-note">{{ record.attempts }} attempt{{ '' if record.attempts == 1 else 's' }}</small>{% if record.get('error') %}<small class="cell-note">{{ record.error }}</small>{% endif %}</td>
+          <td class="record-links">{% if record.get('gateway') and record.get('cid') %}<a href="{{ record.gateway }}/{{ record.cid }}" target="_blank" rel="noopener noreferrer">Open IPFS copy <span aria-hidden="true">↗</span></a>{% endif %}<a href="/api/v1/mirrors/{{ record.sha256 }}">Verification record</a><a href="/api/v1/blobs/{{ record.sha256 }}">Hub copy</a></td>
+        </tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <p class="footnote">A verified record means downloaded bytes matched the adapter hash at that time. The live gateway check samples one copy. Pinning does not guarantee permanent availability.</p>
+    {% else %}
+    <div class="empty-state"><h3>No adapter copies pinned</h3><p>Mirror accepted adapters, then verify them through the configured gateways.</p><code>aethel provenance mirror</code></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head"><h2 class="strip-label">Check independently</h2><p class="strip-note">Use a separately chosen RPC and trusted contract details.</p></div>
+  <div class="strip-body">
+    <div class="verification-recipe">
+      <h3>Verify the receipt outside this Hub</h3>
+      {% if sample_commit and provenance.contract %}
+      <pre><code>aethel provenance verify {{ sample_commit }} \
+  --bundle checkpoint-{{ provenance.chain.get('size', 'SIZE') }}.json \
+  --rpc YOUR_TRUSTED_RPC \
+  --chain-id {{ provenance.chain_id }} \
+  --contract {{ provenance.contract }} \
+  --log-id {{ provenance.log_id }}</code></pre>
+      {% else %}
+      <p>A verification command will appear after the first checkpoint is configured and accepted commits exist.</p>
+      {% endif %}
+      <p>The verifier checks chain identity, deployed code, confirmations, the commit's exact position, and every earlier checkpoint prefix. This establishes recorded inclusion; it does not establish model quality or honest training.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

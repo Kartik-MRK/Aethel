@@ -1,0 +1,12 @@
+<section class="publication-band" aria-label="Publication status" data-publication>
+  <a class="publication-item" href="/provenance#checkpoints">
+    <span class="publication-label">Chain checkpoint</span>
+    <span class="state-label" data-state="{{ provenance.chain.status }}" data-chain-status>{{ provenance.chain.status | capitalize }}</span>
+    <span class="publication-detail" data-chain-detail>{{ provenance.chain.detail }}</span>
+  </a>
+  <a class="publication-item" href="/provenance#mirrors">
+    <span class="publication-label">IPFS retrieval</span>
+    <span class="state-label" data-state="{{ provenance.gateway.status }}" data-gateway-status>{{ provenance.gateway.status | capitalize }}</span>
+    <span class="publication-detail" data-gateway-detail>{{ provenance.gateway.detail }}</span>
+  </a>
+</section>
