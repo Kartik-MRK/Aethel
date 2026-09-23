@@ -35,6 +35,26 @@ jobs:
           pytest tests/ --cov=aethel.core --cov-report=term-missing \
             --cov-fail-under=80
 
+  ml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HF_HUB_OFFLINE: "1"
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU training dependencies
+        run: |
+          python -m pip install 'torch>=2.2,<3.0' --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e '.[dev,ml]'
+      - name: Confirm ML imports
+        run: python -c "import torch, transformers, peft, safetensors"
+      - name: Test training, evaluation, and diff without downloads
+        run: pytest tests/test_training_pipeline.py tests/test_evaluation.py tests/test_evaluation_protocol.py tests/test_adapter_diff.py
+
   # Without this job the Hub's tests would skip on every run and CI would stay
   # green through a broken Hub -- a passing suite that proved nothing.
   hub:
@@ -64,3 +84,23 @@ jobs:
 
       - name: Test
         run: pytest tests/
+
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Rebuild and compare the contract artifact
+        run: |
+          npm ci --prefix contracts --ignore-scripts
+          npm run --prefix contracts build
+          git diff --exit-code -- aethel/provenance/contracts/AethelCheckpoint.json
+      - name: Install provenance and HTTP test dependencies
+        run: python -m pip install -e '.[dev,hub,provenance-test,fonts]'
+      - name: Test contract execution, mirrors, and dashboard integration
+        run: pytest tests/test_provenance_chain.py tests/test_provenance_ipfs.py tests/test_provenance_hub.py tests/test_hub_credentials.py

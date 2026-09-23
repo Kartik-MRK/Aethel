@@ -1,0 +1,8 @@
+# Set AETHEL_PUBLIC_HOST to your DNS name before starting Caddy.
+{$AETHEL_PUBLIC_HOST} {
+    encode zstd gzip
+    request_body {
+        max_size 65MB
+    }
+    reverse_proxy 127.0.0.1:8000
+}
