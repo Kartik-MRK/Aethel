@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "checkpoint": {
+    "status": "confirmed",
+    "size": 2,
+    "root": "aeb33d38a626e681507a75cd94a78d8efd0a0fdf7dc95ac300196d3957cb4b28",
+    "chain_id": 11155111,
+    "contract": "0xFe000a436a8Af301e96aFe3815Ab0ba0003C078E",
+    "log_id": "053b1222dab7d5c519cb146bd2661bd2287e17a0e9309a1e336ce9646758ede2",
+    "block": 11764982,
+    "block_hash": "0xf4e5dae7f141866220bd3c730a2718d8f6b185c9aa165bae8300fc0a03e8fae2",
+    "confirmations": 28,
+    "required_confirmations": 2,
+    "previous_size": 0,
+    "history_checked": 1,
+    "checked_at": "2026-09-23T12:53:59.133901+00:00",
+    "tx_hash": "0xe795908c05e4178150f55ed9157768d7cded709bbe5a5a778cf3ca7121ceaf9b",
+    "updated_at": "2026-09-23T12:53:59.142715+00:00"
+  },
+  "proof": {
+    "commit_hash": "db5be1090f64878a49b8dbb670bbcce69bf65c2ede90a09f324ec74c69538aec",
+    "leaf_index": 0,
+    "log_size": 2,
+    "root": "aeb33d38a626e681507a75cd94a78d8efd0a0fdf7dc95ac300196d3957cb4b28",
+    "proof": [
+      {
+        "sibling": "810670c146260b5bdc0a5daf29b21d8734cbc9f7f2048824a11d6cbc978a2ba5",
+        "side": "right"
+      }
+    ]
+  },
+  "leaves": [
+    "db5be1090f64878a49b8dbb670bbcce69bf65c2ede90a09f324ec74c69538aec",
+    "52f2b822ab6e97ec3d08eba93ef4055cec5521683149d5e1e3625a8382bbc66d"
+  ]
+}
