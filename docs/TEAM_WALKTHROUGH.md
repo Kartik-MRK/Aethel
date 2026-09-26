@@ -17,7 +17,7 @@ append-only Merkle transparency log the chain will anchor.
 
 | | Before | After |
 |---|---|---|
-| Tests | **0** | **719** |
+| Tests | **0** | **800 collected; 797 pass on a base install** |
 | Core coverage | 0% | **96%** |
 | Hub + remote coverage | n/a | **91%** |
 | Linter | none | ruff, clean across the whole tree |
@@ -212,8 +212,8 @@ same commit format as the client, while the client stays installable without a
 web framework.
 
 **Why it matters practically:** the whole VCS *and its publishing path* are
-testable with no GPU, no model download, and no network. 719 test cases run in
-**under 10 seconds**, including full pushes, the Hub's tests drive the ASGI app
+testable with no GPU, no model download, and no network. 797 of the 800 cases run in
+**under 10 seconds**, including full pushes, because the Hub's tests drive the ASGI app
 in-process instead of over a socket. That is why we can afford to run them on
 every push.
 
@@ -326,7 +326,7 @@ than no table.
 |---|---|---|
 | **S1.1** | Commit metadata overwritten between identical-weight commits | Commits keyed by own hash |
 | **S1.2** | No evaluation anywhere | *(partly: `aethel/evaluation/` computes eval loss, accuracy and adapter size, `commit` calls it, `log` and the dashboard display it and prefer it over training metrics. Never yet run against torch, and the accuracy is on the training split)* |
-| **S1.3** | Zero tests | 719 test cases, 96% core coverage |
+| **S1.3** | Zero tests | 800 test cases collected, 96% core coverage |
 | **S2.1** | Documented IMDB quickstart crashed (Arrow vs CSV) | Detects Arrow dirs, explains the conversion |
 | **S2.2** | Typo'd dataset path → silently trained on fake text, still committable | Refuses; requires explicit `--allow-stub` |
 | **S2.3** | No atomicity in commit | `atomic.py` everywhere |
@@ -366,8 +366,7 @@ them **verbatim**:
 | Merkle odd-node promotion | `aggregator.py` | Avoids CVE-2012-2459. |
 | Exception-per-module | all commands | Clean error boundaries; we generalized it. |
 
-The corruption bug is what unreviewed generated code produces, every time, and
-six of previous decisions were good enough to keep untouched.
+The corruption defect needed a storage redesign. The six decisions above were retained.
 
 ---
 
@@ -499,10 +498,10 @@ populates `app.state`.
 **The skip trap, and why CI has two jobs.** Those tests skip themselves when
 FastAPI is absent, so a client-only install stays green. CI was installing only
 `[dev]`, which meant a completely broken Hub would still have shown a green
-tick. On today's suite the `core` job runs **313 of the 719 cases**: the four
-module-level `importorskip("fastapi")` gates keep 258 from being collected at
-all, and another 148 skip inside the Hub client fixture, `push`'s in-function
-gate, and the torch and font gates. So 406 cases never execute there.
+tick. On today's suite the `core` job runs **347 of the 800 cases**, and skips
+158: the module-level `importorskip` gates collapse whole modules to a single
+skip item, and the rest skip inside the Hub client fixture, `push`'s in-function
+gate, and the torch and font gates. So 453 cases never execute there.
 Measured, not guessed: a
 meta-path finder that raises `ModuleNotFoundError` for `fastapi` reproduces the
 CI environment exactly. (`pytest.importorskip` only skips on
@@ -518,7 +517,7 @@ the Hub imports before running anything.
 ```bash
 # from the repository root
 
-python3 -m pytest                      # 716 passed, 3 skipped, in ~8s
+python3 -m pytest                      # 797 passed, 6 skipped, in ~9s
 python3 -m pytest --cov=aethel.core    # 96%
 ruff check .                           # All checks passed
 
@@ -640,7 +639,7 @@ makes anchoring load-bearing instead of decorative.
 Split honestly, because half of this is runnable on a laptop today and half is
 not, and finding that out during the demo is the worst possible time.
 
-**Runnable today, in order, this is the demo we give on 3 September:**
+**Runnable today, in order, this is the demo we give:**
 
 1. Show the corruption bug on the old code (checked-out old commit)
 2. Show the test that catches it

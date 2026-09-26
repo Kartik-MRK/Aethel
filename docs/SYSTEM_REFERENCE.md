@@ -1,5 +1,10 @@
 # Aethel: System Reference
 
+For the current implementation and verification results, see [Build status](BUILD_STATUS.md).
+The training, evaluation, and diff changes are described in [Review build decisions](design/review-build.md).
+IPFS, EVM checkpoints, independent verification, and the provenance dashboard are covered in
+[Provenance runbook](PROVENANCE_RUNBOOK.md), with live receipts in [Review evidence](REVIEW_EVIDENCE.md).
+
 Complete reference for how Aethel works: architecture, every command, the
 storage model, the Hub and its transparency log, and a demo walkthrough you can
 run end to end.
@@ -77,8 +82,9 @@ without the client ever depending on a web framework.
 Three consequences worth knowing:
 
 - The entire VCS is testable with no GPU, no model download, and no network.
-  719 test cases run in under 10 seconds, including a full push, because the Hub's tests
-  run the ASGI application in-process rather than over a socket.
+  797 of the 800 cases run on a base install in under 10 seconds, including a full push,
+  because the Hub's tests run the ASGI application in-process rather than over a socket.
+  The three that skip need torch.
 - `pip install -e .` gives a working repository tool *that can push*. PyTorch is
   the separate `[ml]` extra, needed only by `aethel train`; FastAPI is the
   separate `[hub]` extra, needed only to *serve* a Hub.
@@ -222,6 +228,7 @@ Training and committing are **decoupled**: `train` stages, `commit` snapshots.
 
 ```yaml
 # train_yaml/sst2_config.yaml
+task_type: sequence_classification
 dataset: ./datasets/sst2
 text_column: text
 label_column: label
@@ -233,6 +240,11 @@ lora_alpha: 16
 batch_size: 2
 gradient_accumulation_steps: 8
 epochs: 1
+seed: 42
+split_seed: 42
+validation_fraction: 0.2
+test_fraction: 0.2
+label_names: [negative, positive]
 ```
 
 **If the dataset path does not exist, training fails.** It does not fall back
@@ -240,10 +252,30 @@ to synthetic data. A typo in a path must not be able to produce a publishable
 model that learned nothing. To train on synthetic text deliberately, pass
 `--allow-stub`.
 
+Training preserves the previous workspace until the new run succeeds. Replacing uncommitted
+files requires `--force`. A training seed changes model initialization; keep `split_seed` fixed
+when comparing runs on the same held-out examples.
+
+### `aethel eval [target] --split validation|test --json`
+
+Evaluate the staged workspace, or a stored branch/commit, using the recorded dataset manifest.
+Reports accuracy, macro-F1, loss, sample count, class support, and artifact/specification hashes.
+Modified datasets or split membership are rejected. Use test results only for final reporting.
+
+### `aethel diff <left> <right> --json`
+
+Compare two committed standard LoRA adapters against the same base and task. Reports per-layer
+effective-update norms, distance, relative change, and cosine, plus saved-module differences.
+The workspace is not modified. Unsupported adapter variants fail with an explicit error.
+
 ### `aethel commit -m "<message>"`
 
 Snapshots the workspace into a new commit and advances the current branch.
 Does not train, and does not modify the workspace.
+
+`--require-evaluation` rejects a commit if held-out evaluation fails. The default records an
+explicit failed/skipped status. Evaluation tied to different staged weights or configuration
+cannot be attached to the commit.
 
 Blocked on a detached HEAD, see §5.
 
@@ -804,7 +836,7 @@ tamper becomes detectable without anyone knowing the old root.
 ## 9. Development
 
 ```bash
-python3 -m pytest                   # 719 cases, ~8s, no GPU or network
+python3 -m pytest                   # 797 passed, 6 skipped, ~9s, no GPU or network
 pytest tests/ --cov=aethel.core     # 96%
 ruff check .
 ```
@@ -842,7 +874,7 @@ The Hub's tests skip themselves when FastAPI is absent, so they do not break a
 client-only install. CI therefore runs two jobs, which appear as five check
 runs:
 
-- **`core`** installs only `[dev]`, on Python 3.10–3.13, four of the five runs.
+- **`core`** installs only `[dev]`, on Python 3.10 to 3.13, four of the five runs.
   It fails if the core ever grows a dependency on torch or FastAPI, and the
   Hub's tests skip by design: 313 pass, four modules skip at import so their 258
   cases never collect, and 148 more skip inside their fixtures or behind the
