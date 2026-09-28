@@ -1,0 +1,222 @@
+{
+  "date": "2026-09-23",
+  "scope": "small real-data pilot; validation results only",
+  "dataset": "stanfordnlp/sst2",
+  "downloaded_rows": 600,
+  "model_id": "distilbert/distilbert-base-uncased",
+  "revision": "12040accade4e8a0f71eabdb258fecc2e7e948be",
+  "runs": [
+    {
+      "commit": "db5be1090f64878a49b8dbb670bbcce69bf65c2ede90a09f324ec74c69538aec",
+      "seed": 42,
+      "evaluation": {
+        "status": "measured",
+        "current": {
+          "accuracy": 0.5916666666666667,
+          "macro_f1": 0.5016526824307145,
+          "sample_count": 120,
+          "class_support": [
+            59,
+            61
+          ],
+          "confusion_matrix": [
+            [
+              10,
+              49
+            ],
+            [
+              0,
+              61
+            ]
+          ],
+          "eval_loss": 0.6717458764712015,
+          "adapter_size_mb": 2.5437088012695312,
+          "adapter_sha256": "93970363ae2094b3c420779b375b9cf2490d39ad8b210e41800a4ded90ee23bc",
+          "adapter_config_sha256": "4d0e9aa5009731961f14c3f4fc43ed48a3696a727568887f251d960dccb49806",
+          "evaluation_spec": {
+            "schema": 1,
+            "evaluator": "classification-v1",
+            "split": "validation",
+            "examples_sha256": "851ef76280eb2164965a6276ef0bf9c6d522787c5239a907d774cd36497e04ed",
+            "indices_sha256": "0c474c66d059a7c1156b1d66767b76b2d0589600890a3f6f2f764cdd07622c9c",
+            "label_ids": [
+              0,
+              1
+            ],
+            "label_names": [
+              "negative",
+              "positive"
+            ],
+            "model_id": "distilbert/distilbert-base-uncased",
+            "revision_sha": "12040accade4e8a0f71eabdb258fecc2e7e948be",
+            "max_length": 64,
+            "sample_count": 120,
+            "hash": "458533b1779ce91ae0179c93ec6147a2d1d17aeac43fc2576c3914cfeb914fe6"
+          }
+        },
+        "parent": null,
+        "comparison": null
+      }
+    },
+    {
+      "commit": "52f2b822ab6e97ec3d08eba93ef4055cec5521683149d5e1e3625a8382bbc66d",
+      "seed": 43,
+      "evaluation": {
+        "status": "measured",
+        "current": {
+          "accuracy": 0.5083333333333333,
+          "macro_f1": 0.3370165745856354,
+          "sample_count": 120,
+          "class_support": [
+            59,
+            61
+          ],
+          "confusion_matrix": [
+            [
+              0,
+              59
+            ],
+            [
+              0,
+              61
+            ]
+          ],
+          "eval_loss": 0.6727481603622436,
+          "adapter_size_mb": 2.5437088012695312,
+          "adapter_sha256": "e8e13125e1fbedfaae1da45bd41c3680f65fa76d1e1e1d4cf6dcb4c219a2e525",
+          "adapter_config_sha256": "4d0e9aa5009731961f14c3f4fc43ed48a3696a727568887f251d960dccb49806",
+          "evaluation_spec": {
+            "schema": 1,
+            "evaluator": "classification-v1",
+            "split": "validation",
+            "examples_sha256": "851ef76280eb2164965a6276ef0bf9c6d522787c5239a907d774cd36497e04ed",
+            "indices_sha256": "0c474c66d059a7c1156b1d66767b76b2d0589600890a3f6f2f764cdd07622c9c",
+            "label_ids": [
+              0,
+              1
+            ],
+            "label_names": [
+              "negative",
+              "positive"
+            ],
+            "model_id": "distilbert/distilbert-base-uncased",
+            "revision_sha": "12040accade4e8a0f71eabdb258fecc2e7e948be",
+            "max_length": 64,
+            "sample_count": 120,
+            "hash": "458533b1779ce91ae0179c93ec6147a2d1d17aeac43fc2576c3914cfeb914fe6"
+          }
+        },
+        "parent": {
+          "accuracy": 0.5916666666666667,
+          "macro_f1": 0.5016526824307145,
+          "sample_count": 120,
+          "class_support": [
+            59,
+            61
+          ],
+          "confusion_matrix": [
+            [
+              10,
+              49
+            ],
+            [
+              0,
+              61
+            ]
+          ],
+          "eval_loss": 0.6717458764712015,
+          "adapter_size_mb": 2.5437088012695312,
+          "adapter_sha256": "93970363ae2094b3c420779b375b9cf2490d39ad8b210e41800a4ded90ee23bc",
+          "adapter_config_sha256": "4d0e9aa5009731961f14c3f4fc43ed48a3696a727568887f251d960dccb49806",
+          "evaluation_spec": {
+            "schema": 1,
+            "evaluator": "classification-v1",
+            "split": "validation",
+            "examples_sha256": "851ef76280eb2164965a6276ef0bf9c6d522787c5239a907d774cd36497e04ed",
+            "indices_sha256": "0c474c66d059a7c1156b1d66767b76b2d0589600890a3f6f2f764cdd07622c9c",
+            "label_ids": [
+              0,
+              1
+            ],
+            "label_names": [
+              "negative",
+              "positive"
+            ],
+            "model_id": "distilbert/distilbert-base-uncased",
+            "revision_sha": "12040accade4e8a0f71eabdb258fecc2e7e948be",
+            "max_length": 64,
+            "sample_count": 120,
+            "hash": "458533b1779ce91ae0179c93ec6147a2d1d17aeac43fc2576c3914cfeb914fe6"
+          }
+        },
+        "comparison": {
+          "loss_change": 0.0010022838910420662,
+          "accuracy_change": -0.08333333333333337,
+          "adapter_size_change": 0.0,
+          "improved": false,
+          "macro_f1_change": -0.1646361078450791
+        },
+        "comparison_status": "compared"
+      }
+    }
+  ],
+  "checkpoint": {
+    "status": "confirmed",
+    "size": 2,
+    "root": "aeb33d38a626e681507a75cd94a78d8efd0a0fdf7dc95ac300196d3957cb4b28",
+    "chain_id": 11155111,
+    "contract": "0xFe000a436a8Af301e96aFe3815Ab0ba0003C078E",
+    "log_id": "053b1222dab7d5c519cb146bd2661bd2287e17a0e9309a1e336ce9646758ede2",
+    "block": 11764982,
+    "block_hash": "0xf4e5dae7f141866220bd3c730a2718d8f6b185c9aa165bae8300fc0a03e8fae2",
+    "confirmations": 28,
+    "required_confirmations": 2,
+    "previous_size": 0,
+    "history_checked": 1,
+    "checked_at": "2026-09-23T12:53:59.133901+00:00",
+    "tx_hash": "0xe795908c05e4178150f55ed9157768d7cded709bbe5a5a778cf3ca7121ceaf9b",
+    "updated_at": "2026-09-23T12:53:59.142715+00:00"
+  },
+  "mirrors": [
+    {
+      "attempts": 3,
+      "bytes": 2667272,
+      "cid": "bafybeihsiewfwvy3u6e67bt7t6zs4fylikxlxca3347ovjq5osudkvjnta",
+      "error": null,
+      "gateway": "https://amethyst-blank-crocodile-745.mypinata.cloud/ipfs",
+      "provider": "pinata",
+      "sha256": "93970363ae2094b3c420779b375b9cf2490d39ad8b210e41800a4ded90ee23bc",
+      "status": "verified",
+      "updated_at": "2026-09-23T12:54:02.913644+00:00",
+      "verified_at": "2026-09-23T12:54:02.913070+00:00"
+    },
+    {
+      "attempts": 3,
+      "cid": "bafybeihawg2juud5gjin5apk6upvrlfgfjvimlltgdwkp2kuflbo75ylvm",
+      "error": null,
+      "provider": "pinata",
+      "sha256": "e8e13125e1fbedfaae1da45bd41c3680f65fa76d1e1e1d4cf6dcb4c219a2e525",
+      "status": "verified",
+      "updated_at": "2026-09-23T12:54:06.186374+00:00",
+      "gateway": "https://amethyst-blank-crocodile-745.mypinata.cloud/ipfs",
+      "bytes": 2667272,
+      "verified_at": "2026-09-23T12:54:06.185574+00:00"
+    }
+  ],
+  "independent_verification": {
+    "rpc": "https://sepolia.gateway.tenderly.co",
+    "status": "confirmed",
+    "size": 2,
+    "root": "aeb33d38a626e681507a75cd94a78d8efd0a0fdf7dc95ac300196d3957cb4b28",
+    "chain_id": 11155111,
+    "contract": "0xFe000a436a8Af301e96aFe3815Ab0ba0003C078E",
+    "log_id": "053b1222dab7d5c519cb146bd2661bd2287e17a0e9309a1e336ce9646758ede2",
+    "block": 11764982,
+    "block_hash": "0xf4e5dae7f141866220bd3c730a2718d8f6b185c9aa165bae8300fc0a03e8fae2",
+    "confirmations": 47,
+    "required_confirmations": 2,
+    "previous_size": 0,
+    "history_checked": 1,
+    "checked_at": "2026-09-23T12:57:55.045923+00:00"
+  }
+}

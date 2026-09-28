@@ -233,7 +233,7 @@ between them, implying a change someone made. Each line now follows one branch,
 segment by segment from a commit to its own parent, so a slope always means
 something a person did.
 
-**A full-domain 0–100% accuracy axis.** Honest-looking and useless: every real
+**A full-domain 0 to 100% accuracy axis.** Honest-looking and useless: every real
 line flattens to nothing. The axis spans the data with its range stated in the
 caption, which is the trade a reader can check.
 

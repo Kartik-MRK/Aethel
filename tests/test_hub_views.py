@@ -743,7 +743,7 @@ class TestDagRows:
         record = commit()
         del record["author"]
 
-        assert _dag_rows([record])[0]["author"] == "—"
+        assert _dag_rows([record])[0]["author"] == "-"
 
     def test_a_branch_tip_is_named_on_its_own_row(self):
         """Without this the graph shows three lines of work and names none."""

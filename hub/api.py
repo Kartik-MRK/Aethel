@@ -18,12 +18,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
+from aethel.core.aggregator import MerkleTree
 from aethel.core.errors import AethelError, InvalidHash, ObjectNotFound
 from aethel.core.hashing import is_valid_hash
 from aethel.core.objects import OBJECT_KINDS
+from aethel.provenance.checkpoint import MAX_PREFIX_LEAVES, CheckpointError, checked_prefix
+from aethel.provenance.state import StateStore
 from hub.config import HubConfig
 from hub.log import AnchorStore, TransparencyLog
-from hub.storage import HashMismatch, HubStorage, HubStorageError
+from hub.storage import HashMismatch, HubStorage, HubStorageError, RefConflict
 
 router = APIRouter()
 
@@ -180,7 +183,12 @@ async def negotiate(
             continue
         cleaned[kind] = [h.lower() for h in hashes if isinstance(h, str) and is_valid_hash(h.lower())]
 
-    return {"repo": repo_name, "missing": storage.missing_objects(cleaned)}
+    record = storage.repo(repo_name)
+    return {
+        "repo": repo_name,
+        "missing": storage.missing_objects(cleaned),
+        "branches": record.branches if record else {},
+    }
 
 
 @router.post("/api/v1/repos/{repo_name}/refs", dependencies=[Depends(require_write_auth)])
@@ -210,24 +218,25 @@ async def update_ref(
         raise HTTPException(status_code=400, detail="Expected a 'commit' hash.")
 
     digest = _validate_hash(commit_hash, "commit hash")
+    expected_tip = payload.get("expected_tip")
+    if expected_tip is not None:
+        if not isinstance(expected_tip, str):
+            raise HTTPException(status_code=400, detail="Expected 'expected_tip' to be a hash or null.")
+        expected_tip = _validate_hash(expected_tip, "expected tip")
 
     try:
-        history = storage.commit_history(digest)
-    except ObjectNotFound as exc:
+        record, logged = storage.publish_branch(
+            repo_name,
+            branch,
+            digest,
+            log=log,
+            expected_tip=expected_tip,
+            check_expected="expected_tip" in payload,
+        )
+    except (ObjectNotFound, RefConflict) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AethelError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    logged = log.append_many(
-        [commit["hash"] for commit in reversed(history)],
-        repo=repo_name,
-        accepted_at=_now(),
-    )
-
-    try:
-        record = storage.set_branch(repo_name, branch, digest)
-    except HubStorageError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return {
         "repo": repo_name,
@@ -366,14 +375,19 @@ async def get_base(
 
 @router.get("/api/v1/log")
 async def get_log_state(
+    request: Request,
     log: Annotated[TransparencyLog, Depends(get_log)],
     anchors: Annotated[AnchorStore, Depends(get_anchors)],
 ) -> dict:
     latest = anchors.latest()
-    root = log.root()
+    entries = log.snapshot_entries()
+    root = MerkleTree([entry.commit_hash for entry in entries]).get_root()
+    from hub.provenance import summary
+
+    chain = summary(request)["chain"]
 
     return {
-        "size": log.size(),
+        "size": len(entries),
         "root": root,
         "entries": [
             {
@@ -382,10 +396,10 @@ async def get_log_state(
                 "repo": e.repo,
                 "accepted_at": e.accepted_at,
             }
-            for e in log.entries()
+            for e in entries
         ],
         "last_anchor": latest,
-        "current_root_anchored": bool(latest and latest.get("root") == root),
+        "current_root_anchored": bool(chain.get("status") == "confirmed" and chain.get("size") == len(entries) and chain.get("root") == root),
     }
 
 
@@ -393,6 +407,7 @@ async def get_log_state(
 async def get_inclusion_proof(
     commit_hash: str,
     log: Annotated[TransparencyLog, Depends(get_log)],
+    size: int | None = Query(None, ge=1, le=MAX_PREFIX_LEAVES),
 ) -> dict:
     """Serve an inclusion proof for a commit.
 
@@ -403,8 +418,8 @@ async def get_inclusion_proof(
     digest = _validate_hash(commit_hash, "commit hash")
 
     try:
-        proof = log.inclusion_proof(digest)
-    except InvalidHash as exc:
+        proof = log.inclusion_proof(digest, size=size if isinstance(size, int) else None)
+    except (InvalidHash, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if proof is None:
@@ -414,6 +429,39 @@ async def get_inclusion_proof(
         )
 
     return proof
+
+
+@router.get("/api/v1/provenance")
+async def provenance_status(request: Request) -> dict:
+    from hub.provenance import summary
+
+    return summary(request)
+
+
+@router.get("/api/v1/mirrors/{blob_hash}")
+async def mirror_status(blob_hash: str, config: Annotated[HubConfig, Depends(get_config)]) -> dict:
+    record = StateStore(config.provenance_path).get("mirrors", _validate_hash(blob_hash, "blob hash"))
+    if record is None:
+        raise HTTPException(status_code=404, detail="This blob has no mirror record")
+    return record
+
+
+@router.get("/api/v1/checkpoints/{size}/bundle/{commit_hash}")
+async def checkpoint_bundle(size: int, commit_hash: str, log: Annotated[TransparencyLog, Depends(get_log)], anchors: Annotated[AnchorStore, Depends(get_anchors)]) -> dict:
+    digest = _validate_hash(commit_hash, "commit hash")
+    record = next((r for r in reversed(anchors.records()) if r.get("size") == size and r.get("status") == "confirmed"), None)
+    if record is None:
+        raise HTTPException(status_code=404, detail="No confirmed checkpoint recorded for this size")
+    try:
+        leaves = log.snapshot()
+        if checked_prefix(leaves, size) != record["root"]:
+            raise ValueError("Stored prefix differs from the checkpoint")
+        proof = log.inclusion_proof(digest, size=size)
+        if proof is None:
+            raise HTTPException(status_code=404, detail="Commit was accepted after this checkpoint")
+    except (AethelError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"schema": 1, "checkpoint": record, "proof": proof, "leaves": leaves[:size]}
 
 
 @router.post("/api/v1/log/verify")
@@ -498,41 +546,41 @@ async def health(
     root = None
     try:
         root = log.root()
-        add("Transparency log", "good", f"{log.size()} leaves, root {(root or '—')[:12]}")
+        add("Transparency log", "good", f"{log.size()} leaves, root {(root or '-')[:12]}")
     except Exception as exc:
         add("Transparency log", "critical", f"unreadable: {type(exc).__name__}")
 
-    # The most valuable row: does the log still match what was anchored?
+    # Compare the anchored prefix, allowing normal log growth after anchoring.
     try:
         latest = anchors.latest()
         if latest is None:
             add(
                 "Log vs anchored root",
                 "warning",
-                "never anchored; the chain layer is not yet enabled",
+                "never anchored; publish a checkpoint with the provenance worker",
             )
-        elif latest.get("root") == root:
-            add("Log vs anchored root", "good", f"matches anchor at block {latest.get('block', '?')}")
+        elif latest.get("size") and checked_prefix(log.snapshot(), latest["size"]) == latest.get("root"):
+            add("Log vs anchored root", "good", f"recorded prefix matches; {log.size() - latest['size']} entries added since checkpoint")
+        elif not latest.get("size") and latest.get("root") == root:
+            add("Log vs anchored root", "warning", "legacy root matches; checkpoint size and chain verification are missing")
         else:
             add(
                 "Log vs anchored root",
                 "critical",
                 "RECOMPUTED ROOT DOES NOT MATCH THE ANCHORED ROOT; history may have been altered",
             )
+    except CheckpointError as exc:
+        add("Log vs anchored root", "critical", str(exc))
     except Exception as exc:
         add("Log vs anchored root", "warning", f"could not compare: {type(exc).__name__}")
 
-    # Chain RPC: reported, not dialled. A health endpoint must not block on a
-    # third-party network call.
-    if config.chain_configured:
-        add("Chain", "good", f"configured: chain id {config.chain_id}, contract set")
-    else:
-        add("Chain", "warning", "not configured (AETHEL_CHAIN_RPC, AETHEL_ANCHOR_CONTRACT)")
+    from hub.provenance import summary
 
-    if config.pinning_endpoint:
-        add("IPFS mirror", "good", "pinning endpoint configured")
-    else:
-        add("IPFS mirror", "warning", "not configured; the Hub is the only copy")
+    external = summary(request)
+    for name, key, success in (("Chain", "chain", "confirmed"), ("IPFS mirror", "gateway", "verified")):
+        state = external[key]
+        status = "good" if state["status"] == success else "critical" if state["status"] == "failed" else "warning"
+        add(name, status, state["detail"])
 
     add(
         "Write auth",

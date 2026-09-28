@@ -113,8 +113,8 @@ PUBLISHING = Group(
             ),
             params=(Param("repo_name", PATH, "Repository name. Created on first ref update."),),
             returns=(
-                "`{repo, missing}` where `missing` maps each object kind to the "
-                "hashes the Hub wants."
+                "`{repo, missing, branches}`. `missing` lists requested objects; "
+                "`branches` records the tips to check when publishing."
             ),
             example="""{
   "have": {
@@ -177,6 +177,9 @@ PUBLISHING = Group(
                 "publishes. The ref moves only after every object reachable from the "
                 "commit is present, so a published branch can never point at "
                 "something a client cannot fetch.\n\n"
+                "Send `expected_tip` from negotiation, or null for a new branch, "
+                "to reject a concurrent update. Updates must be fast-forward. "
+                "A retry of the same published tip is accepted.\n\n"
                 "Ancestors are appended oldest-first, so log order matches commit "
                 "order. The append is idempotent: re-pushing a branch adds only the "
                 "genuinely new commits and leaves the root unchanged when there are "
@@ -190,7 +193,7 @@ PUBLISHING = Group(
                 "root, branches}`."
             ),
             notable=(
-                ("409", "The commit, or one of its ancestors, is not in the store yet."),
+                ("409", "A dependency is missing, the expected tip changed, or the update is not fast-forward."),
             ),
             example="""{
   "repo": "imdb-sentiment",
@@ -237,7 +240,7 @@ READING = Group(
             params=(
                 Param("repo_name", PATH, "Repository name."),
                 Param("branch", QUERY, "Restrict to one branch.", required=False),
-                Param("limit", QUERY, "1–500, default 50.", required=False),
+                Param("limit", QUERY, "1 to 500, default 50.", required=False),
             ),
             returns="`{repo, commits}` sorted by timestamp, newest first.",
             notable=(("404", "No such repository, or no such branch."),),
@@ -307,7 +310,8 @@ LOG = Group(
             returns=(
                 "`{size, root, entries, last_anchor, current_root_anchored}`. "
                 "`current_root_anchored` is false whenever commits have been accepted "
-                "since the last anchor, a normal state, not a fault."
+                "since the last anchor or a fresh RPC confirmation is unavailable. "
+                "The last_anchor record is cached evidence of a prior check."
             ),
         ),
         Endpoint(
@@ -321,7 +325,7 @@ LOG = Group(
                 "makes a dishonest Hub unable to fake inclusion, because forging a "
                 "proof would mean finding a SHA-256 collision."
             ),
-            params=(Param("commit_hash", PATH, "Commit hash."),),
+            params=(Param("commit_hash", PATH, "Commit hash."), Param("size", QUERY, "Historical log size. Defaults to the current log.", required=False)),
             returns="`{commit_hash, leaf_index, log_size, root, proof}`.",
             notable=(("404", "The commit is not in the log; it was never pushed."),),
             example="""{
@@ -385,7 +389,17 @@ OPERATIONS = Group(
 )
 
 
-GROUPS = (PUBLISHING, READING, LOG, OPERATIONS)
+PROVENANCE = Group(
+    title="External provenance",
+    note="Read-only worker evidence and live background checks. Credentials stay in the worker process.",
+    endpoints=(
+        Endpoint(method="GET", path="/api/v1/provenance", purpose="Read checkpoint, mirror, and live probe states.", returns="Chain and gateway status, checkpoint records, mirror records, and coverage counts. Configuration alone never reports success."),
+        Endpoint(method="GET", path="/api/v1/mirrors/{blob_hash}", purpose="Inspect a blob's CID and last verified retrieval.", params=(Param("blob_hash", PATH, "Expected SHA-256 of the adapter bytes."),), returns="CID, status, attempt count, and the last retrieval hash, gateway, and time.", notable=(("404", "No mirror job exists for this blob."),)),
+        Endpoint(method="GET", path="/api/v1/checkpoints/{size}/bundle/{commit_hash}", purpose="Download an independent-verification bundle for an earlier checkpoint.", params=(Param("size", PATH, "Confirmed checkpoint size."), Param("commit_hash", PATH, "Accepted commit included in this checkpoint.")), returns="Checkpoint receipt, positional inclusion proof, and ordered prefix leaves. Verify against a separately configured RPC, chain, contract, and log ID.", notable=(("404", "Checkpoint or included commit not found."), ("409", "Local prefix no longer matches the checkpoint."))),
+    ),
+)
+
+GROUPS = (PUBLISHING, READING, LOG, PROVENANCE, OPERATIONS)
 
 
 #: The four facts a client author needs before reading a single endpoint.

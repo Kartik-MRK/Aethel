@@ -1,0 +1,20 @@
+[Unit]
+Description=Aethel checkpoint and IPFS worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=aethel-worker
+Group=aethel
+WorkingDirectory=/opt/aethel
+EnvironmentFile=/etc/aethel/hub.env
+EnvironmentFile=/etc/aethel/worker.env
+ExecStart=/opt/aethel/.venv/bin/aethel provenance sync
+TimeoutStartSec=300
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aethel
+UMask=0007

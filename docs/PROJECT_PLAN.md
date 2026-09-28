@@ -1,9 +1,13 @@
 # Aethel: Project Plan
 
+> **Current execution plan:** see [Completion plan](COMPLETION_PLAN.md)
+> for the verified baseline, the current review sprint, and the final completion phase.
+> The milestone dates and open-task lists below are historical; they are not the current schedule.
+
 **Status:** M0 delivered. L0 through L4 are built and tested; L2's evaluation half sits on a
 branch and L5 exists only in §5.2 of this document.
 **Audience:** Sathwik, Karthik, Adyaa, Shravan
-**Next review:** 3 September 2026
+**Next review:** Monday, 28 September 2026, running to Thursday, 1 October
 **Owner of this document:** Sathwik, keep it current; a stale plan is worse than none
 
 > §2, §3 and §4 are the audit of the **pre-rebuild prototype**. Every `file.py:line`
@@ -65,8 +69,7 @@ verify page     recompute the root from an inclusion proof, compare to the chain
 ## 2. Where we stand today (honest audit)
 
 The existing prototype works on the happy path: `init → train → commit → branch → checkout → log`.
-It is roughly 1,050 lines of Python and 1,900 lines of markdown, written with AI assistance and
-never independently reviewed or tested.
+It is roughly 1,050 lines of Python and 1,900 lines of markdown, without independent review or tests.
 
 ### Scores
 
@@ -86,8 +89,7 @@ never independently reviewed or tested.
 | Novelty / thesis | 4.0 | "Local git for LoRA" is real but thin; "decentralized" is unbacked today |
 | Git hygiene | 3.0 | 5 commits, messages like "made system changes in all of the features" |
 
-**Summary:** a tidy surface over a hollow core. This is the normal outcome of generated code that
-nothing executes, not a criticism of anyone. The plan below fixes it.
+The prototype needs correctness tests and a storage redesign before it can support reliable history.
 
 ---
 
@@ -496,7 +498,8 @@ are attributed **by test class**, not by file, because a class exercises one sub
 twenty-one files span several. `tests/test_hub_views.py` on its own covers the chart geometry, the commit rail,
 the metric pipeline and the proof ladder, which are four different people's work; splitting it along
 its own class boundaries is more honest than handing all 126 cases to whoever happened to start the
-file. No class is counted twice, and the four columns sum to the 719 cases the suite collects.
+file. No class is counted twice, and the four columns sum to the 719 cases this split was drawn from.
+The suite has grown since; the split is a division of the work as it stood, not a live count.
 
 | Person | Owns in the tree | Cases | Python | Assets |
 |---|---|---:|---:|---:|
@@ -567,17 +570,16 @@ designed and on no branch. Evaluation has merged into `foundation`.
 
 ### Learning protocol
 
-AI writes the code. That is fine, but per subsystem, the owner must:
+Each subsystem presenter must:
 
 1. **Read it line by line.**
 2. **Write the tests that prove it**: this is the forcing function. You cannot write a real test for
    code you do not understand.
 3. **Write `docs/design/<name>.md` in your own words**, without looking. If you cannot, re-read.
 
-### Definition of done: the real guard against hallucinated code
+### Definition of done
 
-Better prompting helps, but it is not the safeguard. **The safeguard is that wrong code fails a
-test.** The corruption bug survived being written into a status document as a known limitation
+Tests must detect incorrect behavior. The corruption bug survived being written into a status document as a known limitation
 precisely because nothing executed the code. No module is done until:
 
 1. Tests exist and **fail if the behaviour is removed**, including one test per known failure mode.
@@ -650,7 +652,7 @@ runnable form (tamper a leaf and the root moves, so a proof issued earlier stops
 only for someone who wrote the old root down first, because the Hub reissues proofs consistent with
 whatever it now holds. Removing that "wrote it down first" caveat is precisely what step 10 buys.
 
-`docs/TEAM_WALKTHROUGH.md` §11 carries the script we actually give on 3 September, in the order we
+`docs/TEAM_WALKTHROUGH.md` §11 carries the script we actually give, in the order we
 give it. This list is the plan; that one is the demo.
 
 **Framing for the review:** *"We audited the prototype, found a silent data-loss defect, rebuilt the
@@ -740,7 +742,7 @@ tests now.
 ## 11. Verification checklist
 
 - `pytest`: green including the corruption regression test; `--cov` ≥ 80% on `core/`. The floor
-  was 60 tests when this was written; the suite currently stands at 719 cases with 96% coverage on
+  was 60 tests when this was written; the suite currently collects 800 cases with 96% coverage on
   `aethel.core`, and CI enforces the 80% floor rather than the count
 - **Corruption regression:** commit identical weights twice with different messages; assert both
   commit objects survive and each checkout returns *its own* metadata

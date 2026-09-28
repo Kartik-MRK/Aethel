@@ -515,49 +515,37 @@ million leaves it would be twenty siblings, 640 bytes. That is the property
 that makes anchoring one root worth doing: the cost of proving one commit
 belongs to a history grows with the logarithm of the history, not its size.
 
-### What is deliberately not there yet
+### Evaluation, comparison, and remaining work
 
-Say this plainly rather than letting a panel find it.
+Training now records deterministic train/validation/test splits, dataset hashes, seeds,
+label names, and effective settings. It stages a replacement adapter separately and preserves
+previous work if training fails. Existing YAML examples include the required task type.
 
-**Evaluation is in the tree but has never been run against torch.** `aethel
-train` records what the Hugging Face `Trainer` reports (loss and runtime).
-Answering "is this version better than its parent" is `aethel/evaluation/`:
-eval loss, accuracy, adapter size, and a current-versus-parent comparison that
-extracts the parent's tree into a temporary directory, scores it the same way,
-and records whether accuracy improved. It is called from `aethel commit` so it
-runs without being asked, and the Hub prefers
-`training_info.evaluation.current` over the training metrics when both are
-present, so the dashboard shows real numbers the moment real ones arrive.
+```bash
+aethel train --config train_yaml/sst2_config.yaml
+aethel eval --json
+aethel commit -m "First held-out run" --require-evaluation
+aethel diff <first-commit> <second-commit>
+aethel eval main --split test --json
+```
 
-Four tests cover it. Three need the `[ml]` extra and skip without it; the
-current-versus-parent comparison is pure arithmetic and runs everywhere, which
-is why it is the one part of the package with 100% coverage on a base install.
-The package as a whole sits at 13% there, and that number is the honest measure
-of what is untested: nothing has yet loaded a real base model and scored a real
-adapter. That run is the missing piece, and after it a train/validation split,
-because the evaluator scores the dataset file recorded at training time, which
-is the file the adapter trained on, so today it would report accuracy on data
-the model has already seen.
-The comparison is still informative (both sides are scored identically), but a
-held-out split is what makes the figure quotable. Until then the accuracy on
-screen comes from `scripts/seed_demo.py` and is labelled as seeded. Divergence
-detection (cosine similarity between consecutive patches, with a prompt to stay
-on the branch or fork) is designed and not yet written.
+Use validation results for development. Keep the test split for final reporting. Changing
+`seed` changes training initialization; keep `split_seed` fixed when comparing runs. Duplicate
+normalized text is removed before splitting; conflicting labels fail explicitly.
 
-**`aethel merge` is not implemented.** Branch and checkout work; merging adapters
-(task arithmetic, TIES, DARE) lands after this review, and deliberately after the
-evaluator, which is why the evaluator landed first: choosing between those three
-strategies means measuring which one actually produces a better adapter.
-`aethel diff` is designed and unwritten.
+`aethel diff` compares effective standard LoRA updates, including alpha/rank scaling, and reports
+saved-module differences separately. It supports safetensors and rejects unsupported variants
+instead of guessing their semantics. It does not prove training ancestry or task divergence.
 
-**There is no `pull` or `clone`.** A Hub serves patches over its REST API and the
-dashboard; the client half of that is later work.
+CPU integration tests train, save, reload, evaluate, and compare tiny local BERT and DistilBERT
+adapters. Two real DistilBERT/SST-2 pilot runs have also been completed and published to IPFS,
+with their accepted commits checkpointed on Sepolia. See [Review evidence](docs/REVIEW_EVIDENCE.md)
+for the measured results and public receipts.
 
-**Nothing is anchored to a chain yet.** The transparency log is built, serves
-inclusion proofs and is verified in the browser, but the on-chain root that would
-make the Hub operator accountable is the next layer. `/ops` says so on its own:
-the chain row reads `not configured` and the log-versus-anchored-root row reads
-`never anchored`, both amber, rather than quietly rendering green.
+Merge, verified clone/pull, and full reproduction commands remain pending. The provenance CLI
+now pins and verifies adapter blobs, publishes EVM checkpoints, and independently verifies
+positional inclusion and historical prefixes against a configured chain. The dashboard shows
+live chain and gateway checks. See [Provenance runbook](docs/PROVENANCE_RUNBOOK.md).
 
 ### When something goes wrong
 
@@ -596,16 +584,20 @@ hotspot is the quickest way around it. And the port is configurable
 ## Development
 
 ```bash
-python -m pytest                    # 719 cases, no GPU or network required
-python -m pytest --cov=aethel.core  # 96% core coverage
+python -m pip install -e '.[dev,hub]'
+python -m pytest
 ruff check .
+python scripts/check_verify_js.py
+
+# ML tests construct small local models; no model or dataset download is needed.
+python -m pip install -e '.[dev,ml]'
+python -m pytest tests/test_training_pipeline.py tests/test_evaluation.py tests/test_adapter_diff.py
 ```
 
-716 of those pass on a base install and 3 skip: they are the evaluation tests
-that need to load a real model, and they run once the `[ml]` extra is
-installed. No test touches the network: the Hub's tests run the ASGI application
-in-process, so a push is exercised end to end without a socket. The VCS core
-needs no `[ml]` extra and the whole suite finishes in seconds.
+Core commands remain importable without torch. ML tests skip when their optional dependencies
+are absent. The Hub tests use an in-process ASGI client, whose thread coordination still needs
+local socket operations. Restricted environments can block that coordination before a test starts.
+Current verification results and limitations are recorded in [Build status](docs/BUILD_STATUS.md).
 
 The front end is tested rather than eyeballed, because its failures are quiet
 ones. The stylesheet's motion tokens are asserted to exist on bare `:root` and
@@ -615,10 +607,10 @@ The served fonts are asserted to resolve at the URLs the CSS names, the error
 pages to keep their status codes and their security headers, and the verifier's
 JavaScript to agree with `hashlib`.
 
-CI runs two jobs. `core` installs only `[dev]` on Python 3.10–3.13, which fails
-if the core ever grows a dependency on torch or fastapi. `hub` installs
-`[dev,hub]`, asserts the Hub imports, then runs the same suite. Without that
-job the Hub's tests would skip on every run and a broken Hub could stay green.
+CI defines four jobs: `core` tests the lightweight installation on Python 3.10-3.13;
+`hub` installs server dependencies and runs lint and tests; `ml` installs CPU training
+dependencies and exercises local training, evaluation, and adapter diff without model downloads;
+`provenance` rebuilds the Solidity artifact and tests real EVM execution, IPFS protocols, and the dashboard.
 
 Two scripts regenerate committed assets rather than leaving them unexplained.
 `scripts/build_fonts.py` subsets the two typefaces the Hub serves and writes
@@ -629,28 +621,16 @@ described above.
 
 ## Status
 
-Working today: `init`, `train`, `commit`, `branch`, `checkout`, `log`,
-`status`, `fsck`, `push` · a Hub with a REST API of 15 JSON endpoints, a
-five-page server-rendered dashboard, an ops health board, an append-only Merkle
-transparency log serving inclusion proofs, and an in-browser verifier that
-recomputes a root without trusting the page it is on · adapter evaluation and
-the current-versus-parent comparison, called from `commit` and displayed by
-`log`. 719 test cases, 96% coverage on `aethel.core`.
+Implemented commands: `init`, `train`, `eval`, `commit`, `branch`, `checkout`, `log`,
+`status`, `fsck`, `push`, `diff`, and `provenance`. The Hub serves objects, repository views, metrics,
+operations status, and Merkle inclusion proofs. Publishing validates complete history and
+object integrity, rejects non-fast-forward updates, and checks negotiated branch tips.
 
-Written but not yet exercised for real: the evaluator has never scored a real
-adapter, because that needs the `[ml]` extra and a machine with torch. Designed
-and unwritten: divergence detection between consecutive patches. Both are
-described under *What is deliberately not there yet*.
-
-Planned, in order: anchoring the log's root to a public testnet so a model's
-recorded history cannot be rewritten even by whoever runs the Hub · a Pinata
-mirror of patch blobs (address only, integrity always comes from
-`blob_sha256`) · adapter `diff` and `merge` (task arithmetic, TIES, DARE) ·
-Ed25519 commit signing · dataset fingerprinting.
-
-The Merkle tree in `aethel/core/aggregator.py` is what the Hub's log is built
-on: it is the same code the chain layer will anchor, and it is tested for
-second-preimage resistance via RFC 6962 domain separation.
+The latest build adds safe training staging, held-out evaluation, effective LoRA diff, IPFS mirrors,
+Sepolia checkpoints, and a provenance dashboard. The environment now supports the complete HTTP
+suite and real-data runs. See
+[Build status](docs/BUILD_STATUS.md) for the exact checks performed and
+[Completion plan](docs/COMPLETION_PLAN.md) for the remaining scope.
 
 ### What the chain will and will not prove
 
@@ -664,6 +644,15 @@ dataset fingerprinting, the reproducibility record, and commit signing are for.
 
 ## Documentation
 
+- [`docs/LOW_LEVEL_DESIGN.md`](docs/LOW_LEVEL_DESIGN.md): the low-level design. Module
+  decomposition, every schema, the algorithms with their complexity, the threat model, and the
+  traceability matrix from design element to test file
+- [`docs/PROVENANCE_RUNBOOK.md`](docs/PROVENANCE_RUNBOOK.md): IPFS, checkpoints, independent verification, deployment, and recovery
+- [`docs/REVIEW_EVIDENCE.md`](docs/REVIEW_EVIDENCE.md): real adapter results and public Sepolia/IPFS receipts
+- [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md): implemented changes, verification, and current blockers
+- [`docs/design/review-build.md`](docs/design/review-build.md): publication, staging, evaluation, and diff decisions
+- [`docs/COMPLETION_PLAN.md`](docs/COMPLETION_PLAN.md): current audit, prioritized improvements,
+  new features, team assignments, and the two remaining phases through final submission
 - [`docs/SYSTEM_REFERENCE.md`](docs/SYSTEM_REFERENCE.md): architecture, every
   command, the storage model, and a runnable demo walkthrough
 - [`docs/design/dashboard.md`](docs/design/dashboard.md): why the dashboard
@@ -674,3 +663,5 @@ dataset fingerprinting, the reproducibility record, and commit signing are for.
   of the rebuild
 - [`docs/CONTRIBUTING_BRANCHES.md`](docs/CONTRIBUTING_BRANCHES.md): how to sync,
   cut a branch, and land work on `foundation` without breaking it
+- [`docs/REVIEW1_PRESENTATION.md`](docs/REVIEW1_PRESENTATION.md): the review
+  slide split per presenter, and the demo video shooting script

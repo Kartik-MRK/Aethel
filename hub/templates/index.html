@@ -6,13 +6,14 @@
 {% block content %}
 <div class="lede">
   <p class="lede-eyebrow">Adapter registry</p>
-  <h1>Provenance you can recompute</h1>
+  <h1>Adapter registry</h1>
   <p class="lede-sub">
-    Every adapter version published here is addressed by the hash of its own
-    bytes, and every version is a leaf in an append-only log. The whole history
-    reduces to one root.
+    Versioned adapters, measured results, and publication records in one place.
+    Open a repository to inspect its history and retrieve a version.
   </p>
 </div>
+
+{% include "_publication.html" %}
 
 {# The root is the thesis of the project, so it opens the page rather than
    sitting in a notice further down. Set at display size because it is the one
@@ -23,8 +24,7 @@
   {{ digest(log_root, size='xl', label=log_root, copy='transparency log root') }}
   <p class="rootline-note">
     Computed over all {{ log_size }} logged commit{{ '' if log_size == 1 else 's' }}.
-    Publishing this root to a public chain is what makes the history
-    unalterable &mdash; including by whoever runs this Hub.
+    <a href="/provenance">View chain checkpoints and verified IPFS copies.</a>
   </p>
 </section>
 {% endif %}
@@ -52,7 +52,8 @@
   </div>
   <div class="strip-body">
     {% if repos %}
-    <ul class="ledger">
+    <div class="registry-filter" hidden data-registry-filter><label for="repo-filter">Find a repository</label><input id="repo-filter" type="search" placeholder="Repository name" autocomplete="off"><span data-filter-count aria-live="polite">{{ repos | length }} shown</span></div>
+    <ul class="ledger" data-repository-list>
       {% for repo in repos %}
       <li class="ledger-row">
         <a class="ledger-link" href="/r/{{ repo.name }}">

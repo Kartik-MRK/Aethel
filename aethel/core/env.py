@@ -87,7 +87,7 @@ def parse_env(text: str) -> dict[str, str]:
     return values
 
 
-def load_env(path: Path | None = None, *, override: bool = False) -> list[str]:
+def load_env(path: Path | None = None, *, override: bool = False, names: set[str] | None = None) -> list[str]:
     """Load a `.env` into `os.environ`. Returns the names that were set.
 
     Names, never values -- the return value exists so a caller can report
@@ -107,6 +107,8 @@ def load_env(path: Path | None = None, *, override: bool = False) -> list[str]:
 
     applied: list[str] = []
     for key, value in values.items():
+        if names is not None and key not in names:
+            continue
         if not override and key in os.environ:
             continue
         os.environ[key] = value

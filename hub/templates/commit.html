@@ -11,23 +11,40 @@
   <p class="lede-digest">{{ digest(commit_hash, size='lg', label=commit_hash, copy='commit hash') }}</p>
 </div>
 
+<section class="commit-publication" aria-label="External publication">
+  <div><span class="publication-label">Chain inclusion</span>
+    {% if anchored_proof %}<span class="state-label" data-state="confirmed">Confirmed in {{ anchored_proof.log_size }}-entry checkpoint</span><a href="/api/v1/checkpoints/{{ anchored_proof.log_size }}/bundle/{{ commit_hash }}" download="checkpoint-{{ anchored_proof.log_size }}.json">Download proof bundle</a>
+    {% else %}<span class="state-label" data-state="{{ 'pending' if provenance.chain.status == 'confirmed' else provenance.chain.status }}">{{ 'Awaiting checkpoint' if provenance.chain.status == 'confirmed' else provenance.chain.status | capitalize }}</span><a href="/provenance">Check publication status</a>{% endif %}
+  </div>
+  <div><span class="publication-label">IPFS copy</span>
+    {% if mirror %}<span class="state-label" data-state="{{ mirror.status }}">{{ mirror.status | capitalize }}</span><a href="/api/v1/mirrors/{{ mirror.sha256 }}">View CID and retrieval record</a>
+    {% else %}<span class="state-label" data-state="pending">Not mirrored</span><a href="/provenance#mirrors">View mirror records</a>{% endif %}
+  </div>
+</section>
+
 <section class="strip">
   <div class="strip-head">
     <h2 class="strip-label">Measured</h2>
-    <p class="strip-note">Whatever evaluation recorded at training time.</p>
+    <p class="strip-note">
+      {% if evaluation_spec %}
+      {{ evaluation_spec.split | capitalize }} split, {{ evaluation_spec.sample_count }} examples.
+      {% else %}
+      Dataset split not recorded. These figures are not verified held-out results.
+      {% endif %}
+    </p>
   </div>
   <div class="strip-body">
     <div class="figures">
       {% if accuracy is not none %}
       {{ figure('Accuracy', '%.1f' | format(accuracy * 100) ~ '%', lead=true) }}
       {% else %}
-      {{ figure('Accuracy', '—', 'not measured', lead=true, muted=true) }}
+      {{ figure('Accuracy', '-', 'not measured', lead=true, muted=true) }}
       {% endif %}
 
       {% if f1 is not none %}
       {{ figure('Macro-F1', '%.3f' | format(f1)) }}
       {% else %}
-      {{ figure('Macro-F1', '—', muted=true) }}
+      {{ figure('Macro-F1', '-', muted=true) }}
       {% endif %}
 
       {{ figure('Files', files | length, 'content-addressed') }}
@@ -37,6 +54,35 @@
       {% else %}
       {{ figure('Log position', 'None', 'not logged', muted=true) }}
       {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip-head">
+    <h2 class="strip-label">Evaluation record</h2>
+    <p class="strip-note">The data and settings used to measure this adapter.</p>
+  </div>
+  <div class="strip-body">
+    <div class="card">
+      <dl class="kv">
+        <dt>Status</dt>
+        <dd>{{ evaluation_record.get('status', 'not recorded') }}</dd>
+        {% if evaluation_record.get('reason') %}
+        <dt>Reason</dt><dd>{{ evaluation_record.reason }}</dd>
+        {% endif %}
+        {% if evaluation_spec %}
+        <dt>Split</dt><dd>{{ evaluation_spec.split }}</dd>
+        <dt>Examples</dt><dd>{{ evaluation_spec.sample_count }}</dd>
+        <dt>Specification</dt><dd>{{ digest(evaluation_spec.hash, label=evaluation_spec.hash) }}</dd>
+        <dt>Dataset</dt><dd>{{ digest(evaluation_spec.examples_sha256, label=evaluation_spec.examples_sha256) }}</dd>
+        {% endif %}
+        <dt>Training seed</dt><dd>{{ training_record.get('seed', 'not recorded') }}</dd>
+        <dt>Split seed</dt><dd>{{ training_record.get('split_seed', 'not recorded') }}</dd>
+        {% if evaluation_record.get('comparison_status') == 'not_comparable' %}
+        <dt>Parent comparison</dt><dd>{{ evaluation_record.comparison_reason }}</dd>
+        {% endif %}
+      </dl>
     </div>
   </div>
 </section>
@@ -69,10 +115,9 @@
         {% if proof_valid %}
         {{ pill('good', '✓', 'Verified') }}
         <p>
-          Folding this commit's leaf through {{ ladder | length }}
-          sibling hash{{ '' if ladder | length == 1 else 'es' }} reproduces the
-          published root exactly &mdash; as computed <em>by this Hub</em>, which is
-          worth what you decide it is worth.
+          This proof was computed by this Hub. The commit's leaf and {{ ladder | length }} sibling
+          hash{{ '' if ladder | length == 1 else 'es' }} reproduce the supplied
+          log root. The publication record above separately reports chain inclusion.
         </p>
         {% else %}
         {{ pill('critical', '✕', 'Failed') }}
@@ -107,11 +152,20 @@
           <span class="node-label">Root</span>
           {{ digest(proof.root, label=proof.root) }}
           <span class="node-tag">
-            {% if anchor and anchor.root == proof.root %}
+            {% if anchored_proof and anchored_proof.root == proof.root %}
             {{ pill('good', '✓', 'On chain') }}
-            <span class="hash">block {{ anchor.block }}</span>
-            {% else %}
+            <span class="hash">block {{ provenance.chain.block }}</span>
+            {% elif provenance.chain.status == 'confirmed' %}
             {{ pill('warning', '!', 'Not yet anchored') }}
+            {% else %}
+            {% set check_label = {
+              'pending': 'Chain check pending',
+              'unconfigured': 'Chain not configured',
+              'unavailable': 'Chain check unavailable',
+              'stale': 'Chain check stale',
+              'failed': 'Chain check failed'
+            }.get(provenance.chain.status, 'Chain status unknown') %}
+            {{ pill('critical' if provenance.chain.status == 'failed' else 'warning', '!', check_label) }}
             {% endif %}
           </span>
         </div>
@@ -146,7 +200,7 @@
         and internal nodes with <code>0x01</code>, so no leaf value can be passed
         off as a subtree. To run the fold somewhere other than a browser, the same
         proof is JSON at
-        <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> &mdash; the leaf, the
+        <code>/api/v1/log/proof/{{ commit_hash[:12] }}…</code> - the leaf, the
         path and the root are all it takes, and none of it needs this server a
         second time.
       </p>
@@ -174,15 +228,15 @@
           {% if commit.parent_hash %}
           <a href="/c/{{ commit.parent_hash }}">{{ digest(commit.parent_hash, label=commit.parent_hash) }}</a>
           {% else %}
-          <span class="nil">none &mdash; this is a root commit</span>
+          <span class="nil">none - this is a root commit</span>
           {% endif %}
         </dd>
 
         <dt>Author</dt>
-        <dd>{{ commit.author or '—' }}</dd>
+        <dd>{{ commit.author or '-' }}</dd>
 
         <dt>Timestamp</dt>
-        <dd class="hash">{{ commit.timestamp or '—' }}</dd>
+        <dd class="hash">{{ commit.timestamp or '-' }}</dd>
 
         <dt>Adapter weights</dt>
         <dd>{{ digest(commit.adapter_blob, label=commit.adapter_blob) }}</dd>
@@ -212,7 +266,7 @@
       </dl>
       <p class="footnote">
         The base model's weights are not stored here. Pinning the immutable
-        revision SHA &mdash; not a tag, which can move &mdash; is what makes this
+        revision SHA - not a tag, which can move - is what makes this
         version reproducible: download that exact revision and apply the adapter
         below.
       </p>
@@ -262,8 +316,8 @@
     </div>
     <p class="footnote">
       Re-hash any download and compare it against the value shown here. Because
-      the filename <em>is</em> the hash, that check makes the transport &mdash; this
-      Hub, an IPFS gateway, a USB stick &mdash; irrelevant to integrity.
+      the filename <em>is</em> the hash, that check makes the transport - this
+      Hub, an IPFS gateway, a USB stick - irrelevant to integrity.
     </p>
   </div>
 </section>
@@ -278,7 +332,7 @@
     <div class="card">
       <dl class="kv">
         {% for key, value in commit.training_info | dictsort %}
-        {% if key != 'metrics' %}
+        {% if key in ['model_id', 'revision_sha', 'task_type', 'dataset', 'lora_rank', 'lora_alpha', 'epochs', 'batch_size', 'learning_rate', 'max_length'] %}
         <dt>{{ key }}</dt>
         <dd>{{ value }}</dd>
         {% endif %}
@@ -293,6 +347,10 @@
         {% endfor %}
       </dl>
       {% endif %}
+      <details class="run-record">
+        <summary>Full run metadata</summary>
+        <pre><code>{{ commit.training_info | tojson(indent=2) }}</code></pre>
+      </details>
     </div>
   </div>
 </section>

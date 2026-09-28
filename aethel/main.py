@@ -7,7 +7,18 @@ every other offline command fail on a base install that has no ML stack.
 
 import typer
 
-from aethel.commands import branch, checkout, commit, fsck, init, log, push
+from aethel.commands import (
+    branch,
+    checkout,
+    commit,
+    diff,
+    evaluate,
+    fsck,
+    init,
+    log,
+    provenance,
+    push,
+)
 
 app = typer.Typer(
     help="Aethel: version control and provenance for LoRA adapters.",
@@ -22,6 +33,9 @@ app.add_typer(checkout.app, name="checkout", help="Restore a branch or commit.")
 app.add_typer(log.app, name="log", help="Show commit history.")
 app.add_typer(push.app, name="push", help="Publish a branch to a Hub.")
 app.add_typer(fsck.app, name="fsck", help="Verify repository integrity.")
+app.add_typer(evaluate.app, name="eval", help="Evaluate a workspace or commit on a recorded held-out split.")
+app.add_typer(diff.app, name="diff", help="Compare effective LoRA updates between commits.")
+app.add_typer(provenance.app, name="provenance", help="Operate IPFS mirrors and EVM checkpoints.")
 
 
 @app.command()
@@ -36,6 +50,7 @@ def train(
     allow_stub: bool = typer.Option(
         False, "--allow-stub", help="Train on synthetic data if the dataset is missing."
     ),
+    force: bool = typer.Option(False, "--force", help="Replace uncommitted workspace files after successful training."),
 ):
     """Run LoRA training and stage the adapter into the workspace."""
     try:
@@ -50,7 +65,7 @@ def train(
         )
         raise typer.Exit(code=1) from exc
 
-    train_cmd.train(config=config, allow_stub=allow_stub)
+    train_cmd.train(config=config, allow_stub=allow_stub, force=force)
 
 
 if __name__ == "__main__":

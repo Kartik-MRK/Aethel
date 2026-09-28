@@ -24,6 +24,7 @@ from hub import apidocs, prose
 from hub.api import get_anchors, get_config, get_log, get_storage
 from hub.config import HubConfig
 from hub.log import AnchorStore, TransparencyLog
+from hub.provenance import summary as provenance_summary
 from hub.storage import HubStorage
 
 router = APIRouter()
@@ -68,11 +69,8 @@ def _metric_sources(commit: dict) -> tuple[dict, dict]:
     `training_info["evaluation"]["current"]` is what the commit-time evaluator
     writes after scoring the adapter itself, and it wins because it is a
     measurement of the finished artifact rather than a by-product of fitting it.
-    It is not yet a held-out score: the evaluator reads the dataset recorded at
-    training time, so today it reports accuracy on seen data, and the
-    current-versus-parent comparison is the part that carries real signal. Both
-    shapes are in the wild, so both are read, and neither side has to know about
-    the other.
+    Current runs carry a verified held-out specification. Older records without
+    that specification remain readable but cannot be labeled as held-out results.
     """
     info = _mapping(commit.get("training_info"))
     evaluated = _mapping(_mapping(info.get("evaluation")).get("current"))
@@ -882,7 +880,7 @@ def _dag_rows(commits: list[dict], branches: dict[str, str] | None = None) -> li
                 "short": _shorten(commit.get("hash")),
                 "parent_short": _shorten(commit.get("parent_hash")) or None,
                 "message": commit.get("message", ""),
-                "author": commit.get("author", "—"),
+                "author": commit.get("author", "-"),
                 "timestamp": (commit.get("timestamp") or "")[:16].replace("T", " "),
                 "accuracy": _accuracy_of(commit),
                 "f1": _f1_of(commit),
@@ -940,6 +938,7 @@ async def index(
             "counts": counts,
             "log_size": log.size(),
             "log_root": log.root(),
+            "provenance": provenance_summary(request),
         },
     )
 
@@ -1026,6 +1025,14 @@ async def commit_detail(
 
     proof = log.inclusion_proof(commit_hash)
     latest_anchor = anchors.latest()
+    provenance = provenance_summary(request)
+    checkpoint = provenance["chain"]
+    anchored_proof = None
+    if checkpoint.get("status") == "confirmed":
+        anchored_proof = log.inclusion_proof(commit_hash, size=checkpoint["size"])
+    training_record = _mapping(commit.get("training_info"))
+    evaluation_record = _mapping(training_record.get("evaluation"))
+    evaluation_spec = _mapping(_mapping(evaluation_record.get("current")).get("evaluation_spec"))
 
     # Verify the proof here so the page states a checked result rather than
     # displaying an unverified claim. The authoritative check is still the
@@ -1048,13 +1055,30 @@ async def commit_detail(
             "base": base,
             "accuracy": _accuracy_of(commit),
             "f1": _f1_of(commit),
+            "evaluation_record": evaluation_record,
+            "evaluation_spec": evaluation_spec,
+            "training_record": training_record,
             "proof": proof,
             "proof_valid": proof_valid,
             "ladder": _proof_ladder(proof),
             "leaf_hash": hash_leaf(proof["commit_hash"]) if proof else None,
             "anchor": latest_anchor,
+            "provenance": provenance,
+            "anchored_proof": anchored_proof,
+            "mirror": next((record for record in provenance["mirrors"] if record["sha256"] == commit.get("adapter_blob")), None),
         },
     )
+
+
+@router.get("/provenance", response_class=HTMLResponse)
+async def provenance_page(request: Request, log: Annotated[TransparencyLog, Depends(get_log)]) -> HTMLResponse:
+    data = provenance_summary(request)
+    leaves = log.snapshot()
+    return templates.TemplateResponse(request=request, name="provenance.html", context={
+        "provenance": data, "log_size": len(leaves), "log_root": log.root(),
+        "sample_commit": leaves[0] if leaves else None,
+        "network": "Sepolia testnet" if data.get("chain_id") == 11155111 else f"Chain {data.get('chain_id')}" if data.get("chain_id") else "No network configured",
+    })
 
 
 @router.get("/api", response_class=HTMLResponse)

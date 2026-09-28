@@ -45,7 +45,7 @@ python3 -m pip install -e '.[dev,hub,ml]'     # ...plus torch/transformers/peft 
 Confirm the baseline before you change anything:
 
 ```bash
-python3 -m pytest              # expect: 716 passed, 3 skipped
+python3 -m pytest              # expect: 797 passed, 6 skipped
 ruff check .                  # expect: All checks passed!
 ```
 
@@ -189,7 +189,7 @@ Then check the list:
 - The suite passes, and the number went **up** by however many tests you added, not down.
 - Nothing you added is unreachable from a test. A module with no test does not count as landed.
 - No secret, key, token, mnemonic or absolute path from your machine appears anywhere in the diff.
-- No AI-assistant attribution, co-author trailer or generated signature in any commit message, file
+- No attribution statement, co-author trailer or generated signature in any commit message, file
   header or docstring.
 - Commit messages are one line, conventional style, no body and no trailers:
 

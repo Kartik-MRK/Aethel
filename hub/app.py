@@ -6,9 +6,10 @@ data directory and no environment mutation, which is what makes the Hub
 testable without a running server.
 """
 
+import asyncio
 import os
 import subprocess
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from hub.api import router as api_router
 from hub.config import HubConfig
 from hub.errors import register_error_handlers
 from hub.log import AnchorStore, TransparencyLog
+from hub.provenance import ProvenanceMonitor
 from hub.security import SecurityHeadersMiddleware
 from hub.storage import HubStorage
 from hub.views import router as views_router
@@ -69,7 +71,14 @@ def create_app(config: HubConfig | None = None) -> FastAPI:
         app.state.hub_version = HUB_VERSION
         app.state.git_sha = _git_sha()
         app.state.started_at = datetime.now(timezone.utc).isoformat()
-        yield
+        app.state.provenance = ProvenanceMonitor(config, app.state.log)
+        monitor = asyncio.create_task(app.state.provenance.run())
+        try:
+            yield
+        finally:
+            monitor.cancel()
+            with suppress(asyncio.CancelledError):
+                await monitor
 
     app = FastAPI(
         title="Aethel Hub",

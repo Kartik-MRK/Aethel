@@ -47,8 +47,12 @@ def run_checkout(target: str, force: bool) -> None:
 
     # Refuse to clobber uncommitted work unless forced. Compares the workspace
     # against the current commit's tree rather than trusting mtimes.
-    if not force and current_head is not None and current_head != commit_hash:
-        dirty = _workspace_differs_from(repo, current_head)
+    if not force:
+        dirty = (
+            _workspace_differs_from(repo, current_head)
+            if current_head is not None
+            else [str(path.relative_to(workspace)) for path in workspace.rglob("*") if path.is_file()]
+        )
         if dirty:
             err_console.print(
                 "[bold yellow]Workspace has uncommitted changes:[/bold yellow]"

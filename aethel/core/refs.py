@@ -220,7 +220,10 @@ class Refs:
         path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_text(path, payload)
 
-    def update_branch(self, name: str, commit_hash: str) -> None:
+    def update_branch(
+        self, name: str, commit_hash: str, *, expected_tip: str | None = None,
+        check_expected: bool = False,
+    ) -> None:
         """Advance a branch tip, serialized against concurrent writers."""
         path = self.branch_path(name)
 
@@ -230,6 +233,8 @@ class Refs:
         digest = normalize_hash(commit_hash, label="commit hash")
 
         with file_lock(self.aethel_dir / "refs.lock"):
+            if check_expected and self.read_branch(name) != expected_tip:
+                raise InvalidRef(f"Branch '{name}' changed during commit. Retry from its current tip.")
             atomic_write_text(path, f"{digest}\n")
 
     def list_branches(self) -> list[str]:

@@ -5,9 +5,8 @@ teammate's laptop, an Oracle Cloud VM, or behind a tunnel, and the demo
 machine decides at run time via `AETHEL_HUB_URL`, so a deployment choice
 never requires a code change.
 
-Chain settings are read but unused until the anchoring layer lands. They live
-here now so that the ops board can already report "not configured" rather than
-crashing, and so the deployment story is settled before the code arrives.
+Chain settings identify the RPC and contract checked by the background monitor.
+Signing and pinning credentials are read only by the separate CLI worker.
 
 **No credential this file reads can write to a third party.** The Pinata token
 and the wallet key that will sign anchor transactions are deliberately absent:
@@ -65,7 +64,7 @@ class HubConfig:
         default_factory=lambda: os.environ.get("AETHEL_HUB_TOKEN") or None
     )
 
-    # -- chain settings (read now, used by the anchoring layer later) --------
+    # -- read-only chain settings -----------------------------------------
 
     #: Never hard-code a network. Testnets get retired -- Ropsten, Rinkeby,
     #: Kovan and Goerli are all gone -- so the chain is configuration.
@@ -82,8 +81,12 @@ class HubConfig:
     anchor_contract: str | None = field(
         default_factory=lambda: os.environ.get("AETHEL_ANCHOR_CONTRACT") or None
     )
+    log_id: str | None = field(default_factory=lambda: os.environ.get("AETHEL_LOG_ID") or None)
+    chain_confirmations: int = field(default_factory=lambda: max(1, _env_int("AETHEL_CHAIN_CONFIRMATIONS", 2)))
+    probe_interval: int = field(default_factory=lambda: max(10, _env_int("AETHEL_PROBE_INTERVAL", 60)))
+    explorer_url: str | None = field(default_factory=lambda: os.environ.get("AETHEL_CHAIN_EXPLORER") or None)
 
-    # -- IPFS settings (read now, used by the mirror later) -----------------
+    # -- IPFS settings ----------------------------------------------------
 
     #: A pinning service is a location, never a source of truth. Integrity
     #: always comes from blob_sha256, verified on every fetch, so a mirror
@@ -98,6 +101,7 @@ class HubConfig:
     ipfs_gateway: str | None = field(
         default_factory=lambda: os.environ.get("AETHEL_IPFS_GATEWAY") or None
     )
+    ipfs_fallback_gateway: str | None = field(default_factory=lambda: os.environ.get("AETHEL_IPFS_FALLBACK_GATEWAY") or None)
 
     @classmethod
     def from_environment(cls) -> "HubConfig":
@@ -108,7 +112,13 @@ class HubConfig:
         lets a test build a Hub without a stray `.env` two directories up
         changing the result.
         """
-        load_env()
+        load_env(names={
+            "AETHEL_HUB_DATA", "AETHEL_HUB_HOST", "AETHEL_HUB_PORT", "AETHEL_HUB_MAX_BLOB",
+            "AETHEL_HUB_TOKEN", "AETHEL_HUB_RELOAD", "AETHEL_CHAIN_RPC", "AETHEL_CHAIN_ID",
+            "AETHEL_ANCHOR_CONTRACT", "AETHEL_LOG_ID", "AETHEL_CHAIN_CONFIRMATIONS",
+            "AETHEL_PROBE_INTERVAL", "AETHEL_CHAIN_EXPLORER", "AETHEL_PINNING_ENDPOINT",
+            "AETHEL_IPFS_GATEWAY", "AETHEL_IPFS_FALLBACK_GATEWAY",
+        })
         return cls()
 
     @property
@@ -124,12 +134,20 @@ class HubConfig:
         return self.data_dir / "anchors.jsonl"
 
     @property
+    def provenance_path(self) -> Path:
+        return self.data_dir / "provenance.sqlite3"
+
+    @property
+    def ipfs_gateways(self) -> list[str]:
+        return [value for value in (self.ipfs_gateway, self.ipfs_fallback_gateway) if value]
+
+    @property
     def auth_required(self) -> bool:
         return self.push_token is not None
 
     @property
     def chain_configured(self) -> bool:
-        return bool(self.chain_rpc_url and self.anchor_contract)
+        return bool(self.chain_rpc_url and self.chain_id and self.anchor_contract and self.log_id)
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)

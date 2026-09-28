@@ -60,6 +60,7 @@ class HubClient:
         self.token = token
         self.timeout = timeout
         self._client = None
+        self._remote_branches: dict[str, dict[str, str]] = {}
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -155,11 +156,19 @@ class HubClient:
             what="negotiation",
             json={"have": have},
         )
-        missing = response.json().get("missing", {})
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise RemoteError("Hub returned a malformed negotiation response.")
+        missing = payload.get("missing", {})
 
         if not isinstance(missing, dict):
             raise RemoteError("Hub returned a malformed negotiation response.")
 
+        branches = payload.get("branches")
+        if isinstance(branches, dict):
+            self._remote_branches[repo] = branches
+        else:
+            self._remote_branches.pop(repo, None)
         return missing
 
     def put_blob(self, blob_hash: str, path: Path) -> dict:
@@ -206,11 +215,14 @@ class HubClient:
         also the remote's completeness check: if anything failed to upload, the
         ref does not move and the published branch stays valid.
         """
+        payload = {"branch": branch, "commit": commit_hash}
+        if repo in self._remote_branches:
+            payload["expected_tip"] = self._remote_branches[repo].get(branch)
         response = self._request(
             "POST",
             f"{API}/repos/{repo}/refs",
             what=f"ref update {repo}/{branch}",
-            json={"branch": branch, "commit": commit_hash},
+            json=payload,
         )
         return response.json()
 

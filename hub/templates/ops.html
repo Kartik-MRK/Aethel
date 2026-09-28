@@ -57,10 +57,9 @@
       </div>
     </div>
     <p class="footnote">
-      <strong>Log vs anchored root</strong> is the row that matters most: it
-      recomputes the Merkle root from the log on disk and compares it to the root
-      published on chain. A mismatch means the log has been altered since it was
-      anchored &mdash; a live self-audit of the exact property this project claims.
+      <strong>Log vs anchored root</strong> checks the recorded prefix, allowing
+      new commits after a checkpoint. The <strong>Chain</strong> row separately
+      reports the background RPC check. <a href="/provenance">Inspect checkpoint and mirror evidence.</a>
     </p>
   </div>
 </section>
@@ -89,7 +88,7 @@
     {% if log_root %}
     <p class="rootline-inline">{{ digest(log_root, size='lg', label=log_root, copy='log root') }}</p>
     {% else %}
-    <p class="nil">Log is empty &mdash; no root yet.</p>
+    <p class="nil">Log is empty - no root yet.</p>
     {% endif %}
     <div class="card card-tight">
       <dl class="kv">

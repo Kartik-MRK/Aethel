@@ -265,4 +265,6 @@ class TestTheHubsOwnVerdictIsNotPresentedAsIndependent:
         """
         page = pushed["client"].get(f"/c/{pushed['second']}").text
 
-        assert "Not yet anchored" in page or "On chain" in page
+        assert "Chain not configured" in page
+        assert "On chain" not in page
+        assert "Not yet anchored" not in page

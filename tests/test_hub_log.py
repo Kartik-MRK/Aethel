@@ -277,15 +277,16 @@ class TestInclusionProofs:
     def test_reordering_leaves_changes_the_root(self, log):
         commits = digests(4)
         log.append_many(commits, repo="demo", accepted_at=WHEN)
-        original = log.root()
-
         entries = log.entries()
         swapped = [entries[1], entries[0], *entries[2:]]
         log.path.write_text(
             "\n".join(entry.to_json() for entry in swapped) + "\n", encoding="utf-8"
         )
 
-        assert log.root() != original
+        from aethel.core.errors import CorruptObject
+
+        with pytest.raises(CorruptObject, match="indices"):
+            log.root()
 
     def test_a_proof_from_a_shorter_log_fails_against_a_longer_one(self, log):
         """A proof is bound to a root, not to the commit alone."""

@@ -19,7 +19,7 @@ from aethel.commands._common import (
     render_detached_head,
     short,
 )
-from aethel.core.commits import build_base_object, create_commit
+from aethel.core.commits import build_base_object, create_commit, require_staged_adapter
 from aethel.core.errors import DetachedHead
 from aethel.core.repo import Repo
 
@@ -30,16 +30,23 @@ app = typer.Typer()
 def commit_callback(
     ctx: typer.Context,
     message: str = typer.Option(..., "-m", "--message", help="Commit message."),
+    require_evaluation: bool = typer.Option(False, "--require-evaluation", help="Refuse to commit if held-out evaluation fails."),
 ):
     """Create a commit from the current workspace."""
     if ctx.invoked_subcommand is None:
-        run_commit(message=message)
+        run_commit(message=message, require_evaluation=require_evaluation)
 
 
 @handle_errors
-def run_commit(message: str) -> None:
+def run_commit(message: str, require_evaluation: bool = False) -> None:
     repo = Repo.discover()
     config = repo.read_config()
+    try:
+        repo.refs.require_attached_branch()
+    except DetachedHead as exc:
+        render_detached_head(exc, attempted=message)
+        raise typer.Exit(code=1) from exc
+    require_staged_adapter(repo.workspace_dir)
 
     # The base reference object is derived from the pinned revision; write it
     # (idempotently) so every commit has a base to point at.
@@ -54,13 +61,17 @@ def run_commit(message: str) -> None:
 
         try:
             training_info = json.loads(training_info_path.read_text(encoding="utf-8"))
+            if not isinstance(training_info, dict):
+                training_info = {}
         except json.JSONDecodeError as exc:
             err_console.print(
                 f"[yellow]warning: training_info.json is invalid JSON, "
                 f"recording an empty record: {exc}[/yellow]"
             )
 
+    training_info.pop("evaluation", None)
     evaluation = None
+    evaluation_state = {"status": "skipped", "reason": "ML dependencies are unavailable", "current": None}
 
     try:
         from aethel.evaluation.evaluator import evaluate_current_vs_parent
@@ -74,9 +85,16 @@ def run_commit(message: str) -> None:
                 repo.workspace_dir,
             )
         except Exception as exc:
+            evaluation_state = {"status": "failed", "reason": str(exc), "current": None}
             err_console.print(
                 f"[yellow]warning: evaluation failed: {exc}[/yellow]"
             )
+
+    if evaluation is None:
+        training_info["evaluation"] = evaluation_state
+        if require_evaluation:
+            err_console.print("[red]Commit refused: held-out evaluation is required.[/red]")
+            raise typer.Exit(code=1)
 
     if evaluation is not None:
         current = evaluation["current"]
@@ -93,9 +111,11 @@ def run_commit(message: str) -> None:
             f"Current loss: "
             f"[cyan]{current['eval_loss']:.6f}[/cyan]"
         )
+        if "macro_f1" in current:
+            console.print(f"Macro-F1: {current['macro_f1']:.4f}; samples: {current['sample_count']}")
         console.print(
             f"Adapter size: "
-            f"[cyan]{current['adapter_size_mb']:.2f} MB[/cyan]"
+            f"[cyan]{current['adapter_size_mb']:.2f} MiB[/cyan]"
         )
 
         if parent is not None:
@@ -122,6 +142,8 @@ def run_commit(message: str) -> None:
                 f"Improved: "
                 f"[green]{comparison['improved']}[/green]"
             )
+        elif evaluation.get("comparison_status") == "not_comparable":
+            console.print(f"[yellow]Parent not comparable: {evaluation['comparison_reason']}[/yellow]")
         else:
             console.print("Parent: [yellow]None (first commit)[/yellow]")
 

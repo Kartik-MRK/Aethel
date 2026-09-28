@@ -14,3 +14,13 @@ lora_alpha: 16
 batch_size: 2
 gradient_accumulation_steps: 8
 epochs: 1
+
+# Evaluation and reproducibility
+task_type: sequence_classification
+seed: 42
+split_seed: 42
+validation_fraction: 0.2
+test_fraction: 0.2
+eval_batch_size: 8
+learning_rate: 0.00005
+label_names: ['not_hateful', 'hateful']

@@ -33,7 +33,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from aethel.core.aggregator import MerkleTree, verify_proof
-from aethel.core.atomic import file_lock
+from aethel.core.atomic import atomic_write_text, file_lock
+from aethel.core.errors import CorruptObject
 from aethel.core.hashing import normalize_hash
 
 
@@ -110,7 +111,19 @@ class TransparencyLog:
             line = line.strip()
             if line:
                 found.append(LogEntry.from_dict(json.loads(line)))
+        if any(entry.index != index for index, entry in enumerate(found)):
+            raise CorruptObject("Transparency log indices are not consecutive")
+        if len({entry.commit_hash for entry in found}) != len(found):
+            raise CorruptObject("Transparency log contains duplicate commits")
         return found
+
+    def snapshot(self) -> list[str]:
+        """Take a coherent prefix under the same lock used by appenders."""
+        return [entry.commit_hash for entry in self.snapshot_entries()]
+
+    def snapshot_entries(self) -> list[LogEntry]:
+        with file_lock(self.path.with_suffix(".lock")):
+            return self.entries()
 
     def leaves(self) -> list[str]:
         """The leaf values, in log order: commit hashes."""
@@ -125,13 +138,13 @@ class TransparencyLog:
     # -- the tree ----------------------------------------------------------
 
     def tree(self) -> MerkleTree:
-        return MerkleTree(self.leaves())
+        return MerkleTree(self.snapshot())
 
     def root(self) -> str | None:
         """The current Merkle root, or None for an empty log."""
         return self.tree().get_root()
 
-    def inclusion_proof(self, commit_hash: str) -> dict | None:
+    def inclusion_proof(self, commit_hash: str, size: int | None = None) -> dict | None:
         """Everything a third party needs to verify inclusion, without the Hub.
 
         Returns the leaf, its sibling path, the root, and the log size. A
@@ -139,7 +152,10 @@ class TransparencyLog:
         against the anchored root, the Hub is not consulted in that check.
         """
         digest = normalize_hash(commit_hash)
-        tree = self.tree()
+        leaves = self.snapshot()
+        if size is not None and (type(size) is not int or not 0 < size <= len(leaves)):
+            raise ValueError("Requested proof size is outside the log")
+        tree = MerkleTree(leaves if size is None else leaves[:size])
         proof = tree.get_proof(digest)
 
         if proof is None:
@@ -250,10 +266,8 @@ class TransparencyLog:
 class AnchorStore:
     """Records of Merkle roots published to a chain.
 
-    Written by the anchoring job (not yet built) and read by the ops board, so
-    "last anchored root" and "is the current root anchored?" are answerable
-    from day one, with an honest "never anchored" while the chain layer is
-    still pending.
+    Written after RPC verification. Cached records are evidence of that check,
+    not a substitute for querying the configured chain again.
     """
 
     def __init__(self, path: Path):
@@ -276,5 +290,12 @@ class AnchorStore:
 
     def append(self, record: dict) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+        with file_lock(self.path.with_suffix(".lock")):
+            records = self.records()
+            if record in records:
+                return
+            identity = (record.get("chain_id"), record.get("contract"), record.get("size"))
+            if record.get("size"):
+                records = [r for r in records if (r.get("chain_id"), r.get("contract"), r.get("size")) != identity]
+            records.append(record)
+            atomic_write_text(self.path, "".join(json.dumps(r, sort_keys=True, separators=(",", ":")) + "\n" for r in records))

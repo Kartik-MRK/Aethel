@@ -42,6 +42,8 @@ ml = [
 ]
 # CUDA-only. Never in base: it breaks CPU and macOS installs outright.
 gpu = ["bitsandbytes>=0.43,<1.0"]
+provenance = ["web3>=7.0,<8.0"]
+provenance-test = ["web3>=7.0,<8.0", "eth-tester[py-evm]>=0.13.0b1,<0.15"]
 # Rebuilding the two web fonts under hub/static/fonts/. Those files are
 # committed, so nothing at runtime needs this -- it is only for re-running
 # scripts/build_fonts.py, and it is declared because an undeclared dependency
@@ -61,6 +63,10 @@ aethel = "aethel.main:app"
 # a missing aethel/core/__init__.py silently excluded the core package from
 # installs.
 include = ["aethel*", "hub*"]
+
+[tool.setuptools.package-data]
+"aethel.provenance" = ["contracts/*.json"]
+hub = ["templates/*.html", "static/*.css", "static/*.js", "static/*.svg", "static/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,24 @@
+[Unit]
+Description=Aethel adapter registry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aethel
+Group=aethel
+WorkingDirectory=/opt/aethel
+EnvironmentFile=/etc/aethel/hub.env
+ExecStart=/opt/aethel/.venv/bin/python -m hub
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aethel
+UMask=0007
+
+[Install]
+WantedBy=multi-user.target

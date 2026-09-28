@@ -15,6 +15,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Versioned adapters, measured results, and independently checked publication records.">
   <title>{% block title %}Aethel Hub{% endblock %}</title>
 
   {# One SVG icon rather than a set of PNGs. It is the masthead's own diamond, so
@@ -56,6 +57,7 @@
       </a>
       <nav class="nav" aria-label="Sections">
         <a href="/" {% if nav == 'repos' %}aria-current="page"{% endif %}>Repositories</a>
+        <a href="/provenance" {% if nav == 'provenance' %}aria-current="page"{% endif %}>Provenance</a>
         <a href="/ops" {% if nav == 'ops' %}aria-current="page"{% endif %}>Operations</a>
         <a href="/api" {% if nav == 'api' %}aria-current="page"{% endif %}>API</a>
       </nav>
@@ -75,8 +77,8 @@
 
   <footer class="closing">
     <p>
-      Every value on these pages is content-addressed. Re-hash any download and
-      compare it yourself &mdash; this server is not a trusted party.
+      Adapter bytes are verified by SHA-256. Checkpoint receipts can be checked
+      independently against the configured chain.
     </p>
   </footer>
 
@@ -98,6 +100,7 @@
      those are is the kind of bookkeeping that goes stale the first time a digest
      moves. #}
   <script nonce="{{ request.state.csp_nonce }}" src="/static/copy.js"></script>
+  <script nonce="{{ request.state.csp_nonce }}" src="/static/provenance.js"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
