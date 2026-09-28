@@ -22,13 +22,15 @@ def main():
     parser.add_argument("--dir", type=Path, default=ROOT / ".demo" / "public-review")
     parser.add_argument("--samples", type=int, default=600)
     args = parser.parse_args()
+    if not 100 <= args.samples <= 5000:
+        raise SystemExit("Choose between 100 and 5000 pilot examples")
     target = args.dir.resolve()
     target.mkdir(parents=True, exist_ok=True)
     work = target / "work"
-    if (work / ".aethel").exists():
-        raise SystemExit("Review repository already exists; refusing to replace it")
-    if not 100 <= args.samples <= 5000:
-        raise SystemExit("Choose between 100 and 5000 pilot examples")
+    try:
+        work.mkdir()
+    except FileExistsError as exc:
+        raise SystemExit("Review work path already exists; choose a new --dir") from exc
 
     import torch
 
@@ -55,7 +57,6 @@ def main():
             })
             response.raise_for_status()
             rows.extend(record["row"] for record in response.json()["rows"])
-    work.mkdir(exist_ok=True)
     with (work / "reviews.csv").open("w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["text", "label"])

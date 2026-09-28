@@ -662,19 +662,17 @@ Four rules make this trustworthy:
 
 ### 5.8 Ancestry validation and its cost
 
-`HubStorage.validate_history(commit_hash, *, accepted=None)` walks the full ancestry and checks
+`HubStorage.validate_history(commit_hash)` walks the full ancestry and checks
 every field in section 3.3, every tree entry's blob, and every base reference.
 
-Done naively this is quadratic across a session: each push re-validates the entire history behind
-it, so pushing n commits one at a time costs O(n^2) object reads. The `accepted` parameter is the
-fix. Commits already admitted to the transparency log were fully validated when accepted, and
-object names are content hashes, so their trees and base references are not re-read. Their adapter
-blob is still checked for existence, which catches a blob deleted after acceptance. Passing
-`accepted=None` forces complete revalidation, and whole-store integrity remains a separate sweep
-in `aethel fsck` and the Hub's integrity check.
+Each push revalidates its entire history, including commits already in the transparency log.
+Objects can be deleted or corrupted after acceptance. In particular, a failed ref write can leave
+accepted commits that must be checked again before a retry advances the branch. Missing or
+corrupt dependencies leave the ref unchanged. Restoring the objects permits an idempotent retry.
 
 Within a single walk, `verified_trees`, `verified_bases`, and `verified_blobs` memoise work, so a
-branch whose commits share a base reads that base once.
+branch whose commits share a base reads that base once. Across n individual pushes, history reads
+can still total O(n^2). This is the current correctness tradeoff for the bounded deployment.
 
 ### 5.9 Checkpoint publication and verification
 
@@ -693,6 +691,12 @@ Independent verification is a ladder, and every rung must hold:
    root.
 6. Every earlier checkpoint's root still recomputes from the current leaves, which is the
    append-only check: a rewritten prefix breaks an older root even if the newest one is consistent.
+7. The sampled chain tip and checkpoint block remain canonical when verification finishes.
+
+Every verification rereads earlier checkpoints at the sampled tip's block number. Confirmation
+depth does not prevent a reorganization, so prior verified records are not reused across probes.
+Contract byte values are converted to plain bytes before hex encoding to keep comparisons
+independent of a byte wrapper's prefix formatting.
 
 Step 2 is what makes the rest meaningful. Without it a verifier is trusting whatever contract
 happens to sit at that address. CI recompiles the contract and diffs the artifact, so a source
@@ -1001,18 +1005,18 @@ and is not the correct default for anything else.
 | History walk | O(n) commit reads | no index, so nothing to rebuild or desynchronise |
 | Merkle build | O(n) hashes, O(n) memory | recomputed from the log rather than cached, because a stale tree in a provenance system is worse than a rebuild |
 | Inclusion proof | ceil(log2 n) siblings | 2 KB of JSON at any realistic log size |
-| Push of n commits | O(n) object reads with `accepted`, O(n^2) without | section 5.8 |
+| n successive single-commit pushes | O(n^2) ancestry reads, plus dependency verification | shared dependencies are read once within each push; section 5.8 |
 | Adapter comparison | O(rows * out_features) work, O(block * out_features) peak memory | blocked accumulation, section 5.12 |
-| Chain verification | one `eth_getCode`, one `checkpoints` call per rung | results cached per `(chain_id, address, size)`; the unconfirmed prefix is never cached |
+| Chain verification | contract identity checks, one `checkpoints` call per rung, and block checks | historical records are reread for every verification; tip and checkpoint block hashes are checked before success |
 | Log read | full file read, uncached | the log is one short line per commit, and correctness beats a cache here |
 
-The two caches in the system are both deliberately narrow. `ChainClient._checkpoint` caches only
-**confirmed** records per `(chain_id, address, size)` and never caches the checked prefix, so a
-reorg cannot be papered over. `validate_history`'s `accepted` set skips re-reading object graphs
-that the log already admitted, and still checks blob existence.
+The dashboard caches its bounded health results between probes and expires stale success states.
+The verifier does not cache historical checkpoint records across probes. Publication validation
+reuses dependency reads only within one traversal; log acceptance never bypasses those checks.
 
-Measured: 836 tests in about 15 seconds; core coverage 95.58 percent in the CI core job and 96.06
-percent in the full development environment, against an 80 percent gate.
+The 28 September regression run passed 856 tests in 17.70 seconds, with no skips and one
+Starlette TestClient deprecation warning. Earlier coverage measurements were 95.58 percent in
+the CI core job and 96.06 percent in the full development environment, against an 80 percent gate.
 
 ---
 
@@ -1020,7 +1024,7 @@ percent in the full development environment, against an 80 percent gate.
 
 ### 10.1 Strategy
 
-663 test functions in 31 files, expanding to 836 collected cases. The suite is layered the way the
+The full suite contains 856 collected cases after the 28 September fixes. It is layered the way the
 code is: the core is tested with no ML and no HTTP dependency, the Hub is tested through a real
 ASGI client, the contract is executed on PyEVM, and the browser verifier is checked against the
 Python implementation case by case.

@@ -181,6 +181,68 @@ def test_ref_write_failure_can_be_retried(history, hub_storage, hub_log, monkeyp
     assert hub_storage.repo("demo").branches["main"] == second
 
 
+@pytest.mark.parametrize("dependency", ["tree", "base", "adapter_config.json", "training_info.json"])
+@pytest.mark.parametrize("damage", ["missing", "corrupt"])
+def test_retry_revalidates_accepted_dependencies(history, hub_storage, hub_log, monkeypatch, dependency, damage):
+    import hub.storage as module
+
+    first, second = history
+    publish(hub_storage, hub_log, first)
+
+    def fail(*args, **kwargs):
+        raise OSError("simulated ref write failure")
+
+    with monkeypatch.context() as fault:
+        fault.setattr(module, "atomic_write_text", fail)
+        with pytest.raises(OSError):
+            publish(hub_storage, hub_log, second, expected_tip=first)
+    assert hub_storage.repo("demo").branches["main"] == first
+    assert hub_log.leaves() == [first, second]
+    root = hub_log.root()
+
+    commit = hub_storage.read_commit(second)
+    if dependency in ("tree", "base"):
+        kind = {"tree": "trees", "base": "bases"}[dependency]
+        path = hub_storage.objects.path_for(kind, commit[dependency])
+    else:
+        files = hub_storage.read_tree(commit["tree"])
+        path = hub_storage.objects.path_for("blobs", files[dependency])
+    original = path.read_bytes()
+    if damage == "missing":
+        path.unlink()
+    else:
+        path.write_bytes(b"corrupt")
+
+    with pytest.raises(HTTPException) as exc:
+        publish(hub_storage, hub_log, second, expected_tip=first)
+    assert exc.value.status_code == (409 if damage == "missing" else 400)
+    assert hub_storage.repo("demo").branches["main"] == first
+    assert hub_log.root() == root
+    assert hub_log.leaves() == [first, second]
+
+    path.write_bytes(original)
+    retry = publish(hub_storage, hub_log, second, expected_tip=first)
+    assert retry["appended_indices"] == []
+    assert hub_storage.repo("demo").branches["main"] == second
+
+
+@pytest.mark.parametrize("damage", ["missing", "corrupt"])
+def test_new_child_revalidates_accepted_ancestor(history, hub_storage, hub_log, damage):
+    first, second = history
+    publish(hub_storage, hub_log, first)
+    ancestor = hub_storage.read_commit(first)
+    path = hub_storage.objects.path_for("trees", ancestor["tree"])
+    if damage == "missing":
+        path.unlink()
+    else:
+        path.write_bytes(b"corrupt")
+    with pytest.raises(HTTPException) as exc:
+        publish(hub_storage, hub_log, second, expected_tip=first)
+    assert exc.value.status_code == (409 if damage == "missing" else 400)
+    assert hub_storage.repo("demo").branches["main"] == first
+    assert hub_log.leaves() == [first]
+
+
 @pytest.mark.parametrize(
     "change",
     [

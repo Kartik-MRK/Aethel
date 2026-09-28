@@ -17,9 +17,6 @@ class ProvenanceMonitor:
         self.chain = {"status": "pending" if config.chain_configured else "unconfigured", "detail": "Waiting for the first RPC check" if config.chain_configured else "Configure a chain, contract, and log ID"}
         self.gateway = {"status": "pending" if config.ipfs_gateways else "unconfigured", "detail": "No verified gateway sample yet"}
         self.checked = 0.0
-        # Confirmed earlier checkpoints do not change. Reusing them keeps a repeating
-        # probe to a fixed number of RPC calls instead of one per prior checkpoint.
-        self.chain_cache: dict = {}
 
     def check_chain(self) -> dict:
         if not self.config.chain_configured:
@@ -27,7 +24,7 @@ class ProvenanceMonitor:
         try:
             from aethel.provenance.chain import ChainClient
 
-            chain = ChainClient(self.config.chain_rpc_url, self.config.chain_id, self.config.anchor_contract, self.config.log_id, confirmations=self.config.chain_confirmations, cache=self.chain_cache)
+            chain = ChainClient(self.config.chain_rpc_url, self.config.chain_id, self.config.anchor_contract, self.config.log_id, confirmations=self.config.chain_confirmations)
             size = chain.latest_size()
             if not size:
                 return {"status": "pending", "detail": "RPC and contract checked; no checkpoint published", "checked_at": utc_now()}

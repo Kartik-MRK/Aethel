@@ -19,7 +19,7 @@ def artifact() -> dict:
 
 
 class ChainClient:
-    def __init__(self, rpc: str | None, chain_id: int, contract: str | None, log_id: str, *, confirmations: int = 2, timeout: float = 5, web3=None, cache: dict | None = None):
+    def __init__(self, rpc: str | None, chain_id: int, contract: str | None, log_id: str, *, confirmations: int = 2, timeout: float = 5, web3=None):
         from web3 import HTTPProvider, Web3
 
         if type(chain_id) is not int or chain_id <= 0 or confirmations < 1:
@@ -29,25 +29,6 @@ class ChainClient:
         self.confirmations = confirmations
         self.address = Web3.to_checksum_address(contract) if contract else None
         self.artifact = artifact()
-        # Confirmed checkpoint records, reusable across repeated verifications. Keyed by
-        # chain, contract, and size, so a different configuration never reads this cache.
-        self.cache = cache if cache is not None else {}
-
-    def _checkpoint(self, contract, size: int, block_number: int, tip_number: int):
-        """Read one checkpoint, reusing a record already seen at full confirmation depth.
-
-        A confirmed block's contents cannot change, so caching the read removes one RPC
-        round trip per earlier checkpoint on every probe. Local prefix recomputation is
-        not cached: that is the check which detects a rewritten log.
-        """
-        key = (self.chain_id, self.address, size)
-        cached = self.cache.get(key)
-        if cached is not None:
-            return cached
-        record = contract.functions.checkpoints(size).call(block_identifier=block_number)
-        if record[1] and tip_number - record[1] + 1 >= self.confirmations:
-            self.cache[key] = record
-        return record
 
     def contract(self):
         if not self.address:
@@ -58,9 +39,9 @@ class ChainClient:
         if self.w3.eth.chain_id != self.chain_id:
             raise CheckpointError("RPC chain ID differs from the trusted configuration")
         contract = self.contract()
-        if self.w3.eth.get_code(self.address).hex().removeprefix("0x") != self.artifact["deployedBytecode"][2:]:
+        if bytes(self.w3.eth.get_code(self.address)).hex() != self.artifact["deployedBytecode"][2:]:
             raise CheckpointError("Contract bytecode does not match the supported checkpoint contract")
-        if contract.functions.logId().call().hex() != self.log_id:
+        if bytes(contract.functions.logId().call()).hex() != self.log_id:
             raise CheckpointError("Contract log ID differs from the trusted configuration")
         return contract
 
@@ -74,7 +55,7 @@ class ChainClient:
         tip = self.w3.eth.get_block("latest")
         record = contract.functions.checkpoints(size).call(block_identifier=tip.number)
         onchain_root, block, previous = record
-        if block == 0 or onchain_root.hex() != root:
+        if block == 0 or bytes(onchain_root).hex() != root:
             raise CheckpointError("Checkpoint root is absent or different on the configured chain")
         confirmations = tip.number - block + 1
         if confirmations < self.confirmations:
@@ -90,8 +71,10 @@ class ChainClient:
                     raise CheckpointError("Checkpoint history verification exceeded its time budget")
                 if history >= 1024 or cursor >= size:
                     raise CheckpointError("Invalid or excessive checkpoint history")
-                old_root, old_block, predecessor = self._checkpoint(contract, cursor, tip.number, tip.number)
-                if not old_block or old_root.hex() != checked_prefix(leaves, cursor):
+                # Confirmations do not prevent reorgs. Read each earlier checkpoint
+                # again against the same tip used for this verification.
+                old_root, old_block, predecessor = contract.functions.checkpoints(cursor).call(block_identifier=tip.number)
+                if not old_block or bytes(old_root).hex() != checked_prefix(leaves, cursor):
                     raise CheckpointError("An earlier checkpoint disagrees with this log prefix")
                 if predecessor >= cursor:
                     raise CheckpointError("Invalid checkpoint predecessor")
@@ -100,6 +83,8 @@ class ChainClient:
         # A reorg during verification must not produce a confirmed verdict.
         if self.w3.eth.get_block(block).hash.to_0x_hex() != block_hash:
             raise CheckpointError("Checkpoint block changed during verification; retry")
+        if self.w3.eth.get_block(tip.number).hash != tip.hash:
+            raise CheckpointError("Chain tip changed during verification; retry")
         return {
             "status": "confirmed", "size": size, "root": root,
             "chain_id": self.chain_id, "contract": self.address, "log_id": self.log_id,
@@ -178,7 +163,7 @@ class ChainClient:
         if latest > size:
             raise CheckpointError("Local log is shorter than the latest on-chain checkpoint")
         if latest:
-            old_root = contract.functions.checkpoints(latest).call()[0].hex()
+            old_root = bytes(contract.functions.checkpoints(latest).call()[0]).hex()
             try:
                 self.verify(latest, old_root, leaves=leaves)
             except CheckpointError as exc:

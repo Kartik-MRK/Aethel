@@ -174,26 +174,18 @@ class HubStorage:
         record, _ = self.publish_branch(repo_name, branch, commit_hash)
         return record
 
-    def validate_history(self, commit_hash: str, *, accepted: set[str] | None = None) -> list[dict]:
+    def validate_history(self, commit_hash: str) -> list[dict]:
         """Verify every reachable object, without a display pagination limit.
 
-        `accepted` names commits already admitted to the transparency log. Those were
-        validated in full when they were accepted, and object names are content
-        hashes, so their trees and base references are not re-read here. Their adapter
-        blob is still checked, so a blob deleted after acceptance is caught. Whole-store
-        integrity is a separate sweep: `aethel fsck` and the Hub's integrity check.
-        Pass `accepted=None` to force a complete re-validation.
+        Log acceptance does not prove that dependencies are still intact. Recheck
+        them on each publication, including retries, and reuse verified objects
+        only within this traversal.
         """
         history = self.commit_history(commit_hash, limit=None)
-        accepted = accepted or set()
         verified_trees: dict[str, dict[str, str]] = {}
         verified_bases: set[str] = set()
         verified_blobs: set[str] = set()
         for commit in history:
-            if commit["hash"] in accepted:
-                # Cheap existence check only; the full object graph was verified on acceptance.
-                self.objects.blob_path(normalize_hash(commit.get("adapter_blob"), label="adapter hash"))
-                continue
             if commit.get("schema") != COMMIT_SCHEMA:
                 raise CorruptObject(f"Unsupported commit schema: {commit.get('schema')!r}")
             if "parent_hash" not in commit:
@@ -247,8 +239,7 @@ class HubStorage:
         digest = normalize_hash(commit_hash, label="commit hash")
         if expected_tip is not None:
             expected_tip = normalize_hash(expected_tip, label="expected tip")
-        # Re-validating already-accepted ancestry on every push is work a client can drive.
-        history = self.validate_history(digest, accepted=set(log.snapshot()) if log is not None else None)
+        history = self.validate_history(digest)
         ancestors = {commit["hash"] for commit in history}
 
         with file_lock(self.data_dir / "repos.lock"):

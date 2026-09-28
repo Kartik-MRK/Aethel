@@ -123,6 +123,74 @@ def test_confirmation_threshold_and_reorg_are_not_reported_confirmed(chain):
         client.verify(2, record["root"])
 
 
+def test_reused_verifier_rechecks_history_after_reorg(chain):
+    client, _, _, _, _, tester = chain
+    client.confirmations = 2
+    snapshot = tester.take_snapshot()
+    leaves = hashes(4)
+    prefix = MerkleTree(leaves[:2]).get_root()
+    root = MerkleTree(leaves).get_root()
+    contract = client.contract()
+    sender = client.w3.eth.accounts[0]
+    contract.functions.publish(2, bytes.fromhex(prefix), 0).transact({"from": sender})
+    contract.functions.publish(4, bytes.fromhex(root), 2).transact({"from": sender})
+    tester.mine_blocks(1)
+    assert client.verify(4, root, leaves=leaves)["history_checked"] == 2
+
+    tester.revert_to_snapshot(snapshot)
+    changed_prefix = MerkleTree(["f" * 64, leaves[1]]).get_root()
+    contract.functions.publish(2, bytes.fromhex(changed_prefix), 0).transact({"from": sender})
+    contract.functions.publish(4, bytes.fromhex(root), 2).transact({"from": sender})
+    tester.mine_blocks(1)
+    with pytest.raises(CheckpointError, match="earlier checkpoint"):
+        client.verify(4, root, leaves=leaves)
+
+
+def test_reorg_before_checkpoint_block_read_is_detected(chain, monkeypatch):
+    client, key, store, log, anchors, tester = chain
+    snapshot = tester.take_snapshot()
+    log.append_many(hashes(2), "demo", "now")
+    record = client.publish(log, anchors, store, key)
+    get_block = client.w3.eth.get_block
+    replaced = False
+
+    def reorg_before_block_read(identifier, *args, **kwargs):
+        nonlocal replaced
+        if identifier == record["block"] and not replaced:
+            replaced = True
+            tester.revert_to_snapshot(snapshot)
+            client.contract().functions.publish(2, b"x" * 32, 0).transact({"from": client.w3.eth.accounts[0]})
+        return get_block(identifier, *args, **kwargs)
+
+    monkeypatch.setattr(client.w3.eth, "get_block", reorg_before_block_read)
+    with pytest.raises(CheckpointError, match="changed during verification"):
+        client.verify(2, record["root"])
+    assert replaced
+
+
+def test_contract_bytes_with_prefixed_hex_methods_are_supported(chain, monkeypatch):
+    client, key, store, log, anchors, _ = chain
+    decode = client.w3.codec.decode
+
+    class PrefixedBytes(bytes):
+        def hex(self):
+            return "0x" + super().hex()
+
+    def decode_prefixed(*args, **kwargs):
+        return tuple(PrefixedBytes(value) if isinstance(value, bytes) else value for value in decode(*args, **kwargs))
+
+    monkeypatch.setattr(client.w3.codec, "decode", decode_prefixed)
+    assert client.contract().functions.logId().call().hex().startswith("0x")
+    leaves = hashes(4)
+    log.append_many(leaves[:2], "demo", "now")
+    first = client.publish(log, anchors, store, key)
+    log.append_many(leaves[2:], "demo", "later")
+    second = client.publish(log, anchors, store, key)
+    assert second["history_checked"] == 2
+    assert client.publish(log, anchors, store, key)["root"] == second["root"]
+    assert client.verify(2, first["root"], leaves=leaves)["status"] == "confirmed"
+
+
 def test_deployment_retry_does_not_deploy_twice(chain):
     client, key, store, _, _, _ = chain
     count = client.w3.eth.get_transaction_count(client.w3.eth.accounts[0])

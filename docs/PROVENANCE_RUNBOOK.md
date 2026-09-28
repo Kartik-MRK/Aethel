@@ -20,6 +20,11 @@ Each uses 360 training examples and the same 120-example validation split; 120 t
 remain unused. These small pilot runs establish the workflow. They do not establish a final
 sentiment benchmark. The second adapter regressed; its recorded results remain visible.
 
+To prepare a separate review, supply a new `--dir` to `scripts/prepare_review_models.py`.
+The script claims its `work` directory before loading ML dependencies or downloading data and
+refuses any existing work path, including an empty directory, file, or symlink. A failed run
+can leave its claimed directory for inspection; use a new destination for another attempt.
+
 1. Open the repository and compare both measured versions.
 2. Open a commit. Download its checkpoint bundle and inspect its IPFS record.
 3. On Provenance, open the Sepolia transaction and the dedicated IPFS copy.
@@ -113,6 +118,9 @@ not been enabled on a remote machine in this workspace.
 Use a confirmation threshold appropriate to the deployment. Two confirmations are used for
 the review testnet; they are not a claim of irreversible finality. A changed or missing
 checkpoint loses its confirmed verdict on the next RPC check. Cached good results expire.
+Each chain verification rereads earlier checkpoints at its sampled block number and checks that
+the sampled tip remains canonical before reporting success. Historical confirmation records are
+not reused across probes, because a reorganization can replace previously confirmed blocks.
 
 ## Retry and recovery behavior
 
