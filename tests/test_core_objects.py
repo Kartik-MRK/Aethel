@@ -12,6 +12,33 @@ def store(tmp_path):
     return ObjectStore(tmp_path / "objects")
 
 
+def test_source_change_before_copy_never_installs_an_invalid_blob(store, tmp_path, monkeypatch):
+    import aethel.core.objects as objects
+
+    source = tmp_path / "adapter"
+    source.write_bytes(b"original")
+    digest = hash_bytes(b"original")
+    copy = objects.atomic_copy_file
+
+    def change_then_copy(src, dst, **kwargs):
+        src.write_bytes(b"changed after hashing")
+        return copy(src, dst, **kwargs)
+
+    monkeypatch.setattr(objects, "atomic_copy_file", change_then_copy)
+    with pytest.raises(CorruptObject):
+        store.write_blob_from_file(source)
+    assert not store.exists("blobs", digest)
+
+
+@pytest.mark.parametrize("kind", ["blobs", "trees"])
+def test_rewriting_corrupt_object_repairs_it_with_verified_content(store, kind):
+    write = (lambda: store.write_blob(b"original")) if kind == "blobs" else (lambda: store.write_json(kind, {"files": {}}))
+    digest = write()
+    store.path_for(kind, digest).write_bytes(b"corrupted")
+    assert write() == digest
+    assert store.verify(kind, digest)
+
+
 class TestBlobs:
     def test_write_returns_the_content_hash(self, store):
         assert store.write_blob(b"hello") == hash_bytes(b"hello")

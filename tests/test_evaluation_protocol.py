@@ -2,6 +2,7 @@
 
 import csv
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
@@ -76,12 +77,53 @@ def test_modified_split_membership_is_refused(dataset):
 
 
 def test_relative_dataset_path_survives_repository_move(dataset, tmp_path):
-    _, manifest = manifest_for(dataset)
-    manifest["dataset_file"] = dataset.name
+    _, manifest = manifest_for(dataset, repo_root=tmp_path)
+    assert manifest["dataset_file"] == dataset.name
+    expected = load_split(tmp_path, manifest, "validation")
     relocated = tmp_path / "other"
     relocated.mkdir()
     (relocated / dataset.name).write_bytes(dataset.read_bytes())
-    assert load_split(relocated, manifest, "validation") == load_split(tmp_path, manifest, "validation")
+    dataset.unlink()
+    assert load_split(relocated, manifest, "validation") == expected
+
+
+def test_manifest_path_policy_preserves_dataset_identity(dataset, tmp_path):
+    _, absolute = manifest_for(dataset)
+    _, relative = manifest_for(dataset, repo_root=tmp_path)
+    assert absolute["dataset_file"] == str(dataset.resolve())
+    assert relative["dataset_file"] == dataset.name
+    assert {key: value for key, value in relative.items() if key != "dataset_file"} == {
+        key: value for key, value in absolute.items() if key != "dataset_file"
+    }
+    assert load_split(tmp_path / "unrelated", absolute, "validation") == load_split(tmp_path, relative, "validation")
+
+
+def test_relative_input_uses_repository_root_not_current_directory(dataset, tmp_path, monkeypatch):
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    _, manifest = manifest_for(Path(dataset.name), repo_root=tmp_path)
+    assert manifest["dataset_file"] == dataset.name
+    assert len(load_split(Path(".."), manifest, "validation")) == 12
+
+
+def test_dataset_outside_repository_remains_absolute(dataset, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _, manifest = manifest_for(Path("..") / dataset.name, repo_root=repo)
+    assert manifest["dataset_file"] == str(dataset.resolve())
+    assert len(load_split(repo, manifest, "validation")) == 12
+
+
+def test_external_dataset_symlink_is_not_recorded_as_portable(dataset, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    link = repo / "linked.csv"
+    link.symlink_to(dataset)
+    _, manifest = manifest_for(link, repo_root=repo)
+    assert manifest["dataset_file"] == str(dataset.resolve())
+    link.unlink()
+    assert len(load_split(repo, manifest, "validation")) == 12
 
 
 @pytest.mark.parametrize("validation,test", [(0, 0.2), (0.8, 0.3), (float("nan"), 0.2)])

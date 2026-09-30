@@ -529,7 +529,7 @@ server-rendered dashboard, and the transparency log above. Started with
 | `AETHEL_HUB_HOST` | bind address | `0.0.0.0` |
 | `AETHEL_HUB_PORT` | port | `8000` |
 | `AETHEL_HUB_TOKEN` | shared secret required on every write | unset (open) |
-| `AETHEL_HUB_MAX_BLOB` | largest accepted blob, in bytes | 64 MiB |
+| `AETHEL_HUB_MAX_BLOB` | largest accepted blob or structured-object upload, in bytes | 64 MiB |
 | `AETHEL_CHAIN_RPC`, `AETHEL_CHAIN_ID`, `AETHEL_ANCHOR_CONTRACT` | read now, used by the anchoring layer | unset |
 | `AETHEL_PINNING_ENDPOINT` | read now, used by the IPFS mirror | unset |
 

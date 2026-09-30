@@ -1,5 +1,8 @@
 """Tests for HEAD and branch references (aethel/core/refs.py)."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 import pytest
 
 from aethel.core.errors import (
@@ -26,6 +29,32 @@ COMMIT_A = "a" * 64
 COMMIT_B = "b" * 64
 
 
+def test_competing_branch_creations_preserve_the_winner(refs):
+    ready = Barrier(2)
+
+    def create(digest):
+        ready.wait(timeout=5)
+        try:
+            refs.create_branch("feature", digest)
+            return digest
+        except BranchExists:
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(create, [COMMIT_A, COMMIT_B]))
+    winners = [digest for digest in results if digest]
+    assert len(winners) == 1
+    assert refs.read_branch("feature") == winners[0]
+
+
+def test_commit_ref_update_rejects_changed_head(refs):
+    refs.create_branch("other", COMMIT_A)
+    refs.set_head_to_branch("other")
+    with pytest.raises(InvalidRef, match="HEAD changed"):
+        refs.update_branch("main", COMMIT_B, expected_head="main")
+    assert refs.read_branch("main") is None
+
+
 class TestBranchNameValidation:
     @pytest.mark.parametrize(
         "name", ["main", "feature-1", "v1.0.2", "my_branch", "a"]
@@ -40,6 +69,8 @@ class TestBranchNameValidation:
             "   ",
             ".",
             "..",
+            ".hidden",
+            "trailing.",
             "../escape",        # traversal
             "feature/nested",   # path separator
             "back\\slash",

@@ -30,13 +30,22 @@ def settings(data_dir: Path | None = None):
 
 
 def configured_chain(config, *, deploying=False):
+    required = {
+        "AETHEL_CHAIN_RPC": config.chain_rpc_url,
+        "AETHEL_CHAIN_ID": config.chain_id,
+        "AETHEL_LOG_ID": config.log_id,
+    }
+    if not deploying:
+        required["AETHEL_ANCHOR_CONTRACT"] = config.anchor_contract
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise AethelError(f"Set {', '.join(missing)}")
     try:
         from aethel.provenance.chain import ChainClient
+
+        return ChainClient(config.chain_rpc_url, config.chain_id, config.anchor_contract, config.log_id, confirmations=config.chain_confirmations)
     except ImportError as exc:
         raise AethelError("Install the provenance extra: pip install -e '.[provenance]'") from exc
-    if not config.chain_rpc_url or not config.chain_id or not config.log_id or (not deploying and not config.anchor_contract):
-        raise AethelError("Set AETHEL_CHAIN_RPC, AETHEL_CHAIN_ID, AETHEL_LOG_ID, and the deployed AETHEL_ANCHOR_CONTRACT")
-    return ChainClient(config.chain_rpc_url, config.chain_id, config.anchor_contract, config.log_id, confirmations=config.chain_confirmations)
 
 
 def signing_key():

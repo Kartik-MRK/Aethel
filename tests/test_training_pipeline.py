@@ -33,6 +33,24 @@ from aethel.evaluation.protocol import load_split
 pytestmark = pytest.mark.ml
 
 
+def test_evaluation_rejects_metadata_changes_during_scoring(training_repo, monkeypatch):
+    from aethel.evaluation import evaluator
+
+    repo, config = training_repo
+    info = run_training(str(config))
+
+    def score_then_change_metadata(*args, **kwargs):
+        path = repo.workspace_dir / "training_info.json"
+        altered = json.loads(path.read_text())
+        altered["max_length"] += 1
+        path.write_text(json.dumps(altered))
+        return info["evaluation"]["current"]
+
+    monkeypatch.setattr(evaluator, "calculate_metrics", score_then_change_metadata)
+    with pytest.raises(ValueError, match="metadata changed during evaluation"):
+        evaluate_patch(repo, repo.workspace_dir)
+
+
 @pytest.fixture
 def training_repo(tmp_path, monkeypatch, request):
     old_threads = torch.get_num_threads()
@@ -102,6 +120,7 @@ def test_training_save_reload_and_shared_parent_evaluation(training_repo):
     assert first_info["initialization"]["kind"] == "base"
     assert first_info["stub"] is False
     manifest = first_info["data_manifest"]
+    assert first_info["dataset_file"] == manifest["dataset_file"] == "reviews.csv"
     assert len(load_split(repo.root, manifest, "test")) == 8
 
     base_hash = repo.objects.write_json("bases", build_base_object(

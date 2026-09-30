@@ -16,6 +16,7 @@ different things:
 import typer
 
 from aethel.commands._common import console, err_console, handle_errors, short
+from aethel.core.commits import find_adapter_filename
 from aethel.core.errors import AethelError
 from aethel.core.objects import OBJECT_KINDS
 from aethel.core.repo import Repo
@@ -56,8 +57,18 @@ def run_fsck(verbose: bool) -> None:
     # 2. Every reference resolves, and every referenced object exists.
     reachable: set[str] = set()
 
+    starts = {}
     for branch in repo.refs.list_branches():
-        tip = repo.refs.read_branch(branch)
+        try:
+            starts[f"branch '{branch}'"] = repo.refs.read_branch(branch)
+        except AethelError as exc:
+            missing.append(f"branch '{branch}': {exc}")
+    try:
+        starts["HEAD"] = repo.refs.resolve_head_commit()
+    except AethelError as exc:
+        missing.append(f"HEAD: {exc}")
+
+    for reference, tip in starts.items():
         if tip is None:
             continue
 
@@ -65,6 +76,8 @@ def run_fsck(verbose: bool) -> None:
             from aethel.core.commits import walk_history
 
             for commit_hash, commit in walk_history(repo, tip):
+                if commit_hash in reachable:
+                    break
                 reachable.add(commit_hash)
 
                 tree_hash = commit.get("tree")
@@ -73,7 +86,10 @@ def run_fsck(verbose: bool) -> None:
                     continue
 
                 reachable.add(tree_hash)
-                for name, blob_hash in repo.objects.read_tree(tree_hash).items():
+                files = repo.objects.read_tree(tree_hash)
+                if files[find_adapter_filename(files)] != commit.get("adapter_blob"):
+                    missing.append(f"adapter_blob disagrees with tree (commit {short(commit_hash)})")
+                for name, blob_hash in files.items():
                     if repo.objects.exists("blobs", blob_hash):
                         reachable.add(blob_hash)
                     else:
@@ -86,7 +102,7 @@ def run_fsck(verbose: bool) -> None:
                     else:
                         missing.append(f"base {short(base_hash)} (commit {short(commit_hash)})")
         except AethelError as exc:
-            missing.append(f"branch '{branch}': {exc}")
+            missing.append(f"{reference}: {exc}")
 
     total = sum(counts.values())
     unreachable = sum(
@@ -120,7 +136,7 @@ def run_fsck(verbose: bool) -> None:
     if unreachable:
         console.print(
             f"[yellow]{unreachable} unreachable object(s)[/yellow] "
-            f"[dim]not referenced by any branch; harmless (interrupted commits)[/dim]"
+            f"[dim]not referenced by HEAD or any branch; harmless (interrupted commits)[/dim]"
         )
 
     if corrupt or missing:

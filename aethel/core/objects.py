@@ -88,14 +88,13 @@ class ObjectStore:
     def write_blob(self, data: bytes) -> str:
         """Store raw bytes, returning the content hash.
 
-        Idempotent: an existing blob is left untouched. Since the name is the
-        content hash, a present file already holds exactly these bytes, and
-        rewriting it would only risk turning a good object into a torn one.
+        Idempotent for intact blobs. Corrupt stored bytes are replaced only
+        with content verified against the expected digest.
         """
         digest = hash_bytes(data)
         destination = self.path_for("blobs", digest)
 
-        if not destination.is_file():
+        if not self.verify("blobs", digest):
             atomic_write_bytes(destination, data)
 
         return digest
@@ -110,8 +109,8 @@ class ObjectStore:
         digest = hash_file(source)
         destination = self.path_for("blobs", digest)
 
-        if not destination.is_file():
-            atomic_copy_file(source, destination)
+        if not self.verify("blobs", digest):
+            atomic_copy_file(source, destination, expected_hash=digest)
 
         return digest
 
@@ -136,7 +135,7 @@ class ObjectStore:
         digest = hash_text(serialized)
         destination = self.path_for(kind, digest)
 
-        if not destination.is_file():
+        if not self.verify(kind, digest):
             atomic_write_bytes(destination, serialized.encode("utf-8"))
 
         return digest
@@ -220,12 +219,12 @@ class ObjectStore:
 
         # Verify the complete input before replacing any destination file.
         sources = [
-            (name, self.blob_path(blob_hash))
+            (name, self.blob_path(blob_hash), blob_hash)
             for name, blob_hash in sorted(self.read_tree(tree_hash).items())
         ]
         written: list[str] = []
-        for name, source in sources:
-            atomic_copy_file(source, destination / name)
+        for name, source, blob_hash in sources:
+            atomic_copy_file(source, destination / name, expected_hash=blob_hash)
             written.append(name)
 
         return written

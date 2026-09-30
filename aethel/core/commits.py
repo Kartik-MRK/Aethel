@@ -101,6 +101,8 @@ def create_commit(
     training_info: dict,
     timestamp: str | None = None,
     workspace: Path | None = None,
+    expected_branch: str | None = None,
+    expected_parent: str | None = None,
 ) -> str:
     """Snapshot the workspace as a new commit and advance the current branch.
 
@@ -117,19 +119,33 @@ def create_commit(
     """
     branch = repo.refs.require_attached_branch()
     parent_hash = repo.refs.read_branch(branch)
+    if expected_branch is not None and (branch != expected_branch or parent_hash != expected_parent):
+        raise InvalidRef("HEAD or its branch changed during evaluation. Retry from its current tip.")
 
     workspace = Path(workspace) if workspace is not None else repo.workspace_dir
     require_staged_adapter(workspace)
+
+    base = repo.objects.read_json("bases", base_hash)
+    for field in ("model_id", "revision_sha"):
+        recorded = training_info.get(field)
+        if field == "revision_sha":
+            recorded = recorded or training_info.get("revision_hash")
+        if recorded is not None and recorded != base.get(field):
+            raise InvalidRef(f"Training {field} differs from the commit's pinned base.")
 
     tree_hash = repo.objects.write_tree_from_directory(workspace)
     files = repo.objects.read_tree(tree_hash)
     adapter_blob = files[find_adapter_filename(files)]
     evaluation = training_info.get("evaluation") or {}
+    if "parent_hash" in evaluation and evaluation["parent_hash"] != parent_hash:
+        raise InvalidRef("Parent changed after evaluation. Evaluate again before committing.")
     measured = evaluation.get("current") or {}
     if measured.get("adapter_sha256") and measured["adapter_sha256"] != adapter_blob:
         raise InvalidRef("Adapter changed after evaluation. Evaluate the current workspace before committing.")
     if measured.get("adapter_config_sha256") and measured["adapter_config_sha256"] != files.get("adapter_config.json"):
         raise InvalidRef("Adapter configuration changed after evaluation. Evaluate again before committing.")
+    if measured.get("training_info_sha256") and measured["training_info_sha256"] != files.get("training_info.json"):
+        raise InvalidRef("Training metadata changed after evaluation. Evaluate again before committing.")
 
     payload = {
         "schema": COMMIT_SCHEMA,
@@ -144,7 +160,7 @@ def create_commit(
     }
 
     commit_hash = repo.objects.write_json("commits", payload)
-    repo.refs.update_branch(branch, commit_hash, expected_tip=parent_hash, check_expected=True)
+    repo.refs.update_branch(branch, commit_hash, expected_tip=parent_hash, check_expected=True, expected_head=branch)
 
     return commit_hash
 

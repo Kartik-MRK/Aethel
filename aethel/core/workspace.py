@@ -3,6 +3,7 @@
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -22,7 +23,7 @@ def workspace_files(path: Path) -> dict[str, str]:
 
 
 @contextmanager
-def staged_workspace(repo, *, force: bool = False):
+def staged_workspace(repo, *, force: bool = False, on_install: Callable[[], None] | None = None):
     """Keep the old workspace until a complete replacement is ready."""
     root = repo.workspace_dir.parent
     workspace = repo.workspace_dir
@@ -50,7 +51,11 @@ def staged_workspace(repo, *, force: bool = False):
                 os.replace(workspace, backup)
             try:
                 os.replace(temporary, workspace)
+                if on_install is not None:
+                    on_install()
             except BaseException:
+                if not temporary.exists() and workspace.exists():
+                    os.replace(workspace, temporary)
                 if backup.exists() and not workspace.exists():
                     os.replace(backup, workspace)
                 raise

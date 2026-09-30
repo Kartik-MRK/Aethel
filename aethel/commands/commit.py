@@ -20,7 +20,8 @@ from aethel.commands._common import (
     short,
 )
 from aethel.core.commits import build_base_object, create_commit, require_staged_adapter
-from aethel.core.errors import DetachedHead
+from aethel.core.errors import DetachedHead, InvalidRef
+from aethel.core.hashing import hash_bytes
 from aethel.core.repo import Repo
 
 app = typer.Typer()
@@ -42,7 +43,8 @@ def run_commit(message: str, require_evaluation: bool = False) -> None:
     repo = Repo.discover()
     config = repo.read_config()
     try:
-        repo.refs.require_attached_branch()
+        branch = repo.refs.require_attached_branch()
+        parent_hash = repo.refs.read_branch(branch)
     except DetachedHead as exc:
         render_detached_head(exc, attempted=message)
         raise typer.Exit(code=1) from exc
@@ -56,11 +58,14 @@ def run_commit(message: str, require_evaluation: bool = False) -> None:
 
     training_info_path = repo.workspace_dir / "training_info.json"
     training_info = {}
+    training_info_digest = None
     if training_info_path.is_file():
         import json
 
         try:
-            training_info = json.loads(training_info_path.read_text(encoding="utf-8"))
+            raw_info = training_info_path.read_bytes()
+            training_info_digest = hash_bytes(raw_info)
+            training_info = json.loads(raw_info)
             if not isinstance(training_info, dict):
                 training_info = {}
         except json.JSONDecodeError as exc:
@@ -98,6 +103,8 @@ def run_commit(message: str, require_evaluation: bool = False) -> None:
 
     if evaluation is not None:
         current = evaluation["current"]
+        if current.get("training_info_sha256") and current["training_info_sha256"] != training_info_digest:
+            raise InvalidRef("Training metadata changed before evaluation. Retry the commit.")
         parent = evaluation["parent"]
         comparison = evaluation["comparison"]
 
@@ -157,6 +164,8 @@ def run_commit(message: str, require_evaluation: bool = False) -> None:
             base_hash=base_hash,
             training_info=training_info,
             timestamp=datetime.now(timezone.utc).isoformat(),
+            expected_branch=branch,
+            expected_parent=parent_hash,
         )
     except DetachedHead as exc:
         render_detached_head(exc, attempted=message)

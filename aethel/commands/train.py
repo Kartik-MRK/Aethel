@@ -4,7 +4,6 @@ import json
 import math
 import platform
 import shutil
-from contextlib import suppress
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
@@ -168,12 +167,10 @@ def run_training(config_path: str, allow_stub: bool = False, force: bool = False
             else:
                 path = Path(resolve_dataset_file(str(path)))
                 examples, manifest = build_manifest(
-                    path, text_column=config["text_column"], label_column=config["label_column"],
+                    path, repo_root=repo.root, text_column=config["text_column"], label_column=config["label_column"],
                     seed=config["split_seed"], max_samples=config["max_samples"],
                     validation_fraction=config["validation_fraction"], test_fraction=config["test_fraction"],
                 )
-                with suppress(ValueError):
-                    manifest["dataset_file"] = path.relative_to(repo.root).as_posix()
                 train_examples = [examples[i] for i in manifest["splits"]["train"]]
                 validation_examples = [examples[i] for i in manifest["splits"]["validation"]]
                 num_labels = len(manifest["label_ids"])

@@ -21,13 +21,22 @@ The sequence, and why each step is load-bearing:
 """
 
 import errno
+import hashlib
 import os
+import secrets
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from aethel.core.errors import LockTimeout
+from aethel.core.errors import CorruptObject, LockTimeout
+
+
+def _temporary_file(path: Path) -> tuple[int, Path]:
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(16)}.tmp")
+    # Respect the process umask so the Hub and worker can share group access.
+    fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+    return fd, temporary
 
 
 def _fsync_directory(directory: Path) -> None:
@@ -58,11 +67,11 @@ def atomic_write_bytes(path: Path | str, data: bytes, *, durable: bool = True) -
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    # The PID keeps concurrent writers from colliding on the temp name.
-    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    # Exclusive random names isolate threads as well as separate processes.
+    fd, tmp_path = _temporary_file(path)
 
     try:
-        with open(tmp_path, "wb") as handle:
+        with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             if durable:
                 handle.flush()
@@ -83,7 +92,10 @@ def atomic_write_text(path: Path | str, text: str, *, durable: bool = True) -> N
     atomic_write_bytes(path, text.encode("utf-8"), durable=durable)
 
 
-def atomic_copy_file(src: Path | str, dst: Path | str, *, durable: bool = True) -> None:
+def atomic_copy_file(
+    src: Path | str, dst: Path | str, *, durable: bool = True,
+    expected_hash: str | None = None,
+) -> None:
     """Copy a file into the object store atomically, streaming the content.
 
     Streamed rather than read-then-write so that adapter files stay off the
@@ -92,16 +104,21 @@ def atomic_copy_file(src: Path | str, dst: Path | str, *, durable: bool = True) 
     src, dst = Path(src), Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
 
-    tmp_path = dst.with_name(f".{dst.name}.{os.getpid()}.tmp")
+    fd, tmp_path = _temporary_file(dst)
+    hasher = hashlib.sha256() if expected_hash is not None else None
 
     try:
-        with open(src, "rb") as reader, open(tmp_path, "wb") as writer:
+        with os.fdopen(fd, "wb") as writer, open(src, "rb") as reader:
             while chunk := reader.read(1024 * 1024):
                 writer.write(chunk)
+                if hasher is not None:
+                    hasher.update(chunk)
             if durable:
                 writer.flush()
                 os.fsync(writer.fileno())
 
+        if hasher is not None and hasher.hexdigest() != expected_hash:
+            raise CorruptObject("Source content changed or failed hash verification during copy")
         os.replace(tmp_path, dst)
 
         if durable:

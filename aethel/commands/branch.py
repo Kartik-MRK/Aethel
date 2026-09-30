@@ -10,6 +10,7 @@ import typer
 from aethel.commands._common import INTERSPERSED, console, err_console, handle_errors, short
 from aethel.core.commits import read_commit, resolve_commitish
 from aethel.core.errors import BranchNotFound, InvalidRef
+from aethel.core.refs import validate_branch_name
 from aethel.core.repo import Repo
 
 app = typer.Typer()
@@ -93,6 +94,7 @@ def run_create(name: str, start_point: str | None) -> None:
 @handle_errors
 def run_delete(name: str) -> None:
     repo = Repo.discover()
+    name = validate_branch_name(name)
     head = repo.refs.read_head()
 
     if not head.is_detached and head.branch == name:
@@ -105,8 +107,7 @@ def run_delete(name: str) -> None:
     if not repo.refs.branch_exists(name):
         raise BranchNotFound(f"Branch '{name}' does not exist.")
 
-    tip = repo.refs.read_branch(name)
-    repo.refs.branch_path(name).unlink()
+    tip = repo.refs.delete_branch(name)
 
     console.print(f"[bold green]Deleted branch[/bold green] [cyan]{name}[/cyan]")
     if tip:

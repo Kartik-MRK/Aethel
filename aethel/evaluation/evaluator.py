@@ -42,6 +42,10 @@ def require_compatible(adapter_info: dict, reference_info: dict) -> None:
 def evaluate_patch(repo, adapter_path: Path, *, split: str = "validation", evaluation_path: Path | None = None):
     adapter_path = Path(adapter_path)
     reference_path = Path(evaluation_path) if evaluation_path else adapter_path
+    info_hashes = {
+        path / "training_info.json": hash_file(path / "training_info.json")
+        for path in (adapter_path, reference_path)
+    }
     adapter_hash = hash_file(adapter_path / "adapter_model.safetensors")
     config_hash = hash_file(adapter_path / "adapter_config.json")
     adapter_info = read_training_info(adapter_path)
@@ -56,11 +60,14 @@ def evaluate_patch(repo, adapter_path: Path, *, split: str = "validation", evalu
         or hash_file(adapter_path / "adapter_config.json") != config_hash
     ):
         raise ValueError("Adapter files changed during evaluation")
+    if any(hash_file(path) != digest for path, digest in info_hashes.items()):
+        raise ValueError("Training metadata changed during evaluation")
     return {
         **results,
         "adapter_size_mb": adapter_size(adapter_path),
         "adapter_sha256": adapter_hash,
         "adapter_config_sha256": config_hash,
+        "training_info_sha256": info_hashes[adapter_path / "training_info.json"],
         "evaluation_spec": spec,
     }
 
@@ -71,6 +78,7 @@ def evaluate_current_vs_parent(repo, current_adapter_path: Path):
     current_metrics = evaluate_patch(repo, Path(current_adapter_path))
     result = {
         "status": "measured", "current": current_metrics,
+        "parent_hash": parent_hash,
         "parent": None, "comparison": None,
     }
     if parent_hash is None:

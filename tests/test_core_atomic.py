@@ -7,6 +7,7 @@ interruption could leave a corrupt repository.
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -17,6 +18,33 @@ from aethel.core.atomic import (
     file_lock,
 )
 from aethel.core.errors import LockTimeout
+
+
+@pytest.mark.parametrize("copy", [False, True])
+def test_concurrent_writes_in_one_process_use_independent_temporary_files(tmp_path, monkeypatch, copy):
+    target = tmp_path / "target"
+    target.write_bytes(b"old")
+    sources = [tmp_path / "source-a", tmp_path / "source-b"]
+    payloads = [b"a" * 10000, b"b" * 20000]
+    for source, payload in zip(sources, payloads, strict=True):
+        source.write_bytes(payload)
+    ready = threading.Barrier(2)
+    replace = os.replace
+
+    def simultaneous_replace(src, dst):
+        ready.wait(timeout=5)
+        return replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", simultaneous_replace)
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        if copy:
+            futures = [workers.submit(atomic_copy_file, source, target) for source in sources]
+        else:
+            futures = [workers.submit(atomic_write_bytes, target, payload) for payload in payloads]
+        for future in futures:
+            future.result()
+    assert target.read_bytes() in payloads
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["source-a", "source-b", "target"]
 
 
 class TestAtomicWrite:

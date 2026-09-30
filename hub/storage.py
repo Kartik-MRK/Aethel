@@ -118,7 +118,7 @@ class HubStorage:
         # a different hash) if the client's canonical form ever differs by a
         # whitespace or escaping convention.
         destination = self.objects.path_for(kind, expected)
-        if not destination.is_file():
+        if not self.objects.verify(kind, expected):
             from aethel.core.atomic import atomic_write_bytes
 
             atomic_write_bytes(destination, data)
@@ -126,7 +126,7 @@ class HubStorage:
         return expected
 
     def has_object(self, kind: str, object_hash: str) -> bool:
-        return self.objects.exists(kind, object_hash)
+        return self.objects.verify(kind, object_hash)
 
     def missing_objects(self, wanted: dict[str, list[str]]) -> dict[str, list[str]]:
         """Given hashes a client holds, report which the Hub lacks.
@@ -139,7 +139,7 @@ class HubStorage:
         for kind, hashes in wanted.items():
             if kind not in OBJECT_KINDS:
                 continue
-            absent = [h for h in hashes if not self.objects.exists(kind, h)]
+            absent = [h for h in hashes if not self.has_object(kind, h)]
             if absent:
                 missing[kind] = absent
 
