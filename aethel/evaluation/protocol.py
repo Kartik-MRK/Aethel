@@ -4,6 +4,7 @@ import csv
 import math
 import random
 from collections import defaultdict
+from contextlib import suppress
 from pathlib import Path
 
 from aethel.core.hashing import hash_file, hash_json
@@ -44,6 +45,7 @@ def read_examples(path: Path, text_column: str, label_column: str) -> list[dict]
 def build_manifest(
     path: Path,
     *,
+    repo_root: Path | None = None,
     text_column: str = "text",
     label_column: str = "label",
     seed: int = 42,
@@ -51,14 +53,27 @@ def build_manifest(
     validation_fraction: float = 0.2,
     test_fraction: float = 0.2,
 ) -> tuple[list[dict], dict]:
-    """Create deterministic stratified partitions of unique examples."""
+    """Create deterministic splits and record a portable dataset location.
+
+    With repo_root, relative input paths resolve from that root and datasets
+    inside it are recorded relative to it. External datasets and calls without
+    repo_root retain absolute paths. Dataset fingerprints do not depend on location.
+    """
     if not (0 < validation_fraction < 1 and 0 < test_fraction < 1):
         raise ValueError("Validation and test fractions must be between zero and one")
     if validation_fraction + test_fraction >= 1:
         raise ValueError("Validation and test fractions must leave training examples")
     if max_samples < 0:
         raise ValueError("max_samples cannot be negative")
-    path = Path(path).resolve()
+    path = Path(path)
+    root = Path(repo_root).resolve() if repo_root is not None else None
+    if root is not None and not path.is_absolute():
+        path = root / path
+    path = path.resolve()
+    dataset_file = str(path)
+    if root is not None:
+        with suppress(ValueError):
+            dataset_file = path.relative_to(root).as_posix()
     examples = read_examples(path, text_column, label_column)
     indices = list(range(len(examples)))
     rng = random.Random(seed)
@@ -87,7 +102,7 @@ def build_manifest(
     manifest = {
         "schema": 1,
         "algorithm": "stratified-unique-text-v1",
-        "dataset_file": str(path),
+        "dataset_file": dataset_file,
         "raw_sha256": hash_file(path),
         "examples_sha256": hash_json(examples),
         "unique_examples": len(examples),
@@ -111,10 +126,9 @@ def load_split(repo_root: Path, manifest: dict, split: str) -> list[dict]:
     if manifest.get("schema") != 1 or manifest.get("algorithm") != "stratified-unique-text-v1":
         raise ValueError("Unsupported dataset manifest")
     path = Path(manifest["dataset_file"])
-    if not path.is_absolute():
-        path = Path(repo_root) / path
     examples, rebuilt = build_manifest(
         path,
+        repo_root=repo_root,
         text_column=manifest["text_column"],
         label_column=manifest["label_column"],
         seed=manifest["seed"],

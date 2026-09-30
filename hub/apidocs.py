@@ -165,7 +165,10 @@ PUBLISHING = Group(
                 Param("object_hash", PATH, "SHA-256 of the canonical JSON body."),
             ),
             returns="`{hash, status}`, with the same `already-present` shortcut.",
-            notable=(("404", "Unknown object kind."),),
+            notable=(
+                ("404", "Unknown object kind."),
+                ("413", "Body exceeds `AETHEL_HUB_MAX_BLOB`; enforced while reading."),
+            ),
             writes=True,
         ),
         Endpoint(

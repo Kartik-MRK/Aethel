@@ -15,6 +15,7 @@ import typer
 from aethel.commands._common import INTERSPERSED, console, err_console, handle_errors, short
 from aethel.core.commits import read_commit, resolve_commitish
 from aethel.core.repo import Repo
+from aethel.core.workspace import staged_workspace
 
 app = typer.Typer()
 app.info.context_settings = INTERSPERSED
@@ -63,13 +64,18 @@ def run_checkout(target: str, force: bool) -> None:
             err_console.print("Commit them, or re-run with [green]--force[/green] to discard.")
             raise typer.Exit(code=1)
 
-    restored = repo.objects.extract_tree(commit["tree"], workspace)
+    def update_head():
+        if kind == "branch":
+            repo.refs.set_head_to_branch(target.strip(), expected_tip=commit_hash)
+        else:
+            repo.refs.set_head_detached(commit_hash)
+
+    with staged_workspace(repo, force=force, on_install=update_head) as staged:
+        restored = repo.objects.extract_tree(commit["tree"], staged)
 
     if kind == "branch":
-        repo.refs.set_head_to_branch(target.strip())
         console.print(f"[bold green]Switched to branch[/bold green] [cyan]{target}[/cyan]")
     else:
-        repo.refs.set_head_detached(commit_hash)
         console.print(
             f"[bold yellow]HEAD is now detached at[/bold yellow] {short(commit_hash)}"
         )

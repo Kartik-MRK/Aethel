@@ -51,7 +51,7 @@ class HubConfig:
     host: str = field(default_factory=lambda: os.environ.get("AETHEL_HUB_HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: _env_int("AETHEL_HUB_PORT", 8000))
 
-    #: Largest accepted blob. Adapters are ~0.6 MB for distilbert at rank 8;
+    #: Largest accepted upload, including structured objects. Adapters are ~0.6 MB for distilbert at rank 8;
     #: the ceiling is generous but finite so one request cannot exhaust disk.
     max_blob_bytes: int = field(
         default_factory=lambda: _env_int("AETHEL_HUB_MAX_BLOB", 64 * 1024 * 1024)

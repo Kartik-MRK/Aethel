@@ -93,6 +93,16 @@ def _validate_hash(value: str, label: str) -> str:
     return value.lower()
 
 
+async def _read_upload(request: Request, limit: int) -> bytes:
+    """Stop consuming oversized uploads, including requests without a length."""
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > limit:
+            raise HTTPException(status_code=413, detail=f"Object exceeds the {limit} byte limit.")
+        body.extend(chunk)
+    return bytes(body)
+
+
 # ---------------------------------------------------------------------------
 # Object upload
 # ---------------------------------------------------------------------------
@@ -111,13 +121,7 @@ async def put_blob(
     if storage.has_object("blobs", digest):
         return {"hash": digest, "status": "already-present"}
 
-    body = await request.body()
-
-    if len(body) > config.max_blob_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Blob exceeds the {config.max_blob_bytes} byte limit.",
-        )
+    body = await _read_upload(request, config.max_blob_bytes)
 
     if not body:
         raise HTTPException(status_code=400, detail="Empty request body.")
@@ -138,6 +142,7 @@ async def put_json_object(
     object_hash: str,
     request: Request,
     storage: Annotated[HubStorage, Depends(get_storage)],
+    config: Annotated[HubConfig, Depends(get_config)],
 ) -> dict:
     """Upload a commit, tree, or base object."""
     if kind not in JSON_KINDS:
@@ -148,7 +153,7 @@ async def put_json_object(
     if storage.has_object(kind, digest):
         return {"hash": digest, "status": "already-present"}
 
-    body = await request.body()
+    body = await _read_upload(request, config.max_blob_bytes)
     if not body:
         raise HTTPException(status_code=400, detail="Empty request body.")
 

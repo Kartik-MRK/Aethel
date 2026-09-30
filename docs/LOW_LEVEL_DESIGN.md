@@ -187,7 +187,7 @@ preserving weight deduplication.
 }
 ```
 
-Field rules enforced on read by `HubStorage.validate_history` and by `aethel fsck`:
+Field rules enforced before publication by `HubStorage.validate_history`:
 
 | Field | Rule |
 |---|---|
@@ -449,8 +449,8 @@ have. It still inherits `AethelError`, so it renders and exits through the same 
 |---|---|---|---|---|
 | `GET` | `/api/v1/version` | open | 200 | |
 | `POST` | `/api/v1/repos/{repo}/negotiate` | token | 200, missing objects by kind | 401 without token |
-| `PUT` | `/api/v1/blobs/{sha256}` | token | 201 with echoed digest | 422 on hash mismatch |
-| `PUT` | `/api/v1/{kind}/{sha256}` | token | 201 with echoed digest | 422 on hash mismatch or non-canonical bytes |
+| `PUT` | `/api/v1/blobs/{sha256}` | token | 200 with echoed digest | 413 on size limit, 422 on hash mismatch |
+| `PUT` | `/api/v1/{kind}/{sha256}` | token | 200 with echoed digest | 400 on invalid JSON, 413 on size limit, 422 on hash mismatch |
 | `POST` | `/api/v1/repos/{repo}/refs` | token | 200 with log indices and new root | 409 if ancestry is incomplete or the ref conflicts |
 | `GET` | `/api/v1/repos` | open | 200 | |
 | `GET` | `/api/v1/repos/{repo}` | open | 200 | 404 |
@@ -525,13 +525,17 @@ Four steps, each one guarding a specific failure:
    Windows when the destination exists.
 4. `fsync` the parent directory, so the rename itself survives power loss.
 
+Temporary filenames use exclusive random names so threads in one process cannot share a
+temporary file. File creation respects the process umask, including the shared Hub/worker group.
+Copies into and out of the object store verify the streamed bytes before installing them.
+
 ### 5.3 Object write and read
 
 ```
 put(kind, content):
     digest <- SHA256(content)
     path   <- objects/<kind>/<digest[:2]>/<digest[2:]>
-    if path exists: return digest            # content addressed, so already correct
+    if path exists and SHA256(read(path)) == digest: return digest
     durable_write(path, content)
     return digest
 
@@ -544,23 +548,30 @@ get(kind, digest):
 Verification on read is unconditional. The cost is one hash of data already in memory, and it
 converts silent bit rot into a named error at the point of use.
 
+A write can repair a corrupt stored object using verified source bytes. Hub negotiation treats
+corrupt objects as missing, so a normal push can repair them. Both blob and structured-object
+uploads stop reading as soon as they exceed `AETHEL_HUB_MAX_BLOB`.
+
 ### 5.4 Commit construction
 
 ```
 commit(message):
     branch <- require_attached_branch()      # raises DetachedHead before any write
     parent <- read_branch(branch)
+    require branch and parent still match the state captured before evaluation
     require_staged_adapter(workspace)        # fail before writing anything
+    require the stored base exists and matches any recorded training model/revision
     tree   <- write_tree_from_directory(workspace)    # blobs, then the tree manifest
     files  <- read_tree(tree)
     adapter_blob <- files[find_adapter_filename(files)]
-    if recorded evaluation names a different adapter or adapter_config digest:
+    if recorded evaluation names a different adapter, adapter_config, metadata, or parent:
         raise InvalidRef                     # the workspace moved after evaluation
     base   <- put("bases", canonical_json(base_reference))
     body   <- {schema: 2, parent_hash: parent, tree, adapter_blob, base,
                message, author, timestamp, training_info}
     commit <- put("commits", canonical_json(body))    # keyed by its own hash
-    with lock(refs/heads/<branch>):
+    with lock(.aethel/refs.lock):
+        require HEAD and the branch tip still match the captured state
         durable_write(refs/heads/<branch>, commit)     # ref moves LAST
     return commit
 ```
@@ -572,7 +583,7 @@ common user errors (committing on a detached HEAD, and committing before trainin
 unreferenced blobs behind on their way to an error.
 
 The evaluation rebinding check is the one that prevents a specific dishonesty, whether accidental
-or not. `aethel eval` records the digest of the adapter and the adapter config it scored. If the
+or not. `aethel eval` records the digests of the adapter, adapter config, and training metadata it scored. If the
 workspace changed after that, the commit would attach real metrics to different weights. The
 commit refuses instead, which is the same idea as the manifest rebinding in section 5.10 applied
 one layer up.
@@ -752,6 +763,13 @@ before:
 `load_split` rebuilds the manifest and compares `raw_sha256`, `examples_sha256`, `splits`,
 `label_ids`, `selected_examples`, and `unique_examples` before returning rows. Any mismatch raises.
 
+`build_manifest(path, repo_root=...)` resolves relative inputs from the repository root and records
+datasets inside that root as relative POSIX paths. External datasets, including symlinks that
+resolve outside the root, retain absolute locations. Without `repo_root`, the existing absolute
+path behavior is preserved. Training passes its repository root directly; callers no longer need
+to rewrite `dataset_file`. Relocation changes no dataset fingerprints or split membership, and
+`load_split` continues to read existing manifests containing absolute paths.
+
 ### 5.11 Metrics
 
 `classification_metrics` builds the confusion matrix once and derives everything from it.
@@ -905,9 +923,13 @@ network at all.
 
 | Lock | Guards | Acquired by |
 |---|---|---|
-| `refs/heads/<branch>.lock` | read-then-write of a branch tip | `commit`, `branch`, `checkout` |
+| `.aethel/refs.lock` | HEAD writes, branch creation/deletion, and checked tip updates | `commit`, `branch`, `checkout` |
+| `.aethel/workspace.lock` | staged workspace replacement | `train`, `checkout` |
+| `repos.lock` | Hub ref conflict checks, log acceptance, and repository-index writes | `HubStorage.publish_branch` |
 | `log.lock` | read-then-append of the transparency log | `append_many`, `snapshot_entries` |
-| `anchors.jsonl.lock` | anchor record rewrite | `AnchorStore.append` |
+| `anchors.lock` | anchor record rewrite | `AnchorStore.append` |
+| `chain-worker.lock` | signed transaction persistence and broadcast | `ChainClient.transact` |
+| `mirror-<digest>.lock` | pinning and retrieval for one adapter | `mirror_blob` |
 
 Every lock is `O_CREAT | O_EXCL` with a deadline, raising `LockTimeout` rather than blocking
 forever. The ref lock exists because two concurrent commits would otherwise both read the same
@@ -929,7 +951,8 @@ race the lock exists to prevent. This is the same trade-off Git makes with `inde
 |---|---|---|
 | Between object writes | unreachable objects | `fsck` reports them; a retry reuses them by content address |
 | After objects, before the ref | unreachable commit | same, and the commit is simply remade |
-| Mid log append | trailing lines lost, earlier lines intact | append-only file, so no earlier leaf can be corrupted |
+| Mid log append | complete earlier lines remain; a partial trailing line may remain | inspect and recover the trailing record before retrying; parsing fails closed |
+| During checkout extraction or HEAD write | prior workspace retained or restored | retry after correcting the failure; an interrupted process may leave `workspace.backup` to inspect |
 | After signing, before broadcast | persisted job with signed bytes | `provenance sync` rebroadcasts the same transaction |
 | After broadcast, before confirmation | transaction in flight, no anchor record | `provenance sync` polls to the required depth |
 
@@ -940,8 +963,9 @@ the failure mode "harmless garbage" instead of "dangling reference".
 
 Re-hashes every object and compares it to its name, walks every ref to confirm reachability,
 reports unreachable objects, and reports any commit whose `adapter_blob` disagrees with its tree.
-It repairs nothing, because a content-addressed store has no ambiguity to resolve: an object that
-does not hash to its name is not a repairable version of itself.
+Traversal includes detached HEAD, even when no branch reaches it. `fsck` reports corruption and
+missing dependencies without repairing them; repair requires a verified original copy, which a
+subsequent object write or push can supply.
 
 ---
 

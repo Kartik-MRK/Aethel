@@ -1,6 +1,8 @@
 """Training and checkout must preserve staged work on failure."""
 
 import os
+import sys
+from types import SimpleNamespace
 
 import pytest
 import typer
@@ -9,6 +11,84 @@ from aethel.commands.checkout import run_checkout
 from aethel.core.errors import AethelError, InvalidRef
 from aethel.core.workspace import staged_workspace, workspace_files
 from tests.conftest import ADAPTER_BYTES_A, make_commit
+
+
+def test_commit_refuses_a_parent_changed_during_evaluation(core_repo, base_hash, monkeypatch):
+    from aethel.commands.commit import run_commit
+
+    first = make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
+    second = make_commit(core_repo, base_hash, "second", ADAPTER_BYTES_A)
+    core_repo.refs.update_branch("main", first)
+
+    def concurrent_commit(repo, workspace):
+        repo.refs.update_branch("main", second)
+        return None
+
+    monkeypatch.setitem(sys.modules, "aethel.evaluation.evaluator", SimpleNamespace(evaluate_current_vs_parent=concurrent_commit))
+    with pytest.raises(typer.Exit):
+        run_commit("must not silently reparent")
+    assert core_repo.refs.read_branch("main") == second
+
+
+def test_delete_current_branch_with_surrounding_spaces_is_refused(core_repo, base_hash):
+    from aethel.commands.branch import run_delete
+
+    tip = make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
+    with pytest.raises(typer.Exit):
+        run_delete(" main ")
+    assert core_repo.refs.resolve_head_commit() == tip
+
+
+def test_checkout_removes_files_absent_from_target(core_repo, base_hash):
+    first = make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
+    extra = core_repo.workspace_dir / "extra.json"
+    extra.write_text("{}")
+    make_commit(core_repo, base_hash, "second", ADAPTER_BYTES_A)
+    run_checkout(first, force=False)
+    tree = core_repo.objects.read_tree(core_repo.objects.read_json("commits", first)["tree"])
+    assert workspace_files(core_repo.workspace_dir) == tree
+
+
+def test_checkout_copy_failure_preserves_workspace_and_head(core_repo, base_hash, monkeypatch):
+    import aethel.core.objects as objects
+
+    first = make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
+    make_commit(core_repo, base_hash, "second", b"second adapter")
+    original = workspace_files(core_repo.workspace_dir)
+    head = core_repo.refs.read_head()
+    copy = objects.atomic_copy_file
+    calls = 0
+
+    def fail_last_copy(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            raise OSError("copy interrupted")
+        return copy(*args, **kwargs)
+
+    monkeypatch.setattr(objects, "atomic_copy_file", fail_last_copy)
+    with pytest.raises((OSError, typer.Exit)):
+        run_checkout(first, force=False)
+    assert workspace_files(core_repo.workspace_dir) == original
+    assert core_repo.refs.read_head() == head
+
+
+def test_checkout_head_failure_rolls_back_workspace(core_repo, base_hash, monkeypatch):
+    from aethel.core.refs import Refs
+
+    first = make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
+    make_commit(core_repo, base_hash, "second", b"second adapter")
+    original = workspace_files(core_repo.workspace_dir)
+    head = core_repo.refs.read_head()
+
+    def fail_head(*args, **kwargs):
+        raise OSError("HEAD write failed")
+
+    monkeypatch.setattr(Refs, "set_head_detached", fail_head)
+    with pytest.raises((OSError, typer.Exit)):
+        run_checkout(first, force=False)
+    assert workspace_files(core_repo.workspace_dir) == original
+    assert core_repo.refs.read_head() == head
 
 
 def test_failed_run_preserves_uncommitted_work_even_with_force(core_repo):
@@ -83,6 +163,40 @@ def test_ref_update_rejects_stale_parent(core_repo, base_hash):
     with pytest.raises(InvalidRef, match="changed during"):
         core_repo.refs.update_branch("main", first, expected_tip=first, check_expected=True)
     assert core_repo.refs.read_branch("main") == second
+
+
+def test_checkout_refuses_branch_moved_during_extraction(core_repo, base_hash, monkeypatch):
+    from aethel.core.objects import ObjectStore
+
+    first = make_commit(core_repo, base_hash, "first", ADAPTER_BYTES_A)
+    second = make_commit(core_repo, base_hash, "second", b"second adapter")
+    core_repo.refs.create_branch("target", first)
+    original = workspace_files(core_repo.workspace_dir)
+    extract = ObjectStore.extract_tree
+
+    def extract_then_move(*args, **kwargs):
+        restored = extract(*args, **kwargs)
+        core_repo.refs.update_branch("target", second)
+        return restored
+
+    monkeypatch.setattr(ObjectStore, "extract_tree", extract_then_move)
+    with pytest.raises(typer.Exit):
+        run_checkout("target", force=False)
+    assert core_repo.refs.read_head().branch == "main"
+    assert workspace_files(core_repo.workspace_dir) == original
+
+
+def test_commit_refuses_metrics_for_changed_training_metadata(core_repo, base_hash):
+    from aethel.core.commits import create_commit
+    from tests.conftest import stage_adapter
+
+    stage_adapter(core_repo.root, ADAPTER_BYTES_A)
+    with pytest.raises(InvalidRef, match="metadata changed after evaluation"):
+        create_commit(
+            core_repo, message="stale metadata", author="test", base_hash=base_hash,
+            training_info={"evaluation": {"current": {"training_info_sha256": "f" * 64}}},
+        )
+    assert core_repo.refs.read_branch("main") is None
 
 
 def test_commit_refuses_metrics_for_different_weights(core_repo, base_hash):

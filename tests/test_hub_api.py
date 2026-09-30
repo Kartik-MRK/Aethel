@@ -12,6 +12,7 @@ look healthy on the dashboard, which is exactly why they are tested rather than
 asserted in a docstring.
 """
 
+import asyncio
 import hashlib
 import json
 import re
@@ -55,6 +56,48 @@ def ops_template_source() -> str:
 # ---------------------------------------------------------------------------
 # Upload: hash verification
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["blobs", "trees", "bases", "commits"])
+def test_corrupt_upload_is_negotiated_and_repaired(hub_client, hub_storage, kind):
+    raw = BLOB if kind == "blobs" else canonical({"message": "original"})
+    digest = hashlib.sha256(raw).hexdigest()
+    url = f"/api/v1/{kind}/{digest}"
+    assert hub_client.put(url, content=raw).status_code == 200
+    hub_storage.objects.path_for(kind, digest).write_bytes(b"corrupt")
+    response = hub_client.post("/api/v1/repos/demo/negotiate", json={"have": {kind: [digest]}})
+    assert response.json()["missing"] == {kind: [digest]}
+    assert hub_client.put(url, content=b"wrong").status_code == 422
+    assert hub_client.put(url, content=raw).json()["status"] == "stored"
+    assert hub_storage.objects.verify(kind, digest)
+
+
+@pytest.mark.parametrize("kind", ["blobs", "trees"])
+def test_oversized_upload_stops_reading_at_limit(hub_config, hub_storage, kind):
+    pytest.importorskip("fastapi")
+    from fastapi import HTTPException
+    from starlette.requests import Request
+
+    from hub.api import put_blob, put_json_object
+
+    consumed = 0
+
+    async def receive():
+        nonlocal consumed
+        consumed += 1
+        assert consumed <= 2, "An oversized request must stop before reading the rest"
+        return {"type": "http.request", "body": b"x" * 10, "more_body": True}
+
+    request = Request({"type": "http", "headers": []}, receive)
+    config = replace(hub_config, max_blob_bytes=16)
+    with pytest.raises(HTTPException) as exc:
+        if kind == "blobs":
+            asyncio.run(put_blob(BLOB_HASH, request, hub_storage, config))
+        else:
+            asyncio.run(put_json_object(kind, BLOB_HASH, request, hub_storage, config))
+    assert exc.value.status_code == 413
+    assert consumed == 2
+    assert not hub_storage.objects.exists(kind, BLOB_HASH)
 
 
 class TestBlobUpload:

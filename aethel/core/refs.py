@@ -76,6 +76,9 @@ def validate_branch_name(name: str) -> str:
     if candidate in {".", ".."}:
         raise InvalidRef("Invalid branch name.")
 
+    if candidate.startswith(".") or candidate.endswith("."):
+        raise InvalidRef("Branch names cannot start or end with '.'.")
+
     if "/" in candidate or "\\" in candidate:
         raise InvalidRef("Branch names cannot contain path separators.")
 
@@ -182,13 +185,17 @@ class Refs:
 
         return head.branch
 
-    def set_head_to_branch(self, name: str) -> None:
+    def set_head_to_branch(self, name: str, *, expected_tip: str | None = None) -> None:
         validated = validate_branch_name(name)
-        atomic_write_text(self.head_path, f"{HEAD_PREFIX}{HEADS_PREFIX}{validated}\n")
+        with file_lock(self.aethel_dir / "refs.lock"):
+            if expected_tip is not None and self.read_branch(validated) != expected_tip:
+                raise InvalidRef(f"Branch '{validated}' changed during checkout. Retry from its current tip.")
+            atomic_write_text(self.head_path, f"{HEAD_PREFIX}{HEADS_PREFIX}{validated}\n")
 
     def set_head_detached(self, commit_hash: str) -> None:
         digest = normalize_hash(commit_hash, label="commit hash")
-        atomic_write_text(self.head_path, f"{digest}\n")
+        with file_lock(self.aethel_dir / "refs.lock"):
+            atomic_write_text(self.head_path, f"{digest}\n")
 
     # -- branches ----------------------------------------------------------
 
@@ -213,26 +220,37 @@ class Refs:
         """Create a branch. `commit_hash=None` creates an unborn branch."""
         path = self.branch_path(name)
 
-        if path.exists():
-            raise BranchExists(f"A branch named '{name}' already exists.")
-
         payload = "" if commit_hash is None else f"{normalize_hash(commit_hash)}\n"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        atomic_write_text(path, payload)
+        with file_lock(self.aethel_dir / "refs.lock"):
+            if path.exists():
+                raise BranchExists(f"A branch named '{name}' already exists.")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_text(path, payload)
+
+    def delete_branch(self, name: str) -> str | None:
+        validated = validate_branch_name(name)
+        with file_lock(self.aethel_dir / "refs.lock"):
+            if self.read_head().branch == validated:
+                raise InvalidRef(f"Cannot delete '{validated}'; it is the current branch.")
+            tip = self.read_branch(validated)
+            self.branch_path(validated).unlink()
+            return tip
 
     def update_branch(
         self, name: str, commit_hash: str, *, expected_tip: str | None = None,
         check_expected: bool = False,
+        expected_head: str | None = None,
     ) -> None:
         """Advance a branch tip, serialized against concurrent writers."""
         path = self.branch_path(name)
 
-        if not path.is_file():
-            raise BranchNotFound(f"Branch '{name}' does not exist.")
-
         digest = normalize_hash(commit_hash, label="commit hash")
 
         with file_lock(self.aethel_dir / "refs.lock"):
+            if not path.is_file():
+                raise BranchNotFound(f"Branch '{name}' does not exist.")
+            if expected_head is not None and self.read_head().branch != expected_head:
+                raise InvalidRef("HEAD changed during commit. Retry from its current branch.")
             if check_expected and self.read_branch(name) != expected_tip:
                 raise InvalidRef(f"Branch '{name}' changed during commit. Retry from its current tip.")
             atomic_write_text(path, f"{digest}\n")
