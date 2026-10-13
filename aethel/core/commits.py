@@ -44,6 +44,29 @@ COMMIT_SCHEMA = 2
 ADAPTER_FILENAMES = ("adapter_model.safetensors", "adapter_model.bin")
 
 
+def validate_commit_object(commit: dict) -> None:
+    """Validate history received from a client or a remote Hub."""
+    if commit.get("schema") != COMMIT_SCHEMA:
+        raise CorruptObject(f"Unsupported commit schema: {commit.get('schema')!r}")
+    if "parent_hash" not in commit:
+        raise CorruptObject("Commit is missing parent_hash")
+    if commit["parent_hash"] is not None:
+        normalize_hash(commit["parent_hash"], label="parent hash")
+    for field in ("tree", "base", "adapter_blob"):
+        normalize_hash(commit.get(field), label=field)
+    for field in ("message", "author", "timestamp"):
+        if not isinstance(commit.get(field), str):
+            raise CorruptObject(f"Commit has no valid {field}")
+    if not isinstance(commit.get("training_info"), dict):
+        raise CorruptObject("Commit has no valid training_info")
+
+
+def validate_base_object(base: dict) -> None:
+    for field in ("model_id", "revision_sha"):
+        if not isinstance(base.get(field), str) or not base[field].strip():
+            raise CorruptObject(f"Base reference has no valid {field}")
+
+
 def build_base_object(model_id: str, revision_sha: str) -> dict:
     """Describe the base model by reference, never by value.
 

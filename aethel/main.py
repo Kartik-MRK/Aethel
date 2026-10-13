@@ -10,6 +10,7 @@ import typer
 from aethel.commands import (
     branch,
     checkout,
+    clone,
     commit,
     diff,
     evaluate,
@@ -17,6 +18,7 @@ from aethel.commands import (
     init,
     log,
     provenance,
+    pull,
     push,
 )
 
@@ -32,6 +34,8 @@ app.add_typer(branch.app, name="branch", help="List, create, or delete branches.
 app.add_typer(checkout.app, name="checkout", help="Restore a branch or commit.")
 app.add_typer(log.app, name="log", help="Show commit history.")
 app.add_typer(push.app, name="push", help="Publish a branch to a Hub.")
+app.add_typer(clone.app, name="clone", help="Restore a published repository.")
+app.add_typer(pull.app, name="pull", help="Fast-forward the current branch from a Hub.")
 app.add_typer(fsck.app, name="fsck", help="Verify repository integrity.")
 app.add_typer(evaluate.app, name="eval", help="Evaluate a workspace or commit on a recorded held-out split.")
 app.add_typer(diff.app, name="diff", help="Compare effective LoRA updates between commits.")

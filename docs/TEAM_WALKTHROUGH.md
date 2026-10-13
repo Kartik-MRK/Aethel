@@ -1,5 +1,11 @@
 # Aethel: Team Walkthrough
 
+This is the historical core-rebuild engineering record. For the current implementation and
+test results, see [Build status](BUILD_STATUS.md). Clone, fast-forward pull, held-out evaluation,
+effective-update diff, IPFS, and EVM verification are now implemented. The old open-task lists
+below describe the earlier build; merging remains optional future work under the current
+[Completion plan](COMPLETION_PLAN.md).
+
 **What changed, why, and what's next.**
 Read alongside `docs/PROJECT_PLAN.md`
 (the strategy doc); this one is the engineering record.
@@ -590,15 +596,16 @@ Be honest about these, a panel will find them.
    root covers). `repoId` is deliberately not one of them: a leaf is not
    per-repo, so indexing by repo on-chain would advertise a filter the tree
    cannot honour.
-6. **No `pull`/`clone`.** Publishing works; fetching a published patch back into
-   a fresh repository is not built. The API serves everything needed for it.
-7. **No `diff`, no `merge`, no chain, no IPFS mirror.** Planned, none built.
+6. **Retrieval was missing in this build.** Clone and fast-forward pull have since shipped,
+   including a raw-object route for byte-preserving downloads.
+7. **Comparison and provenance were pending.** Diff, chain verification, and IPFS mirroring
+   have since shipped. Adapter merging remains optional future work.
 8. **Base object is minimal.** Only `model_id` + `revision_sha`; the plan also
    calls for `config_sha256` and `tokenizer_sha256`.
 
 ---
 
-## 10. Next month
+## 10. Historical next-month plan
 
 ### Weeks 1-2 → the review
 

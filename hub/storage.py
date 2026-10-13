@@ -17,7 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from aethel.core.atomic import atomic_write_text, file_lock
-from aethel.core.commits import COMMIT_SCHEMA, find_adapter_filename, walk_history
+from aethel.core.commits import (
+    find_adapter_filename,
+    validate_base_object,
+    validate_commit_object,
+    walk_history,
+)
 from aethel.core.errors import AethelError, CorruptObject, ObjectNotFound
 from aethel.core.hashing import hash_bytes, normalize_hash
 from aethel.core.objects import OBJECT_KINDS, ObjectStore
@@ -186,17 +191,7 @@ class HubStorage:
         verified_bases: set[str] = set()
         verified_blobs: set[str] = set()
         for commit in history:
-            if commit.get("schema") != COMMIT_SCHEMA:
-                raise CorruptObject(f"Unsupported commit schema: {commit.get('schema')!r}")
-            if "parent_hash" not in commit:
-                raise CorruptObject("Commit is missing parent_hash")
-            if commit["parent_hash"] is not None:
-                normalize_hash(commit["parent_hash"], label="parent hash")
-            for field in ("message", "author", "timestamp"):
-                if not isinstance(commit.get(field), str):
-                    raise CorruptObject(f"Commit has no valid {field}")
-            if not isinstance(commit.get("training_info"), dict):
-                raise CorruptObject("Commit has no valid training_info")
+            validate_commit_object(commit)
 
             tree_hash = normalize_hash(commit.get("tree"), label="tree hash")
             base_hash = normalize_hash(commit.get("base"), label="base hash")
@@ -213,9 +208,7 @@ class HubStorage:
                 raise CorruptObject("Commit adapter_blob does not match its tree")
             if base_hash not in verified_bases:
                 base = self.objects.read_json("bases", base_hash)
-                for field in ("model_id", "revision_sha"):
-                    if not isinstance(base.get(field), str) or not base[field].strip():
-                        raise CorruptObject(f"Base reference has no valid {field}")
+                validate_base_object(base)
                 verified_bases.add(base_hash)
         return history
 

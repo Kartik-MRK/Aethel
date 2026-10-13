@@ -838,6 +838,48 @@ with the SHA-256 check passing on each.
 
 ---
 
+### 5.14 Verified clone and fast-forward pull
+
+`aethel/remote/sync.py` owns retrieval. `HubClient.repository` takes one bounded snapshot of
+published branch tips. `GET /api/v1/objects/{kind}/{object_hash}` serves exact stored bytes;
+the JSON inspection routes reserialize their responses and cannot preserve every object hash.
+The transport streams bytes; `HistoryDownload` verifies them at the receiving object store.
+
+For each tip, walk all parents iteratively, checking commit schema and references, tree paths,
+every blob, the base reference, and the adapter/tree relationship. Download into a unique
+sibling temporary file, enforce size limits, recompute SHA-256, and install only verified
+bytes. Structured objects must decode to JSON mappings. Reuse verified local objects and
+repair corrupt cached bytes only from a verified download. A shared cache deduplicates
+objects across branches. No branch is published before the full traversal succeeds.
+
+The client bounds repository metadata at 1 MiB, each structured object at 16 MiB, each blob
+at 64 MiB, total reachable object bytes at 4 GiB, objects at 100,000, and commits at 10,000.
+Restored workspace bytes are also bounded at 4 GiB, counting repeated blob references once
+per filename to prevent unbounded expansion. These are prototype bounds, not performance claims.
+
+**Clone:** exclusively create the destination, rejecting existing files/directories/symlinks.
+Build the repository in an owned temporary subdirectory, fetch every published branch, require
+one consistent pinned base, choose `main` (or the only branch, otherwise require `--branch`),
+restore its tree, and install `.aethel`. On failure, remove owned temporary files and remove
+the destination only if empty. Preserve unrelated files created during download. Save the
+Hub URL/name and local author; do not persist a token or copy the remote author's identity.
+
+**Pull:** capture the attached branch and tip, fetch the selected remote history, and require
+the local base model/revision. Equal tips and a locally ahead branch leave the workspace alone.
+Refuse divergence or a missing remote branch. For a fast-forward, require an exactly clean
+workspace, including absence of deleted files. Stage the target tree under the workspace lock;
+install it with a callback that compares the captured HEAD/tip under the ref lock. A failed
+ref update rolls the workspace back. A killed process can leave `workspace.backup` or stale
+locks for manual inspection, as in the existing replacement workflow. Verified cached objects
+remain available after a failed pull so the next attempt need not download them again.
+
+Retrieval restores tracked artifacts, not the source dataset or base weights. It verifies
+content addresses against the selected Hub snapshot, not independently anchored history.
+Independent provenance verification remains a separate operation. See `tests/test_clone_pull.py`
+for round trips, byte identity, corruption, limits, retries, refusals, and concurrent changes.
+
+---
+
 ## 6. Control flow
 
 ### 6.1 Initialize
@@ -1173,85 +1215,25 @@ and re-verified by SHA-256.
 
 ---
 
-## 13. Designed, not yet implemented
+## 13. Optional future work
 
-Everything above describes code that runs. This section is the remainder, specified to the same
-level so that it is a bounded backlog rather than an open question. Each item states the design,
-not just the intent.
+The supported final-year scope is complete at the feature level with verified clone and
+fast-forward pull (section 5.14). The [completion plan](COMPLETION_PLAN.md) tracks remaining
+submission evidence. The following ideas are not implementation requirements and should be
+revisited only when explicitly requested or justified by a larger live deployment.
 
-### 13.1 Verified clone, fetch, and fast-forward pull
-
-The Hub already exposes every read route this needs (`/repos`, `/repos/{r}/commits`,
-`/commits/{h}`, `/trees/{h}`, `/bases/{h}`, `/blobs/{h}`) and `HubClient.fetch_blob` already
-streams with verification. What is missing is the client-side walk.
-
-```
-clone(remote, repo, destination):
-    init destination from the remote's base reference
-    tip <- GET /repos/<repo>            branch tips
-    walk: for each commit from the tip, oldest last
-        GET  /commits/<h>, verify digest, put into the local store
-        GET  /trees/<h>,  verify digest, put
-        GET  /bases/<h>,  verify digest, put
-        GET  /blobs/<h>   for each tree entry, verify digest, put
-    write refs/heads/<branch> last, under a lock
-
-pull(remote, branch):
-    remote_tip <- GET /repos/<repo>
-    if remote_tip is already an ancestor of local: up to date, stop
-    if local tip is NOT an ancestor of remote_tip: refuse, non-fast-forward
-    fetch the missing objects as above
-    advance the ref
-```
-
-Fast-forward only, with an explicit refusal otherwise. That is the honest bound until 13.2 lands,
-because resolving a divergence needs a merge.
-
-### 13.2 Two-parent history and one weighted merge
-
-Commit schema 3 replaces `parent_hash` with `parents: [hash, ...]`, one entry for an ordinary
-commit and two for a merge. Readers accept both schemas; writers emit 3. The ripple is known and
-bounded: `walk_history` becomes a breadth-first traversal with a visited set, `validate_history`
-validates a DAG rather than a chain, and the dashboard's history view needs a lane layout.
-
-The merge itself operates on effective updates, reusing the compatibility gate in 5.12: refuse
-unless both adapters target identical layers with identical `task_type` and rank-compatible
-shapes, then combine `scale * B @ A` per layer at a stated weight, re-factor to the target rank,
-and evaluate the result on the shared held-out split. The claim is one correct measured merge on
-compatible adapters, not a general model-merging library.
-
-### 13.3 Base fingerprinting
-
-`revision_sha` pins the base, but it pins Hugging Face's word for it. A fingerprint over the
-tokenizer files and the model config, stored in the base object and re-derived at verification
-time, lets a verifier confirm the base independently. Cheap to add and it closes the third gap in
-section 8.3.
-
-### 13.4 Evaluation reproduction
-
-Depends on 13.1 and 13.3. Fetch a pinned adapter by CID, confirm its digest against the anchored
-commit, rebuild the recorded split, rerun inference, and compare to the recorded metrics within a
-stated tolerance. This is what converts "the metrics are recorded" into "the metrics are
-checkable", and it closes the first two gaps in section 8.3.
-
-### 13.5 Advisory divergence detection
-
-The Hub can see two accepted commits claiming the same parent. Reporting that as an advisory
-signal on the repository page, rather than as an error, is a bounded first version.
-
-### 13.6 Declared out of scope
-
-Recorded here so the list above is not read as everything imaginable. Each of these was
-considered and deliberately excluded, with the reason.
-
-| Item | Why excluded |
+| Possible extension | Additional work it would require |
 |---|---|
-| Ed25519 authorship attestations | Log integrity does not need a personal identity system. A key proves possession, not identity. If authorship becomes an assessed claim, the design is a domain-separated detached signature over the commit hash with published key fingerprints. |
-| TIES, DARE, rank-compressed merges | One correct measured merge establishes the workflow; further methods are research cost. |
-| Multi-user accounts, RBAC, OAuth | The delivery targets one team with token-gated publishing, and says so. |
-| Garbage collection | Low demo value, and an append-only provenance system needs a retention policy before it gets a collector. |
-| More architectures, generation, quantisation, DoRA | Each multiplies the compatibility, merge, and evaluation surface. |
-| Distributed witnesses, high-throughput log service | Full anchored-prefix checks are sufficient at this deployment size. |
+| Adapter merging | Compatible heads/tasks, measured effective-update combination, explicit coefficients, and evaluation against parents |
+| Multi-parent history | A versioned schema migration, DAG traversal/validation, both ancestries on the Hub, and matching history views |
+| Base/tokenizer fingerprints | Record file digests and verify the exact model inputs independently of the model host |
+| Automatic evaluation reproduction | Retrieve the adapter, supply the original dataset/base, reconstruct the split and environment, and compare metrics within declared tolerances |
+| More model families or PEFT variants | Separate compatibility, training, comparison, and evaluation validation |
+| Production platform | Access roles, hosted operations, monitoring, backups, load testing, and independent security review |
+
+There is no `merge` command or schema-3 writer in this build. Diverged histories are preserved
+and pull refuses to choose between them. Future algorithms such as TIES/DARE, garbage
+collection, authorship attestations, and distributed witnesses are outside the submission scope.
 
 ---
 

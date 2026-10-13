@@ -1,8 +1,7 @@
 """HTTP transport to a Hub.
 
 Knows nothing about repositories -- it is handed hashes and bytes. Keeping it
-repository-blind is what lets the same client serve `push` today and a `pull`
-or a mirror check later without growing conditionals.
+repository-blind lets the same client serve push, clone, and pull.
 
 Two rules shape every method:
 
@@ -17,8 +16,12 @@ echoes back, so a proxy that rewrote the body in flight is caught on both ends.
 
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from aethel.core.errors import AethelError
+from aethel.core.hashing import normalize_hash
+from aethel.core.objects import OBJECT_KINDS
+from aethel.core.refs import validate_branch_name
 
 #: Generous enough for a slow LAN upload of a multi-megabyte adapter, short
 #: enough that an unreachable host fails during the demo rather than hanging.
@@ -31,6 +34,22 @@ class RemoteError(AethelError):
     """A Hub request failed. Rendered by the command layer like any other."""
 
 
+def validate_remote_url(value: str) -> str:
+    """Allow configured HTTP(S) Hubs without persisting URL credentials."""
+    try:
+        parsed = urlsplit(value)
+        valid_port = parsed.port
+    except ValueError as exc:
+        raise RemoteError("Invalid Hub URL") from exc
+    if (
+        parsed.scheme not in {"http", "https"} or not parsed.hostname
+        or parsed.username is not None or parsed.password is not None
+        or parsed.query or parsed.fragment or valid_port == 0
+    ):
+        raise RemoteError("Use an HTTP(S) Hub URL without credentials, query parameters, or fragments")
+    return value.rstrip("/")
+
+
 def _require_httpx():
     """Import httpx with an actionable message if it is absent.
 
@@ -41,7 +60,7 @@ def _require_httpx():
         import httpx
     except ImportError as exc:  # pragma: no cover - depends on install extras
         raise RemoteError(
-            "Pushing needs httpx. Install it with:\n  pip install 'httpx>=0.27'"
+            "Hub access needs httpx. Install it with:\n  pip install 'httpx>=0.27'"
         ) from exc
     return httpx
 
@@ -56,7 +75,7 @@ class HubClient:
         token: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
     ):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = validate_remote_url(base_url)
         self.token = token
         self.timeout = timeout
         self._client = None
@@ -123,6 +142,54 @@ class HubClient:
         return response
 
     # -- endpoints ---------------------------------------------------------
+
+    def _stream(self, path: str, *, what: str) -> Iterator[bytes]:
+        import time
+
+        httpx = _require_httpx()
+        if self._client is None:
+            raise RemoteError("HubClient must be used as a context manager.")
+        deadline = time.monotonic() + self.timeout * 3
+        try:
+            with self._client.stream("GET", path, headers={"Accept-Encoding": "identity"}) as response:
+                if response.status_code != 200:
+                    raise RemoteError(f"{what} failed: HTTP {response.status_code}")
+                for chunk in response.iter_bytes(65536):
+                    if time.monotonic() > deadline:
+                        raise RemoteError(f"{what} exceeded its total download time limit")
+                    yield chunk
+        except httpx.HTTPError as exc:
+            raise RemoteError(f"{what} failed ({type(exc).__name__})") from None
+
+    def repository(self, name: str) -> dict[str, str]:
+        """Read one bounded snapshot of the published branch tips."""
+        import json
+
+        name = validate_branch_name(name)
+        data = bytearray()
+        for chunk in self._stream(f"{API}/repos/{name}", what="repository lookup"):
+            if len(data) + len(chunk) > 1024 * 1024:
+                raise RemoteError("Repository response exceeds 1 MiB")
+            data.extend(chunk)
+        try:
+            payload = json.loads(data)
+            if not isinstance(payload, dict) or payload.get("name") != name:
+                raise ValueError("Repository identity mismatch")
+            branches = payload["branches"]
+            if not isinstance(branches, dict) or not branches:
+                raise ValueError("Repository has no published branches")
+            if any(not isinstance(branch, str) or validate_branch_name(branch) != branch for branch in branches):
+                raise ValueError("Invalid published branch name")
+            return {branch: normalize_hash(tip) for branch, tip in branches.items()}
+        except (AethelError, ValueError, KeyError, TypeError) as exc:
+            raise RemoteError(f"Invalid repository response: {exc}") from exc
+
+    def fetch_object(self, kind: str, digest: str) -> Iterator[bytes]:
+        """Download exact object bytes; the receiver verifies before installation."""
+        if kind not in OBJECT_KINDS:
+            raise RemoteError("Unknown object kind")
+        digest = normalize_hash(digest)
+        yield from self._stream(f"{API}/objects/{kind}/{digest}", what=f"download of {kind}/{digest[:12]}")
 
     def version(self) -> dict:
         """Identify the remote, and confirm it is actually a Hub.

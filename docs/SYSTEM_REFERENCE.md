@@ -9,7 +9,8 @@ Complete reference for how Aethel works: architecture, every command, the
 storage model, the Hub and its transparency log, and a demo walkthrough you can
 run end to end.
 
-For strategy and roadmap see [`PROJECT_PLAN.md`](PROJECT_PLAN.md).
+For current scope and submission checks see [Completion plan](COMPLETION_PLAN.md).
+[`PROJECT_PLAN.md`](PROJECT_PLAN.md) preserves the historical roadmap and audit.
 For the engineering record see [`TEAM_WALKTHROUGH.md`](TEAM_WALKTHROUGH.md).
 
 ---
@@ -50,10 +51,11 @@ aethel/
   remote/     Talking to a Hub. Hashes verified at both ends.
     objects.py      walks a branch into a push plan
     http.py         the HTTP client: upload, negotiate, move a ref
+    sync.py         verified history downloads, clone, and fast-forward pull
 
   commands/   Thin CLI. Parses arguments, calls core, renders output.
     _common.py      the single error-rendering boundary
-    init.py  commit.py  branch.py  checkout.py  log.py  fsck.py  push.py
+    init.py  commit.py  branch.py  checkout.py  log.py  fsck.py  push.py  clone.py  pull.py
     train.py        the only module that needs torch
 
 hub/          The server. Needs the [hub] extra; nothing else imports it.
@@ -82,11 +84,10 @@ without the client ever depending on a web framework.
 Three consequences worth knowing:
 
 - The entire VCS is testable with no GPU, no model download, and no network.
-  797 of the 800 cases run on a base install in under 10 seconds, including a full push,
+  Tests cover the pure core and Hub round trips, including a full push,
   because the Hub's tests run the ASGI application in-process rather than over a socket.
-  The three that skip need torch.
-- `pip install -e .` gives a working repository tool *that can push*. PyTorch is
-  the separate `[ml]` extra, needed only by `aethel train`; FastAPI is the
+- `pip install -e .` gives a working repository tool that can push, clone, and pull. PyTorch is
+  part of the separate `[ml]` extra for training, evaluation, and adapter comparison; FastAPI is the
   separate `[hub]` extra, needed only to *serve* a Hub.
 - The client is deliberately small: publishing is HTTP requests and hash checks,
   so the interesting logic stays in `core/` where it is cheap to test.
@@ -361,7 +362,7 @@ Options:
 
 | Flag | Default |
 |---|---|
-| `--remote/-r` | `$AETHEL_HUB_URL`, then `http://127.0.0.1:8000` |
+| `--remote/-r` | `$AETHEL_HUB_URL`, then saved `hub_url`, then `http://127.0.0.1:8000` |
 | `--repo` | `hub_repo` from config, then the directory name |
 | `--branch/-b` | the current branch |
 | `--token` | `$AETHEL_HUB_TOKEN` |
@@ -376,6 +377,49 @@ built and every object verified *before* the first byte leaves the machine, so
 a push that cannot finish fails early rather than half-way.
 
 ---
+
+### `aethel clone <repo> [destination]`
+
+```bash
+aethel clone sentiment restored --remote http://127.0.0.1:8000 --author "Team member"
+cd restored
+aethel fsck
+```
+
+The destination defaults to the Hub repository name and must not already exist. Clone
+downloads every published branch and all reachable commit/tree/base/blob objects, verifies
+the exact bytes, and restores `main` or the only branch. If neither rule selects a branch,
+specify `--branch <name>`. All branches must use the same pinned base model/revision.
+
+`--author` sets the identity for future local commits; by default it uses the local author
+environment, as `init` does. The saved `hub_repo` and `hub_url` let later push/pull calls find
+the same Hub. Tokens supplied through `--token` or `AETHEL_HUB_TOKEN` are never saved in config.
+The Hub must serve `/api/v1/objects/{kind}/{object_hash}`; older inspection routes cannot
+preserve hashes for every JSON serialization.
+
+### `aethel pull`
+
+```bash
+aethel pull
+aethel pull --remote http://127.0.0.1:8000 --repo sentiment
+```
+
+Pull requires an attached branch. It takes a snapshot of the corresponding published tip,
+retrieves and validates complete history, and fast-forwards if the local tip is an ancestor.
+It requires a clean workspace before replacement, including files deleted from the committed
+tree. A locally ahead or already current branch leaves the workspace alone. Divergence,
+base mismatch, and a missing remote branch are errors. `--branch` must match the current
+branch; checkout another branch before pulling it. Pull does not create other remote branches.
+
+Both commands stream downloads, bound object/history sizes, reject hash mismatches and unsafe
+tree paths, and publish local refs only after validation. Failed pulls keep verified objects
+for retry. Workspace replacement rolls back if the final ref update fails or the captured
+HEAD/tip changes. After a killed process, inspect stale locks or `workspace.backup` before retrying.
+
+Base weights and source datasets are separate downloads. Training-manifest dataset paths must
+resolve in the restored repository before evaluation can run. Clone/pull verify content
+addresses against a Hub snapshot; anchored provenance is checked separately with
+`aethel provenance verify`. Merging and automatic reproduction remain optional future work.
 
 ## 5. Branching and HEAD
 
@@ -593,6 +637,7 @@ field that must be ignored anyway.
 | `GET` | `/api/v1/repos/{repo}/commits` | history, optionally `?branch=` |
 | `GET` | `/api/v1/commits,trees,bases/{sha256}` | read one object |
 | `GET` | `/api/v1/blobs/{sha256}` | download a patch |
+| `GET` | `/api/v1/objects/{kind}/{object_hash}` | download exact bytes for verified clone/pull |
 | `GET` | `/api/v1/log` | size, root, entries, anchor state |
 | `GET` | `/api/v1/log/proof/{commit}` | a self-contained inclusion proof |
 | `POST` | `/api/v1/log/verify` | verify a proof server-side (convenience only) |

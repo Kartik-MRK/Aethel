@@ -515,7 +515,39 @@ million leaves it would be twenty siblings, 640 bytes. That is the property
 that makes anchoring one root worth doing: the cost of proving one commit
 belongs to a history grows with the logarithm of the history, not its size.
 
-### Evaluation, comparison, and remaining work
+### Clone and pull
+
+After publishing a repository, restore it in a new directory:
+
+```bash
+aethel clone sentiment-lora teammate-copy --remote http://127.0.0.1:8000
+cd teammate-copy
+aethel fsck
+aethel pull
+```
+
+Use the shared Hub's reachable URL when running on another machine. Clone downloads all
+published branches and their complete history, verifies every object's SHA-256, and restores
+`main` (or the only branch). Use `--branch <name>` to choose another branch. Any existing
+destination is refused, including an empty directory. The Hub must include the raw-object
+download endpoint shipped with this version.
+
+The Hub URL and repository name are saved locally; credentials are not. Later `pull` and
+`push` use those settings. `--remote` overrides `AETHEL_HUB_URL`, which overrides the saved
+URL. Use `AETHEL_HUB_TOKEN` when publishing to a token-protected Hub.
+
+Pull updates only the current branch, by fast-forward. It preserves local commits when the
+branch is ahead, refuses divergent histories, and refuses to replace modified, deleted, or
+untracked workspace files. Commit or restore those changes first. Interrupted downloads can
+be retried; already verified objects are reused. Pull does not merge branches.
+
+Clone restores tracked adapter files and metadata. Obtain the pinned base weights and original
+dataset separately; a dataset path in a training manifest is a reference, not an embedded
+dataset. Neither clone nor pull needs the ML extra. Hash verification checks the content
+against the Hub's returned history; use `aethel provenance verify` separately to verify an
+independently trusted checkpoint.
+
+### Evaluation, comparison, and project scope
 
 Training now records deterministic train/validation/test splits, dataset hashes, seeds,
 label names, and effective settings. It stages a replacement adapter separately and preserves
@@ -542,8 +574,11 @@ adapters. Two real DistilBERT/SST-2 pilot runs have also been completed and publ
 with their accepted commits checkpointed on Sepolia. See [Review evidence](docs/REVIEW_EVIDENCE.md)
 for the measured results and public receipts.
 
-Merge, verified clone/pull, and full reproduction commands remain pending. The provenance CLI
-now pins and verifies adapter blobs, publishes EVM checkpoints, and independently verifies
+Adapter merging, multi-parent history, and a dedicated reproduction command are optional
+future work. The current versioning, evaluation, comparison, sharing, and provenance workflow
+is the final-year project scope. See [Completion plan](docs/COMPLETION_PLAN.md) for submission
+checks and [Build status](docs/BUILD_STATUS.md) for validation results. The provenance CLI
+pins and verifies adapter blobs, publishes EVM checkpoints, and independently verifies
 positional inclusion and historical prefixes against a configured chain. The dashboard shows
 live chain and gateway checks. See [Provenance runbook](docs/PROVENANCE_RUNBOOK.md).
 

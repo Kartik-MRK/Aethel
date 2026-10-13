@@ -1,10 +1,11 @@
 # Aethel: Project Plan
 
 > **Current execution plan:** see [Completion plan](COMPLETION_PLAN.md)
-> for the verified baseline, the current review sprint, and the final completion phase.
+> for the current college-project scope and submission checklist. Clone and fast-forward pull
+> are implemented; merging and production platform expansion remain optional future work.
 > The milestone dates and open-task lists below are historical; they are not the current schedule.
 
-**Status:** M0 delivered. L0 through L4 are built and tested; L2's evaluation half sits on a
+**Historical status at the time of this plan:** M0 delivered. L0 through L4 are built and tested; L2's evaluation half sits on a
 branch and L5 exists only in §5.2 of this document.
 **Audience:** Sathwik, Karthik, Adyaa, Shravan
 **Next review:** Monday, 28 September 2026, running to Thursday, 1 October
@@ -60,7 +61,7 @@ verify page     recompute the root from an inclusion proof, compare to the chain
 **One-line thesis (use this wording):**
 
 > Aethel is a version control and provenance system for parameter-efficient model adapters. It
-> gives Git-like history, semantic diff and merge for LoRA patches, and cryptographically
+> gives Git-like history, effective-update comparison and verified sharing for LoRA patches, and cryptographically
 > verifiable lineage, anchored to a public ledger so that even the registry operator cannot
 > rewrite a model's recorded history.
 

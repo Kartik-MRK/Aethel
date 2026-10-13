@@ -260,6 +260,30 @@ async def update_ref(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/api/v1/objects/{kind}/{object_hash}")
+async def get_raw_object(
+    kind: str,
+    object_hash: str,
+    storage: Annotated[HubStorage, Depends(get_storage)],
+) -> FileResponse:
+    """Serve exact stored bytes so clients can verify the content address."""
+    if kind not in OBJECT_KINDS:
+        raise HTTPException(status_code=404, detail="Unknown object kind.")
+    digest = _validate_hash(object_hash, "object hash")
+    if not storage.objects.exists(kind, digest):
+        raise HTTPException(status_code=404, detail="Object not found.")
+    if not storage.objects.verify(kind, digest):
+        raise HTTPException(status_code=409, detail="Stored object failed hash verification.")
+    return FileResponse(
+        storage.objects.path_for(kind, digest),
+        media_type="application/octet-stream",
+        headers={
+            "X-Aethel-Object-Sha256": digest,
+            "Content-Disposition": f'attachment; filename="{digest}"',
+        },
+    )
+
+
 @router.get("/api/v1/repos")
 async def list_repos(storage: Annotated[HubStorage, Depends(get_storage)]) -> dict:
     return {"repos": [record.to_dict() for record in storage.repos().values()]}
