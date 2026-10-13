@@ -295,6 +295,15 @@ READING = Group(
             params=(Param("blob_hash", PATH, "Blob hash."),),
             returns="`application/octet-stream`, streamed.",
         ),
+        Endpoint(
+            method="GET",
+            path="/api/v1/objects/{kind}/{object_hash}",
+            purpose="Retrieve exact stored bytes for verified clone and pull.",
+            detail="Unlike the JSON inspection endpoints, this preserves whitespace and every byte used to compute the object's hash. The receiving client must verify SHA-256 before installation.",
+            params=(Param("kind", PATH, "blobs, trees, commits, or bases."), Param("object_hash", PATH, "Object SHA-256 digest.")),
+            returns="application/octet-stream with X-Aethel-Object-Sha256.",
+            notable=(("404", "Object not found."), ("409", "Stored bytes do not match the requested digest.")),
+        ),
     ),
 )
 

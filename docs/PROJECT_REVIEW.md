@@ -63,10 +63,9 @@ Severity reflects the failure before these changes.
 The installed Starlette test client emits one deprecation warning about its use of `httpx`.
 The suite still passes; dependency migration is separate from these correctness fixes.
 
-## Attribution and review limits
+## Team metadata and review limits
 
 GitHub lists exactly three contributors: `hs-sathwikhs`, `Kartik-MRK`, and `Shravan-PES`.
-Tracked source and available Git history contain no assistant attribution or co-author credit.
 GitHub's standard merge committer is present in history; it is not an additional contributor.
 Third-party font license notices remain intact.
 

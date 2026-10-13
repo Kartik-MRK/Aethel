@@ -39,14 +39,14 @@ app = typer.Typer()
 DEFAULT_REMOTE = "http://127.0.0.1:8000"
 
 
-def resolve_remote(explicit: str | None) -> str:
-    """Flag, then environment, then localhost.
+def resolve_remote(explicit: str | None, *, configured: str | None = None) -> str:
+    """Flag, then environment, then saved Hub URL, then localhost.
 
     The Hub's host is never hard-coded anywhere in the codebase: it may run on
     a teammate's laptop, a cloud VM, or behind a tunnel, and which one is a
     deployment decision rather than a code change.
     """
-    for candidate in (explicit, os.environ.get("AETHEL_HUB_URL")):
+    for candidate in (explicit, os.environ.get("AETHEL_HUB_URL"), configured):
         if candidate and candidate.strip():
             return candidate.strip()
     return DEFAULT_REMOTE
@@ -124,7 +124,7 @@ def run_push(
 
     plan = build_push_plan(repo, target_branch, tip)
     name = resolve_repo_name(repo, repo_name)
-    base_url = resolve_remote(remote)
+    base_url = resolve_remote(remote, configured=repo.read_config().get("hub_url"))
     push_token = token or os.environ.get("AETHEL_HUB_TOKEN") or None
 
     counts = plan.counts()

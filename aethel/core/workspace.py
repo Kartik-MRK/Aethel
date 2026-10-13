@@ -23,7 +23,10 @@ def workspace_files(path: Path) -> dict[str, str]:
 
 
 @contextmanager
-def staged_workspace(repo, *, force: bool = False, on_install: Callable[[], None] | None = None):
+def staged_workspace(
+    repo, *, force: bool = False, require_clean: bool = False,
+    on_install: Callable[[], None] | None = None,
+):
     """Keep the old workspace until a complete replacement is ready."""
     root = repo.workspace_dir.parent
     workspace = repo.workspace_dir
@@ -40,13 +43,15 @@ def staged_workspace(repo, *, force: bool = False, on_install: Callable[[], None
         if tip:
             commit = repo.objects.read_json("commits", tip)
             committed = repo.objects.read_tree(commit["tree"])
+        if require_clean and original != committed:
+            raise AethelError("Workspace has uncommitted changes. Commit or restore them before pulling.")
         if original and original != committed and not force:
             raise AethelError("Workspace has uncommitted changes. Commit them or use --force to replace them.")
         temporary = Path(tempfile.mkdtemp(prefix=".workspace-", dir=root))
         try:
             yield temporary
             if workspace_files(workspace) != original:
-                raise AethelError("Workspace changed during training. The new run was not installed.")
+                raise AethelError("Workspace changed during replacement. The new workspace was not installed.")
             if workspace.exists():
                 os.replace(workspace, backup)
             try:

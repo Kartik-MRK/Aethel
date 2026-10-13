@@ -1,5 +1,10 @@
 # Review 1: who presents what, and the demo video script
 
+Historical script for the first review. For final-year submission, use the current
+[Completion plan](COMPLETION_PLAN.md) and [Build status](BUILD_STATUS.md). Clone and
+fast-forward pull are implemented; merging is an optional future extension, not a remaining
+submission requirement. Recheck recorded commands and metrics before reusing this script.
+
 Two things live here. Section 1 splits the 28 deck slides four ways for the live review. Section 2 is
 the shooting script for the demo video, segment by segment, with the exact commands.
 
@@ -36,7 +41,7 @@ mid-answer. So the slides follow the code, not the alphabet. Everyone gets seven
 | 21 | Demo 6: the operational health board | **Adyaa** | `views.py` builds the rows; flag the two amber chain rows as Sathwik's remaining work |
 | 22 | Demo 7: verification, PASS then FAIL | **Sathwik** | Owns the proof endpoints and the in-browser verifier |
 | 23 | Performance metrics vs the baseline | **Sathwik** | Four of the eight rows are his measurements |
-| 24 | Remaining modules and proposed idea | **Karthik** | Divergence detection and merge are his next piece |
+| 24 | Scope and future extensions | **Karthik** | Explain fast-forward retrieval and why merging remains optional |
 | 25 | Gantt chart | **Karthik** | Follows directly from 24 |
 | 26 | GitHub repository | **Adyaa** | Framing |
 | 27 | References | **Shravan** | Framing |

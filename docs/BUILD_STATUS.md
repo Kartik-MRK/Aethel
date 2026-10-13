@@ -1,71 +1,63 @@
 # Build status
 
-Updated after the chain-status display correction and the final checks.
+Updated 13 October 2026. The supported college-project scope is recorded in
+[Completion plan](COMPLETION_PLAN.md).
 
 ## Current implementation
 
-- IPFS pinning supports Pinata and Kubo. Adapter downloads must match the expected SHA-256;
-  failed retrievals retain their CID for retry. Provider and gateway failures are explicit.
-- A compiled non-upgradeable Solidity contract records increasing checkpoints and supports
-  two-step owner rotation. Transaction jobs persist signed bytes before broadcast.
-- Independent verification checks the chosen chain, exact deployed bytecode, log identity,
-  confirmation depth, positional inclusion, and every earlier checkpoint prefix.
-- The dashboard adds a provenance page, live background checks, proof bundles, mirror records,
-  external receipt links, repository search, and compact expandable run metadata.
-  Unavailable or stale chain checks are distinguished from roots awaiting anchoring.
-- Two real DistilBERT/SST-2 pilot adapters have been trained, pinned, downloaded, and verified.
-  Their two accepted commits are checkpointed on Sepolia. Independent verification through
-  Tenderly succeeded separately from the Hub's PublicNode RPC.
-- Separate service units, a worker timer, HTTPS proxy configuration, packaged static assets,
-  and recovery instructions are included. Remote host installation is still pending.
+- Content-addressed adapter versioning, branches, checkout, history, and integrity checks.
+- Training with recorded dataset identity and held-out evaluation; effective standard-LoRA
+  comparison with explicit compatibility checks.
+- Verified publication to the Hub, including all ancestors and dependencies before moving refs.
+- `aethel clone` downloads every published branch and restores the selected workspace in a
+  new directory. Exact stored bytes are verified before installation.
+- `aethel pull` downloads the current branch and advances by fast-forward only. Dirty work,
+  divergence, base mismatch, and concurrent ref changes prevent replacement. Interrupted pulls
+  retain verified objects for retry. Clone remembers the Hub URL/name without saving tokens.
+- IPFS pinning through Pinata/Kubo and SHA-256 verification of retrieved adapter blobs.
+- EVM checkpoints, recoverable transaction jobs, and independent verification of contract,
+  chain, log identity, confirmation depth, inclusion, and historical prefixes.
+- Dashboard history, proof verification, mirror/checkpoint status, and operational checks.
 
-## Evidence and operation
+Base weights and source datasets are not part of clone. Retrieval does not itself verify
+anchored provenance; that remains the separate `aethel provenance verify` workflow.
 
-See [Review evidence](REVIEW_EVIDENCE.md) for the public contract, receipt, CIDs, and measured
-pilot results. Start the local demonstration with `.venv/bin/python scripts/serve_review.py`
-and open `http://127.0.0.1:8787`.
+## Verification record
 
-The [low-level design](LOW_LEVEL_DESIGN.md) specifies the modules, schemas, algorithms, threat
-model, and design-to-test traceability for everything listed above, and section 13 there specifies
-the remaining work named at the bottom of this file.
+The full installed-dependency suite passed **954 tests, zero failures and zero skips** on
+Python 3.13. Combined `aethel`/`hub` coverage is **84.40%** and core coverage is **96.14%**.
+New regression coverage includes a full push/clone/pull round trip, noncanonical JSON byte
+identity, histories beyond the Hub's display page, corruption/missing dependencies, limits,
+interrupted transfers, local changes, divergence, and concurrent HEAD/ref updates.
 
-The prior environment blockers are resolved: declared development dependencies are installed
-in `.venv`, the full HTTP suite runs with approved socket access, and public model downloads
-succeeded. Shared IPFS gateways returned HTTP 429 during the live run; both copies were then
-verified through the account's existing dedicated gateway. No test was changed to fake network
-success, model quality, or public-chain confirmation.
+Ruff and `git diff --check` passed. The wheel built successfully and includes the new CLI and
+retrieval modules. Prior browser and Solidity parity checks are in
+[Project review](PROJECT_REVIEW.md); they were not rerun for this retrieval change.
 
-The suite result depends on which extras are installed, so the counts below are reported per
-environment rather than as one headline number. The four CI jobs were each simulated locally by
-hiding the packages that job does not install.
+A targeted optional-dependency absence simulation passed **63 tests**, with **5 Hub-dependent
+tests skipped**. It blocked ML, FastAPI, and provenance imports while exercising retrieval and
+CLI parsing; it was not a separate clean installation.
 
-| Environment | Result |
-|---|---|
-| CI `core` job, `[dev]` only, Python 3.10 to 3.13 | 347 passed, 158 skipped; core coverage 95.58% against an 80% gate |
-| CI `hub` job, `[dev,hub]` | 790 passed, 13 skipped |
-| CI `provenance` job, `[dev,hub,provenance-test,fonts]` | 814 passed, 5 skipped |
-| Full development venv | 836 passed, 1 deprecation warning |
-| Base install, system `python3` | 797 passed, 6 skipped |
+The installed Starlette TestClient emits a dependency deprecation warning. Full HTTP tests
+need an environment that permits their in-process transport. Optional extras control which
+ML, Hub, and provenance tests can run.
 
-A module-level skip marks the whole module as one skip item, so the skipped counts do not sum to
-the collected total; they are not missing tests. Ruff and the 306/306 Python/JavaScript proof
-parity checks passed. Chrome verified navigation, filtering, refresh, both themes, mobile
-overflow, browser proof recomputation, and no console errors. Live chain, IPFS, and all eight Hub
-health checks passed. A built wheel contains the contract and dashboard assets.
+## Public evidence
 
-The chain evidence is durable rather than point-in-time: the checkpoint block number, the
-on-chain root, and the adapter SHA-256 digests stay valid, while a confirmation count only ever
-grows. See the [review evidence](REVIEW_EVIDENCE.md) for those receipts.
+Two real DistilBERT/SST-2 pilot adapters were trained, published, pinned, retrieved, and
+verified; their accepted commits were checkpointed on Sepolia. Public identifiers and measured
+results are in [Review evidence](REVIEW_EVIDENCE.md). Start the saved local demonstration with
+`.venv/bin/python scripts/serve_review.py` and open `http://127.0.0.1:8787`.
 
-## Remaining completion work
+Public receipts record checks at a particular time. RPC/gateway availability and the canonical
+chain can change; confirmation depth does not necessarily grow monotonically across a reorg.
+Recheck the chain and retrieved bytes when demonstrating live verification. The current
+clone/pull work does not republish or revalidate those external receipts.
 
-The next product work is the two-parent schema, verified clone/fetch/pull, compatible weighted
-merge, base fingerprints, and evaluation reproduction. Each is specified in section 13 of the
-[low-level design](LOW_LEVEL_DESIGN.md) rather than left as an intention. These changes need
-matching comparison, merge-history, and reproduction views. Final experiments must use compatible
-classifier heads, larger datasets, repeated seeds, and untouched test sets.
+## Work remaining for submission
 
-For release, finish the environment lock, hosted CI, installation on the presentation machine,
-remote HTTPS hosting, independent contract security review, backup/restore drills, and submission
-materials. The current delivery is a working public-testnet review build. The
-[completion plan](COMPLETION_PLAN.md) gives the order and acceptance gates for the last phase.
+Rehearse push/clone/pull on the presentation machine, prepare the held-out results table,
+practice backup restoration, and finish the report/slides. Keep an offline fallback for
+external-service outages. Merging, multi-parent history, automatic reproduction, broader
+model support, and production platform expansion are optional future work, not final-year
+completion requirements. See [Completion plan](COMPLETION_PLAN.md) for the acceptance checklist.
