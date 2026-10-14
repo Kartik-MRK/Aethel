@@ -1,7 +1,7 @@
 """
-setup_demo_data.py
+scripts/setup_demo_data.py
 Downloads 5 small NLP classification datasets from Hugging Face Hub
-and saves them locally as CSV files for Aethel-Git training demos.
+and saves them locally as CSV files for Aethel training demos.
 
 Datasets chosen for distilbert-base-uncased (sequence classification):
   1. SST-2            Binary sentiment analysis  (positive / negative)
@@ -16,6 +16,7 @@ Each dataset is saved as datasets/<name>/train.csv with columns: text, label
 import csv
 import os
 import sys
+from pathlib import Path
 
 
 def save_to_csv(rows: list[dict], output_path: str) -> int:
@@ -99,11 +100,11 @@ def download_tweet_eval_hate(base_dir: str, max_samples: int = 800) -> None:
 
 
 def main():
-    base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets")
+    base_dir = str(Path(__file__).resolve().parents[1] / "datasets")
     max_samples = 800  # Enough for demo, fast to train
 
     print("=" * 60)
-    print("  Aethel-Git Demo Data Setup")
+    print("  Aethel Demo Data Setup")
     print(f"  Target: {base_dir}")
     print(f"  Max samples per dataset: {max_samples}")
     print("=" * 60)
