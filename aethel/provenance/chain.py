@@ -112,7 +112,7 @@ class ChainClient:
                     "nonce": self.w3.eth.get_transaction_count(account.address, "pending"),
                     "gasPrice": gas_price, "value": 0,
                 })
-                tx["gas"] = min(int(tx["gas"] * 1.2), 2_000_000)
+                tx["gas"] = int(tx["gas"] * 1.2)
                 if self.w3.eth.get_balance(account.address) < tx["gas"] * gas_price:
                     raise CheckpointError("Signing account needs testnet funds for transaction gas")
                 signed = account.sign_transaction(tx)

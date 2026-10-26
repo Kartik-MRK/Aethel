@@ -81,8 +81,28 @@ def download_ag_news(base_dir: str, max_samples: int = 800) -> None:
         if i >= max_samples:
             break
         rows.append({"text": item["text"], "label": item["label"]})
+    rows, removed = exclude_ambiguous_rows(rows)
+    if removed:
+        print(f"   Excluded {removed} rows with conflicting labels for normalized duplicate text.")
     count = save_to_csv(rows, os.path.join(base_dir, "ag_news", "train.csv"))
     print(f"   ✅ AG News: {count} samples → {base_dir}/ag_news/train.csv")
+
+
+def exclude_ambiguous_rows(rows: list[dict]) -> tuple[list[dict], int]:
+    """Exclude every occurrence of text with conflicting labels, without guessing.
+
+    Match the training reader's whitespace/case normalization. Keep source order
+    and leave same-label deduplication to the recorded training protocol.
+    """
+    labels: dict[str, set[int]] = {}
+    for row in rows:
+        key = " ".join(row["text"].split()).casefold()
+        labels.setdefault(key, set()).add(int(row["label"]))
+    cleaned = [
+        row for row in rows
+        if len(labels[" ".join(row["text"].split()).casefold()]) == 1
+    ]
+    return cleaned, len(rows) - len(cleaned)
 
 
 def download_tweet_eval_hate(base_dir: str, max_samples: int = 800) -> None:

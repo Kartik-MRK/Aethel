@@ -1,0 +1,27 @@
+# AG News Topic Classification: 4 classes (World, Sports, Business, Sci/Tech)
+# Tuned variant with 2 epochs for multi-commit demonstration on branch news-classification
+# Compatible with: aethel train --config train_yaml/ag_news_tuned_config.yaml
+
+dataset: ./datasets/ag_news
+text_column: text
+label_column: label
+num_labels: 4
+max_samples: 500
+max_length: 128
+
+# LoRA hyperparameters (safe for 6 GB VRAM)
+lora_rank: 8
+lora_alpha: 16
+batch_size: 2
+gradient_accumulation_steps: 8
+epochs: 2
+
+# Evaluation and reproducibility
+task_type: sequence_classification
+seed: 42
+split_seed: 42
+validation_fraction: 0.2
+test_fraction: 0.2
+eval_batch_size: 8
+learning_rate: 0.0001
+label_names: ['World', 'Sports', 'Business', 'Sci/Tech']
